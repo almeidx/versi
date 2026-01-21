@@ -49,6 +49,7 @@ fn toast_view<'a>(toast: &'a Toast) -> Element<'a, Message> {
                             color: iced::Color::WHITE,
                         },
                         shadow: iced::Shadow::default(),
+                        snap: false,
                     };
 
                     match status {
@@ -74,6 +75,7 @@ fn toast_view<'a>(toast: &'a Toast) -> Element<'a, Message> {
                 text_color: iced::Color::WHITE,
                 border: iced::Border::default(),
                 shadow: iced::Shadow::default(),
+                snap: false,
             })
             .padding([0, 4]),
     );
@@ -94,6 +96,7 @@ fn toast_view<'a>(toast: &'a Toast) -> Element<'a, Message> {
                 offset: iced::Vector::new(0.0, 2.0),
                 blur_radius: 8.0,
             },
+            snap: false,
         })
         .padding([12, 16])
         .max_width(400)

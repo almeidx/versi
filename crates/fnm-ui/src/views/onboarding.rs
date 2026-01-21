@@ -22,7 +22,7 @@ pub fn view<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
         column![
             progress,
             content,
-            Space::with_height(Length::Fill),
+            Space::new().height(Length::Fill),
             nav_buttons,
         ]
         .spacing(32)
@@ -56,13 +56,15 @@ fn step_indicator<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
             };
 
             column![
-                container(Space::new(12, 12)).style(move |_theme| container::Style {
-                    background: Some(iced::Background::Color(dot_color)),
-                    border: iced::Border {
-                        radius: 6.0.into(),
+                container(Space::new().width(12).height(12)).style(move |_theme| {
+                    container::Style {
+                        background: Some(iced::Background::Color(dot_color)),
+                        border: iced::Border {
+                            radius: 6.0.into(),
+                            ..Default::default()
+                        },
                         ..Default::default()
-                    },
-                    ..Default::default()
+                    }
                 }),
                 text(*name).size(11),
             ]
@@ -91,12 +93,12 @@ fn step_index(step: &OnboardingStep) -> usize {
 fn welcome_step() -> Element<'static, Message> {
     column![
         text("Welcome to fnm-ui").size(32),
-        Space::with_height(16),
+        Space::new().height(16),
         text("fnm-ui helps you manage Node.js versions with a simple graphical interface.")
             .size(16),
-        Space::with_height(8),
+        Space::new().height(8),
         text("We'll help you set up fnm (Fast Node Manager) to get started.").size(16),
-        Space::with_height(24),
+        Space::new().height(24),
         text("fnm is a fast and simple Node.js version manager, built in Rust.").size(14),
     ]
     .spacing(8)
@@ -106,7 +108,7 @@ fn welcome_step() -> Element<'static, Message> {
 fn install_fnm_step<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
     let mut content = column![
         text("Install fnm").size(28),
-        Space::with_height(16),
+        Space::new().height(16),
         text("fnm (Fast Node Manager) needs to be installed on your system.").size(16),
     ]
     .spacing(8);
@@ -122,7 +124,7 @@ fn install_fnm_step<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
             column![
                 text("Installation failed:").size(16),
                 text(error).size(14),
-                Space::with_height(16),
+                Space::new().height(16),
                 button(text("Retry"))
                     .on_press(Message::OnboardingInstallFnm)
                     .style(styles::primary_button),
@@ -132,7 +134,7 @@ fn install_fnm_step<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
     } else {
         content = content.push(
             column![
-                Space::with_height(24),
+                Space::new().height(24),
                 button(text("Install fnm").size(16))
                     .on_press(Message::OnboardingInstallFnm)
                     .style(styles::primary_button)
@@ -148,9 +150,9 @@ fn install_fnm_step<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
 fn configure_shell_step<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
     let mut content = column![
         text("Configure Shell").size(28),
-        Space::with_height(16),
+        Space::new().height(16),
         text("fnm needs to be added to your shell configuration.").size(16),
-        Space::with_height(24),
+        Space::new().height(24),
     ]
     .spacing(8);
 
@@ -178,7 +180,7 @@ fn configure_shell_step<'a>(state: &'a OnboardingState) -> Element<'a, Message> 
         .align_y(Alignment::Center);
 
         content = content.push(shell_row);
-        content = content.push(Space::with_height(8));
+        content = content.push(Space::new().height(8));
     }
 
     content.into()
@@ -187,9 +189,9 @@ fn configure_shell_step<'a>(state: &'a OnboardingState) -> Element<'a, Message> 
 fn install_node_step<'a>(_state: &'a OnboardingState) -> Element<'a, Message> {
     column![
         text("Install Node.js").size(28),
-        Space::with_height(16),
+        Space::new().height(16),
         text("You can now install your first Node.js version.").size(16),
-        Space::with_height(8),
+        Space::new().height(8),
         text("You can skip this step and install Node.js later from the main interface.").size(14),
     ]
     .spacing(8)
@@ -199,9 +201,9 @@ fn install_node_step<'a>(_state: &'a OnboardingState) -> Element<'a, Message> {
 fn complete_step() -> Element<'static, Message> {
     column![
         text("Setup Complete!").size(32),
-        Space::with_height(16),
+        Space::new().height(16),
         text("fnm is now configured and ready to use.").size(16),
-        Space::with_height(8),
+        Space::new().height(8),
         text("Click 'Finish' to start using fnm-ui.").size(16),
     ]
     .spacing(8)
@@ -249,7 +251,7 @@ fn navigation_buttons<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
             .padding([10, 20])
     };
 
-    row![back_button, Space::with_width(Length::Fill), next_button,]
+    row![back_button, Space::new().width(Length::Fill), next_button,]
         .spacing(16)
         .into()
 }

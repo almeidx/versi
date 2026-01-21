@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use iced::widget::{button, column, container, horizontal_space, row, scrollable, text, Space};
+use iced::widget::{button, column, container, row, scrollable, text, Space};
 use iced::{Alignment, Element, Length};
 
 use fnm_core::{InstalledVersion, NodeVersion, RemoteVersion, VersionGroup};
@@ -50,7 +50,7 @@ pub fn view<'a>(
             column![
                 text("Error loading versions").size(16),
                 text(error).size(14),
-                Space::with_height(16),
+                Space::new().height(16),
                 button(text("Retry"))
                     .on_press(Message::RefreshEnvironment)
                     .style(styles::primary_button)
@@ -184,7 +184,7 @@ fn version_group_view<'a>(
         let version_to_install = new_version.clone();
         row![
             header_button,
-            horizontal_space(),
+            Space::new().width(Length::Fill),
             button(container(text(format!("{} available", new_version)).size(10)).padding([2, 6]))
                 .on_press(Message::StartInstall(version_to_install))
                 .style(styles::update_badge_button)
@@ -272,16 +272,16 @@ fn version_item_view<'a>(
                 .padding([2, 6])
                 .style(styles::badge_lts)
         } else {
-            container(Space::new(0, 0))
+            container(Space::new())
         },
         if is_default {
             container(text("default").size(11))
                 .padding([2, 6])
                 .style(styles::badge_default)
         } else {
-            container(Space::new(0, 0))
+            container(Space::new())
         },
-        horizontal_space(),
+        Space::new().width(Length::Fill),
         if let Some(size) = version.disk_size {
             text(format_bytes(size)).size(12)
         } else {

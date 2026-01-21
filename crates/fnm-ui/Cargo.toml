@@ -9,9 +9,9 @@ fnm-core = { path = "../fnm-core" }
 fnm-shell = { path = "../fnm-shell" }
 fnm-platform = { path = "../fnm-platform" }
 
-iced = { version = "0.13", features = ["tokio"] }
+iced = { version = "0.14.0", features = ["tokio"] }
 
-tray-icon = "0.19"
+tray-icon = "0.21.3"
 dark-light = "2.0"
 
 tokio.workspace = true
@@ -20,4 +20,4 @@ serde_json.workspace = true
 chrono.workspace = true
 dirs.workspace = true
 open.workspace = true
-async-stream = "0.3"
+async-stream = "0.3.6"

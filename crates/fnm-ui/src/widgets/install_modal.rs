@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use iced::widget::{
-    button, column, container, horizontal_space, row, scrollable, text, text_input, Space,
-};
+use iced::widget::{button, column, container, row, scrollable, text, text_input, Space};
 use iced::{Alignment, Element, Length};
 
 use fnm_core::{ReleaseSchedule, RemoteVersion};
@@ -100,7 +98,7 @@ pub fn view<'a>(
 ) -> Element<'a, Message> {
     let header = row![
         text("Install Node.js").size(20),
-        horizontal_space(),
+        Space::new().width(Length::Fill),
         button(text("×").size(16))
             .on_press(Message::CloseModal)
             .style(styles::ghost_button)
@@ -153,13 +151,13 @@ pub fn view<'a>(
                 .color(iced::Color::from_rgb8(142, 142, 147))
                 .into(),
         );
-        version_items.push(Space::with_height(8).into());
+        version_items.push(Space::new().height(8).into());
 
         for version in recommended {
             version_items.push(version_row(version));
         }
 
-        version_items.push(Space::with_height(16).into());
+        version_items.push(Space::new().height(16).into());
         version_items.push(
             text("Search for other versions above")
                 .size(12)
@@ -196,7 +194,7 @@ pub fn view<'a>(
                     .color(iced::Color::from_rgb8(142, 142, 147))
                     .into(),
             );
-            version_items.push(Space::with_height(4).into());
+            version_items.push(Space::new().height(4).into());
 
             for (major, versions) in grouped_lts {
                 let codename = versions
@@ -213,7 +211,7 @@ pub fn view<'a>(
                 for version in versions {
                     version_items.push(version_row(version));
                 }
-                version_items.push(Space::with_height(8).into());
+                version_items.push(Space::new().height(8).into());
             }
         }
 
@@ -226,7 +224,7 @@ pub fn view<'a>(
                     .color(iced::Color::from_rgb8(142, 142, 147))
                     .into(),
             );
-            version_items.push(Space::with_height(4).into());
+            version_items.push(Space::new().height(4).into());
 
             for (major, versions) in grouped_other {
                 version_items.push(
@@ -238,7 +236,7 @@ pub fn view<'a>(
                 for version in versions {
                     version_items.push(version_row(version));
                 }
-                version_items.push(Space::with_height(8).into());
+                version_items.push(Space::new().height(8).into());
             }
         }
 
@@ -249,9 +247,9 @@ pub fn view<'a>(
 
     column![
         header,
-        Space::with_height(16),
+        Space::new().height(16),
         search,
-        Space::with_height(16),
+        Space::new().height(16),
         content,
     ]
     .spacing(8)
@@ -271,9 +269,9 @@ fn version_row<'a>(version: &'a RemoteVersion) -> Element<'a, Message> {
                 .padding([2, 6])
                 .style(styles::badge_lts)
         } else {
-            container(Space::new(0, 0))
+            container(Space::new())
         },
-        horizontal_space(),
+        Space::new().width(Length::Fill),
         button(text("Changelog").size(11))
             .on_press(Message::OpenChangelog(version_for_changelog))
             .style(styles::ghost_button)
