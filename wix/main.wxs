@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+    <Package
+        Name="FNM UI"
+        Manufacturer="FNM UI"
+        Version="1.0.0"
+        UpgradeCode="E8F9A1B2-C3D4-5E6F-7A8B-9C0D1E2F3A4B"
+        Scope="perUser">
+
+        <MajorUpgrade
+            DowngradeErrorMessage="A newer version of [ProductName] is already installed."/>
+
+        <MediaTemplate EmbedCab="yes"/>
+
+        <StandardDirectory Id="LocalAppDataFolder">
+            <Directory Id="INSTALLFOLDER" Name="FNM UI">
+                <Component Id="MainExecutable" Guid="*">
+                    <File Id="fnmui_exe" Source="target\x86_64-pc-windows-msvc\release\fnm-ui.exe"/>
+                </Component>
+            </Directory>
+        </StandardDirectory>
+
+        <StandardDirectory Id="ProgramMenuFolder">
+            <Directory Id="ApplicationProgramsFolder" Name="FNM UI">
+                <Component Id="StartMenuShortcut" Guid="*">
+                    <Shortcut
+                        Id="StartMenuShortcut"
+                        Name="FNM UI"
+                        Description="GUI for Fast Node Manager"
+                        Target="[INSTALLFOLDER]fnm-ui.exe"
+                        WorkingDirectory="INSTALLFOLDER"/>
+                    <RemoveFolder Id="RemoveStartMenuFolder" On="uninstall"/>
+                    <RegistryValue
+                        Root="HKCU"
+                        Key="Software\FNM UI"
+                        Name="Installed"
+                        Type="integer"
+                        Value="1"
+                        KeyPath="yes"/>
+                </Component>
+            </Directory>
+        </StandardDirectory>
+
+        <Feature Id="Main" Level="1">
+            <ComponentRef Id="MainExecutable"/>
+            <ComponentRef Id="StartMenuShortcut"/>
+        </Feature>
+
+        <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER"/>
+    </Package>
+</Wix>

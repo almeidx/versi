@@ -197,17 +197,18 @@ jobs:
       - name: Build
         run: cargo build --release --target x86_64-pc-windows-msvc
 
-      - name: Prepare artifact
-        shell: pwsh
+      - name: Create MSI installer
         run: |
-          New-Item -ItemType Directory -Force -Path dist
-          Compress-Archive -Path "target/x86_64-pc-windows-msvc/release/fnm-ui.exe" -DestinationPath "dist/fnm-ui-windows-x64.zip"
+          dotnet tool install --global wix --version 4.0.5
+          wix extension add WixToolset.UI.wixext/4.0.5
+          mkdir dist
+          wix build wix/main.wxs -ext WixToolset.UI.wixext -o dist/fnm-ui-windows-x64.msi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
           name: fnm-ui-windows-x64
-          path: dist/fnm-ui-windows-x64.zip
+          path: dist/fnm-ui-windows-x64.msi
 
   release:
     name: Create Release
