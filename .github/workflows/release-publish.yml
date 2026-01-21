@@ -1,0 +1,189 @@
+name: Publish Release
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+concurrency:
+  group: release-publish
+  cancel-in-progress: false
+env:
+  CARGO_TERM_COLOR: always
+jobs:
+  tag:
+    name: Create Tag
+    if: github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'release')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Get version and create tag
+        id: version
+        run: |
+          VERSION=$(grep -m1 '^version' Cargo.toml | sed 's/.*"\(.*\)".*/\1/')
+          TAG="v$VERSION"
+
+          echo "Version: $VERSION"
+          echo "Tag: $TAG"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+          # Create and push tag
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+
+  build:
+    name: Build ${{ matrix.name }}
+    needs: tag
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS (Apple Silicon)
+            os: macos-latest
+            target: aarch64-apple-darwin
+            artifact: fnm-ui-macos-arm64
+            binary: fnm-ui
+
+          - name: macOS (Intel)
+            os: macos-13
+            target: x86_64-apple-darwin
+            artifact: fnm-ui-macos-x64
+            binary: fnm-ui
+
+          - name: Windows (x64)
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact: fnm-ui-windows-x64
+            binary: fnm-ui.exe
+
+          - name: Windows (ARM64)
+            os: windows-latest
+            target: aarch64-pc-windows-msvc
+            artifact: fnm-ui-windows-arm64
+            binary: fnm-ui.exe
+
+          - name: Linux (x64)
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact: fnm-ui-linux-x64
+            binary: fnm-ui
+
+          - name: Linux (ARM64)
+            os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            artifact: fnm-ui-linux-arm64
+            binary: fnm-ui
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.tag.outputs.tag }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libxdo-dev libayatana-appindicator3-dev
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Prepare artifact (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p dist
+          cp target/${{ matrix.target }}/release/${{ matrix.binary }} dist/${{ matrix.artifact }}
+
+      - name: Prepare artifact (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist
+          Copy-Item "target/${{ matrix.target }}/release/${{ matrix.binary }}" -Destination "dist/${{ matrix.artifact }}.exe"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/${{ matrix.artifact }}*
+
+  release:
+    name: Create Release
+    needs: [tag, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.tag.outputs.tag }}
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v6
+        with:
+          path: artifacts
+
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          VERSION="${{ needs.tag.outputs.version }}"
+
+          # Extract the section for this version from CHANGELOG.md
+          # Matches from "## [VERSION]" until the next "## [" or end of file
+          awk -v ver="$VERSION" '
+            /^## \[/ {
+              if (found) exit
+              if (index($0, "## [" ver "]") == 1) found=1
+            }
+            found { print }
+          ' CHANGELOG.md > release_notes.txt
+
+          # If no specific section found, use a generic message
+          if [ ! -s release_notes.txt ]; then
+            echo "## [$VERSION]" > release_notes.txt
+            echo "" >> release_notes.txt
+            echo "Release $VERSION" >> release_notes.txt
+          fi
+
+          cat release_notes.txt
+
+      - name: Collect release assets
+        run: |
+          mkdir -p release-assets
+          find artifacts -type f -exec cp {} release-assets/ \;
+          ls -la release-assets/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.tag.outputs.tag }}
+          name: ${{ needs.tag.outputs.tag }}
+          body_path: release_notes.txt
+          draft: false
+          prerelease: ${{ contains(needs.tag.outputs.version, '-') }}
+          files: release-assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
