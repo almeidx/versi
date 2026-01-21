@@ -10,6 +10,7 @@ pub fn light_theme() -> Theme {
             primary: color!(0x007aff),
             success: color!(0x34c759),
             danger: color!(0xff3b30),
+            warning: color!(0xff9500),
         },
     )
 }
@@ -23,6 +24,7 @@ pub fn dark_theme() -> Theme {
             primary: color!(0x0a84ff),
             success: color!(0x30d158),
             danger: color!(0xff453a),
+            warning: color!(0xff9f0a),
         },
     )
 }
@@ -58,6 +60,7 @@ pub mod styles {
                 offset: iced::Vector::new(0.0, 2.0),
                 blur_radius: 8.0,
             },
+            snap: false,
         };
 
         match status {
@@ -113,6 +116,7 @@ pub mod styles {
                 color: Color::TRANSPARENT,
             },
             shadow: Shadow::default(),
+            snap: false,
         };
 
         match status {
@@ -170,6 +174,7 @@ pub mod styles {
                 color: Color::TRANSPARENT,
             },
             shadow: Shadow::default(),
+            snap: false,
         };
 
         match status {
@@ -211,6 +216,7 @@ pub mod styles {
                 color: Color::TRANSPARENT,
             },
             shadow: Shadow::default(),
+            snap: false,
         };
 
         match status {
@@ -267,6 +273,7 @@ pub mod styles {
                 blur_radius: 12.0,
             },
             text_color: None,
+            snap: false,
         }
     }
 
@@ -372,6 +379,7 @@ pub mod styles {
                 color: Color::TRANSPARENT,
             },
             shadow: Shadow::default(),
+            snap: false,
         };
 
         match status {
@@ -434,6 +442,7 @@ pub mod styles {
                 color: Color::TRANSPARENT,
             },
             shadow: Shadow::default(),
+            snap: false,
         };
 
         match status {

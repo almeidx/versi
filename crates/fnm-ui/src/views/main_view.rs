@@ -1,6 +1,4 @@
-use iced::widget::{
-    button, column, container, horizontal_space, mouse_area, row, text, text_input, Space,
-};
+use iced::widget::{button, column, container, mouse_area, row, text, text_input, Space};
 use iced::{Alignment, Element, Length};
 
 use crate::message::Message;
@@ -73,7 +71,7 @@ fn header_view<'a>(state: &'a MainState) -> Element<'a, Message> {
         );
     }
 
-    row![title_section, horizontal_space(), button_row,]
+    row![title_section, Space::new().width(Length::Fill), button_row,]
         .align_y(Alignment::Center)
         .into()
 }
@@ -127,7 +125,7 @@ fn operation_status_view<'a>(state: &'a MainState) -> Element<'a, Message> {
             .into(),
         }
     } else {
-        Space::new(0, 0).into()
+        Space::new().into()
     }
 }
 
@@ -143,7 +141,7 @@ fn modal_overlay<'a>(
     };
 
     let backdrop = mouse_area(
-        container(Space::new(Length::Fill, Length::Fill))
+        container(Space::new().width(Length::Fill).height(Length::Fill))
             .style(|_theme| iced::widget::container::Style {
                 background: Some(iced::Background::Color(iced::Color {
                     r: 0.0,
@@ -179,16 +177,16 @@ fn settings_modal_view<'a>(settings: &'a SettingsModalState) -> Element<'a, Mess
     let mut content = column![
         row![
             text("Settings").size(20),
-            horizontal_space(),
+            Space::new().width(Length::Fill),
             button(text("Done").size(13))
                 .on_press(Message::CloseSettings)
                 .style(styles::primary_button)
                 .padding([6, 14]),
         ]
         .align_y(Alignment::Center),
-        Space::with_height(24),
+        Space::new().height(24),
         text("Appearance").size(13),
-        Space::with_height(8),
+        Space::new().height(8),
         row![
             button(text("System").size(13))
                 .on_press(Message::ThemeChanged(crate::settings::ThemeSetting::System))
@@ -204,9 +202,9 @@ fn settings_modal_view<'a>(settings: &'a SettingsModalState) -> Element<'a, Mess
                 .padding([10, 16]),
         ]
         .spacing(8),
-        Space::with_height(24),
+        Space::new().height(24),
         text("Shell Setup").size(13),
-        Space::with_height(8),
+        Space::new().height(8),
     ]
     .spacing(4)
     .width(Length::Fill);
@@ -250,7 +248,7 @@ fn settings_modal_view<'a>(settings: &'a SettingsModalState) -> Element<'a, Mess
                     text(status_text)
                         .size(12)
                         .color(iced::Color::from_rgb8(255, 149, 0)),
-                    horizontal_space(),
+                    Space::new().width(Length::Fill),
                     button(text("Configure").size(11))
                         .on_press(Message::ConfigureShell(shell_type))
                         .style(styles::secondary_button)
@@ -268,15 +266,15 @@ fn settings_modal_view<'a>(settings: &'a SettingsModalState) -> Element<'a, Mess
 fn confirm_uninstall_view<'a>(version: &'a str) -> Element<'a, Message> {
     column![
         text(format!("Remove Node {}?", version)).size(20),
-        Space::with_height(12),
+        Space::new().height(12),
         text("This version will be uninstalled from your system.").size(14),
-        Space::with_height(24),
+        Space::new().height(24),
         row![
             button(text("Cancel").size(13))
                 .on_press(Message::CancelUninstall)
                 .style(styles::secondary_button)
                 .padding([10, 20]),
-            horizontal_space(),
+            Space::new().width(Length::Fill),
             button(text("Remove").size(13))
                 .on_press(Message::ConfirmUninstall(version.to_string()))
                 .style(styles::danger_button)
