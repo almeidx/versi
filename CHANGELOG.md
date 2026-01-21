@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.1.2-alpha.4] - 2026-01-21
+
+- chore: add version to release asset filenames
+- refactor: rebrand from fnm-ui to Versi and add backend abstraction
+- feat: add configurable shell init options
+- fix: resolve clippy warning in detect_fnm_dir
+
+
 ## [Unreleased]
 
 - chore: rebrand from fnm-ui to Versi
