@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+
+## [0.1.2-alpha.1] - 2026-01-21
+
+- ci: Use ARM runner for Linux ARM64 builds
+
 ## [0.1.1-alpha.0] - 2026-01-21
 
 - chore: Reset version for re-release
