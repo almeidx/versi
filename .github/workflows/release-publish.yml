@@ -70,21 +70,34 @@ jobs:
 
       - name: Prepare artifacts
         run: |
+          VERSION="${{ needs.tag.outputs.version }}"
           mkdir -p dist
-          cp target/aarch64-apple-darwin/release/fnm-ui dist/fnm-ui-macos-arm64
-          cp target/x86_64-apple-darwin/release/fnm-ui dist/fnm-ui-macos-x64
+
+          # Create ARM64 .app bundle
+          mkdir -p "dist/arm64/FNM UI.app/Contents/MacOS"
+          mkdir -p "dist/arm64/FNM UI.app/Contents/Resources"
+          cp target/aarch64-apple-darwin/release/fnm-ui "dist/arm64/FNM UI.app/Contents/MacOS/"
+          sed "s/VERSION_PLACEHOLDER/$VERSION/g" assets/Info.plist > "dist/arm64/FNM UI.app/Contents/Info.plist"
+          cd dist/arm64 && zip -r ../fnm-ui-macos-arm64.zip "FNM UI.app" && cd -
+
+          # Create x64 .app bundle
+          mkdir -p "dist/x64/FNM UI.app/Contents/MacOS"
+          mkdir -p "dist/x64/FNM UI.app/Contents/Resources"
+          cp target/x86_64-apple-darwin/release/fnm-ui "dist/x64/FNM UI.app/Contents/MacOS/"
+          sed "s/VERSION_PLACEHOLDER/$VERSION/g" assets/Info.plist > "dist/x64/FNM UI.app/Contents/Info.plist"
+          cd dist/x64 && zip -r ../fnm-ui-macos-x64.zip "FNM UI.app" && cd -
 
       - name: Upload ARM64 artifact
         uses: actions/upload-artifact@v6
         with:
           name: fnm-ui-macos-arm64
-          path: dist/fnm-ui-macos-arm64
+          path: dist/fnm-ui-macos-arm64.zip
 
       - name: Upload x64 artifact
         uses: actions/upload-artifact@v6
         with:
           name: fnm-ui-macos-x64
-          path: dist/fnm-ui-macos-x64
+          path: dist/fnm-ui-macos-x64.zip
 
   build-linux-x64:
     name: Build Linux (x64)
@@ -113,14 +126,16 @@ jobs:
 
       - name: Prepare artifact
         run: |
-          mkdir -p dist
-          cp target/x86_64-unknown-linux-gnu/release/fnm-ui dist/fnm-ui-linux-x64
+          mkdir -p dist/pkg
+          cp target/x86_64-unknown-linux-gnu/release/fnm-ui dist/pkg/
+          cp assets/fnm-ui.desktop dist/pkg/
+          cd dist/pkg && zip ../fnm-ui-linux-x64.zip fnm-ui fnm-ui.desktop && cd -
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
           name: fnm-ui-linux-x64
-          path: dist/fnm-ui-linux-x64
+          path: dist/fnm-ui-linux-x64.zip
 
   build-linux-arm64:
     name: Build Linux (ARM64)
@@ -149,14 +164,16 @@ jobs:
 
       - name: Prepare artifact
         run: |
-          mkdir -p dist
-          cp target/aarch64-unknown-linux-gnu/release/fnm-ui dist/fnm-ui-linux-arm64
+          mkdir -p dist/pkg
+          cp target/aarch64-unknown-linux-gnu/release/fnm-ui dist/pkg/
+          cp assets/fnm-ui.desktop dist/pkg/
+          cd dist/pkg && zip ../fnm-ui-linux-arm64.zip fnm-ui fnm-ui.desktop && cd -
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
           name: fnm-ui-linux-arm64
-          path: dist/fnm-ui-linux-arm64
+          path: dist/fnm-ui-linux-arm64.zip
 
   build-windows:
     name: Build Windows (x64)
@@ -184,13 +201,13 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist
-          Copy-Item "target/x86_64-pc-windows-msvc/release/fnm-ui.exe" -Destination "dist/fnm-ui-windows-x64.exe"
+          Compress-Archive -Path "target/x86_64-pc-windows-msvc/release/fnm-ui.exe" -DestinationPath "dist/fnm-ui-windows-x64.zip"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
           name: fnm-ui-windows-x64
-          path: dist/fnm-ui-windows-x64.exe
+          path: dist/fnm-ui-windows-x64.zip
 
   release:
     name: Create Release

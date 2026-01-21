@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=FNM UI
+Comment=GUI for Fast Node Manager
+Exec=fnm-ui
+Icon=fnm-ui
+Terminal=false
+Type=Application
+Categories=Development;
+Keywords=node;nodejs;nvm;fnm;version;manager;
