@@ -14,12 +14,12 @@ license = "MIT"
 repository = "https://github.com/user/fnm-ui"
 
 [workspace.dependencies]
-tokio = { version = "1.43", features = ["full"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-thiserror = "2.0"
-chrono = { version = "0.4", features = ["serde"] }
+tokio = { version = "1.49.0", features = ["full"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+thiserror = "2.0.18"
+chrono = { version = "0.4.43", features = ["serde"] }
 dirs = "6.0"
 which = "8.0.0"
-reqwest = { version = "0.12", features = ["json"] }
-open = "5"
+reqwest = { version = "0.13.1", features = ["json"] }
+open = "5.3.3"
