@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.1.2-alpha.5] - 2026-01-22
+
+- fix(win): run as gui
+- feat: add changelog button to homepage
+- feat: add EOL badges and allow installing non-LTS versions
+- fix: make operation status and toasts float over content
+- fix: container background
+- fix: improve shell configuration UI and toggle behavior
+- deps: Update patch/minor dependencies (#13)
+
+
 ## [0.1.2-alpha.4] - 2026-01-21
 
 - chore: add version to release asset filenames
