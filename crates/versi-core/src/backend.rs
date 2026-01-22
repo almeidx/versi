@@ -90,8 +90,9 @@ impl FnmBackend {
             }
             Environment::Wsl { distro } => {
                 let mut cmd = Command::new("wsl.exe");
-                cmd.args(["-d", distro, "fnm"]);
-                cmd.args(args);
+                // Run through bash login shell to ensure fnm is in PATH
+                let fnm_command = format!("fnm {}", args.join(" "));
+                cmd.args(["-d", distro, "--", "bash", "-lc", &fnm_command]);
                 cmd.hide_window();
                 cmd
             }
