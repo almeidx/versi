@@ -18,7 +18,7 @@ use crate::version::{parse_installed_versions, parse_remote_versions};
 #[derive(Debug, Clone)]
 pub enum Environment {
     Native,
-    Wsl { distro: String },
+    Wsl { distro: String, shell: String },
 }
 
 #[derive(Clone)]
@@ -56,7 +56,7 @@ impl FnmBackend {
         self
     }
 
-    pub fn with_wsl(distro: String) -> Self {
+    pub fn with_wsl(distro: String, shell: String) -> Self {
         Self {
             info: BackendInfo {
                 name: "fnm",
@@ -67,7 +67,7 @@ impl FnmBackend {
             },
             fnm_dir: None,
             node_dist_mirror: None,
-            environment: Environment::Wsl { distro },
+            environment: Environment::Wsl { distro, shell },
         }
     }
 
@@ -88,12 +88,11 @@ impl FnmBackend {
                 cmd.hide_window();
                 cmd
             }
-            Environment::Wsl { distro } => {
+            Environment::Wsl { distro, shell } => {
                 let mut cmd = Command::new("wsl.exe");
-                // Use sh to expand $SHELL and run the user's default shell as a login shell
                 let fnm_args = args.join(" ");
-                let shell_cmd = format!("exec $SHELL -l -c 'fnm {}'", fnm_args);
-                cmd.args(["-d", distro, "--", "sh", "-c", &shell_cmd]);
+                let shell_cmd = format!("fnm {}", fnm_args);
+                cmd.args(["-d", distro, "--", shell, "-l", "-c", &shell_cmd]);
                 cmd.hide_window();
                 cmd
             }

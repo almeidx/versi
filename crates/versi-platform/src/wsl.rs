@@ -40,6 +40,7 @@ pub struct WslDistro {
     pub name: String,
     pub is_default: bool,
     pub version: u8,
+    pub shell: String,
 }
 
 #[derive(Error, Debug)]
@@ -66,10 +67,35 @@ pub fn detect_wsl_distros() -> Vec<WslDistro> {
         Ok(output) if output.status.success() => {
             // wsl.exe outputs UTF-16LE on Windows
             let stdout = decode_wsl_output(&output.stdout);
-            parse_wsl_list(&stdout)
+            let mut distros = parse_wsl_list(&stdout);
+
+            for distro in &mut distros {
+                distro.shell = get_default_shell(&distro.name);
+            }
+
+            distros
         }
         _ => Vec::new(),
     }
+}
+
+fn get_default_shell(distro: &str) -> String {
+    let output = Command::new("wsl.exe")
+        .args(["-d", distro, "--", "sh", "-c", "echo $SHELL"])
+        .hide_window()
+        .output();
+
+    match output {
+        Ok(output) if output.status.success() => {
+            let shell = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !shell.is_empty() {
+                return shell;
+            }
+        }
+        _ => {}
+    }
+
+    "sh".to_string()
 }
 
 fn decode_wsl_output(bytes: &[u8]) -> String {
@@ -108,12 +134,14 @@ fn parse_wsl_list(output: &str) -> Vec<WslDistro> {
                     name: parts[0].to_string(),
                     is_default,
                     version: parts[2].parse().unwrap_or(2),
+                    shell: String::new(),
                 })
             } else if !parts.is_empty() {
                 Some(WslDistro {
                     name: parts[0].to_string(),
                     is_default,
                     version: 2,
+                    shell: String::new(),
                 })
             } else {
                 None

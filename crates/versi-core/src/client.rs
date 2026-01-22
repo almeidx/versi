@@ -15,7 +15,7 @@ use crate::version::{
 #[derive(Debug, Clone)]
 pub enum Environment {
     Native,
-    Wsl { distro: String },
+    Wsl { distro: String, shell: String },
 }
 
 #[derive(Clone)]
@@ -46,12 +46,12 @@ impl FnmClient {
         self
     }
 
-    pub fn with_wsl(distro: String) -> Self {
+    pub fn with_wsl(distro: String, shell: String) -> Self {
         Self {
             fnm_path: PathBuf::from("fnm"),
             fnm_dir: None,
             node_dist_mirror: None,
-            environment: Environment::Wsl { distro },
+            environment: Environment::Wsl { distro, shell },
         }
     }
 
@@ -199,10 +199,11 @@ impl FnmClient {
                 cmd.hide_window();
                 cmd
             }
-            Environment::Wsl { distro } => {
+            Environment::Wsl { distro, shell } => {
                 let mut cmd = Command::new("wsl.exe");
-                cmd.args(["-d", distro, "fnm"]);
-                cmd.args(args);
+                let fnm_args = args.join(" ");
+                let shell_cmd = format!("fnm {}", fnm_args);
+                cmd.args(["-d", distro, "--", shell, "-l", "-c", &shell_cmd]);
                 cmd.hide_window();
                 cmd
             }

@@ -1178,6 +1178,7 @@ async fn initialize() -> InitResult {
         for distro in detect_wsl_distros() {
             environments.push(EnvironmentId::Wsl {
                 distro: distro.name,
+                shell: distro.shell,
             });
         }
     }
@@ -1204,6 +1205,8 @@ fn create_backend_for_environment(env_id: &EnvironmentId) -> Box<dyn VersionMana
             };
             Box::new(backend)
         }
-        EnvironmentId::Wsl { distro } => Box::new(FnmBackend::with_wsl(distro.clone())),
+        EnvironmentId::Wsl { distro, shell } => {
+            Box::new(FnmBackend::with_wsl(distro.clone(), shell.clone()))
+        }
     }
 }
