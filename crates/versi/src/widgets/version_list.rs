@@ -281,6 +281,7 @@ fn version_item_view<'a>(
     let version_str = version.version.to_string();
     let version_display = version_str.clone();
     let version_for_default = version_str.clone();
+    let version_for_changelog = version_str.clone();
 
     row![
         text(version_display).size(14).width(Length::Fixed(120.0)),
@@ -304,6 +305,10 @@ fn version_item_view<'a>(
         } else {
             text("")
         },
+        button(text("Changelog").size(11))
+            .on_press(Message::OpenChangelog(version_for_changelog))
+            .style(styles::ghost_button)
+            .padding([4, 8]),
         if !is_default {
             button(text("Set Default").size(12))
                 .on_press(Message::SetDefault(version_for_default))
