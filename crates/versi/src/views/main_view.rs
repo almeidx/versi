@@ -17,14 +17,24 @@ pub fn view<'a>(state: &'a MainState, settings: &'a AppSettings) -> Element<'a, 
         state.available_versions.schedule.as_ref(),
     );
 
+    let mut main_column = column![].spacing(0);
+
+    if let Some(tabs) = environment_tabs_view(state) {
+        main_column = main_column.push(
+            container(tabs).padding(iced::Padding::new(0.0).top(16.0).left(32.0).right(32.0)),
+        );
+    }
+
     let main_content = column![header, search_bar, version_list]
         .spacing(20)
         .padding(32);
 
+    main_column = main_column.push(main_content);
+
     let with_modal: Element<Message> = if let Some(modal) = &state.modal {
-        modal_overlay(main_content.into(), modal, state, settings)
+        modal_overlay(main_column.into(), modal, state, settings)
     } else {
-        main_content.into()
+        main_column.into()
     };
 
     let with_toasts = toast_container::view(with_modal, &state.toasts);
@@ -99,6 +109,34 @@ fn search_bar_view<'a>(state: &'a MainState) -> Element<'a, Message> {
         .size(14)
         .style(styles::search_input)
         .into()
+}
+
+fn environment_tabs_view<'a>(state: &'a MainState) -> Option<Element<'a, Message>> {
+    if state.environments.len() <= 1 {
+        return None;
+    }
+
+    let tabs: Vec<_> = state
+        .environments
+        .iter()
+        .enumerate()
+        .map(|(idx, env)| {
+            let is_active = idx == state.active_environment_idx;
+            let style = if is_active {
+                styles::active_tab_button
+            } else {
+                styles::inactive_tab_button
+            };
+
+            button(text(&env.name).size(13))
+                .on_press(Message::EnvironmentSelected(idx))
+                .style(style)
+                .padding([8, 16])
+                .into()
+        })
+        .collect();
+
+    Some(row(tabs).spacing(4).into())
 }
 
 fn operation_status_view<'a>(state: &'a MainState) -> Option<Element<'a, Message>> {

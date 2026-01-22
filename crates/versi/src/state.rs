@@ -102,6 +102,23 @@ impl MainState {
         }
     }
 
+    pub fn new_with_environments(
+        backend: Box<dyn VersionManager>,
+        environments: Vec<EnvironmentState>,
+    ) -> Self {
+        Self {
+            environments,
+            active_environment_idx: 0,
+            available_versions: VersionCache::new(),
+            current_operation: None,
+            toasts: Vec::new(),
+            modal: None,
+            search_query: String::new(),
+            backend,
+            app_update: None,
+        }
+    }
+
     #[allow(dead_code)]
     pub fn backend(&self) -> &dyn VersionManager {
         self.backend.as_ref()

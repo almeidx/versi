@@ -12,9 +12,9 @@ use versi_shell::detect_shells;
 use crate::message::{InitResult, Message};
 use crate::settings::{AppSettings, ThemeSetting};
 use crate::state::{
-    AppState, InstallModalState, MainState, Modal, OnboardingState, OnboardingStep, Operation,
-    SettingsModalState, ShellConfigStatus, ShellSetupStatus, ShellVerificationStatus, Toast,
-    UndoAction,
+    AppState, EnvironmentState, InstallModalState, MainState, Modal, OnboardingState,
+    OnboardingStep, Operation, SettingsModalState, ShellConfigStatus, ShellSetupStatus,
+    ShellVerificationStatus, Toast, UndoAction,
 };
 use crate::theme::{dark_theme, get_system_theme, light_theme};
 use crate::views;
@@ -233,6 +233,7 @@ impl FnmUi {
                 }
                 Task::none()
             }
+            Message::EnvironmentSelected(idx) => self.handle_environment_selected(idx),
             _ => Task::none(),
         }
     }
@@ -306,7 +307,14 @@ impl FnmUi {
             backend
         };
         let backend: Box<dyn VersionManager> = Box::new(backend.clone());
-        self.state = AppState::Main(MainState::new(backend));
+
+        let environments: Vec<EnvironmentState> = result
+            .environments
+            .iter()
+            .map(|env_id| EnvironmentState::new(env_id.clone()))
+            .collect();
+
+        self.state = AppState::Main(MainState::new_with_environments(backend, environments));
 
         let load_backend = FnmBackend::new(fnm_path, result.fnm_version, fnm_dir.clone());
         let load_backend = if let Some(dir) = fnm_dir {
@@ -353,6 +361,45 @@ impl FnmUi {
             if let Some(env) = state.environments.iter_mut().find(|e| e.id == env_id) {
                 env.loading = false;
                 env.error = Some(error);
+            }
+        }
+        Task::none()
+    }
+
+    fn handle_environment_selected(&mut self, idx: usize) -> Task<Message> {
+        if let AppState::Main(state) = &mut self.state {
+            if idx >= state.environments.len() || idx == state.active_environment_idx {
+                return Task::none();
+            }
+
+            state.active_environment_idx = idx;
+
+            let env = &state.environments[idx];
+            let env_id = env.id.clone();
+            let needs_load =
+                env.loading || (env.installed_versions.is_empty() && env.error.is_none());
+
+            let new_backend = create_backend_for_environment(&env_id);
+            state.backend = new_backend;
+
+            if needs_load {
+                let env = state.active_environment_mut();
+                env.loading = true;
+
+                let backend = state.backend.clone();
+
+                return Task::perform(
+                    async move {
+                        let versions = backend.list_installed().await.unwrap_or_default();
+                        let default = backend.default_version().await.ok().flatten();
+                        (env_id, versions, default)
+                    },
+                    |(env_id, versions, default)| Message::EnvironmentLoaded {
+                        env_id,
+                        versions,
+                        default_version: default,
+                    },
+                );
             }
         }
         Task::none()
@@ -1111,11 +1158,43 @@ impl FnmUi {
 async fn initialize() -> InitResult {
     let detection = detect_fnm().await;
 
+    #[allow(unused_mut)]
+    let mut environments = vec![EnvironmentId::Native];
+
+    #[cfg(windows)]
+    {
+        use versi_platform::wsl::{check_fnm_in_wsl, detect_wsl_distros};
+        for distro in detect_wsl_distros() {
+            if check_fnm_in_wsl(&distro.name).await {
+                environments.push(EnvironmentId::Wsl {
+                    distro: distro.name,
+                });
+            }
+        }
+    }
+
     InitResult {
         fnm_found: detection.found,
         fnm_path: detection.path,
         fnm_dir: detection.fnm_dir,
         fnm_version: detection.version,
-        environments: vec![EnvironmentId::Native],
+        environments,
+    }
+}
+
+fn create_backend_for_environment(env_id: &EnvironmentId) -> Box<dyn VersionManager> {
+    match env_id {
+        EnvironmentId::Native => {
+            let fnm_path = PathBuf::from("fnm");
+            let fnm_dir = versi_core::detect_fnm_dir();
+            let backend = FnmBackend::new(fnm_path, None, fnm_dir.clone());
+            let backend = if let Some(dir) = fnm_dir {
+                backend.with_fnm_dir(dir)
+            } else {
+                backend
+            };
+            Box::new(backend)
+        }
+        EnvironmentId::Wsl { distro } => Box::new(FnmBackend::with_wsl(distro.clone())),
     }
 }

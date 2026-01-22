@@ -492,4 +492,78 @@ pub mod styles {
             },
         }
     }
+
+    pub fn active_tab_button(theme: &Theme, status: button::Status) -> button::Style {
+        let palette = theme.palette();
+
+        let base = button::Style {
+            background: Some(Background::Color(palette.primary)),
+            text_color: Color::WHITE,
+            border: Border {
+                radius: 6.0.into(),
+                width: 0.0,
+                color: Color::TRANSPARENT,
+            },
+            shadow: Shadow::default(),
+            snap: false,
+        };
+
+        match status {
+            button::Status::Active => base,
+            button::Status::Hovered => button::Style {
+                background: Some(Background::Color(lighten(palette.primary, 0.05))),
+                ..base
+            },
+            button::Status::Pressed => button::Style {
+                background: Some(Background::Color(darken(palette.primary, 0.05))),
+                ..base
+            },
+            button::Status::Disabled => base,
+        }
+    }
+
+    pub fn inactive_tab_button(theme: &Theme, status: button::Status) -> button::Style {
+        let palette = theme.palette();
+        let is_dark = palette.background.r < 0.5;
+
+        let text_secondary = Color {
+            a: 0.6,
+            ..palette.text
+        };
+
+        let hover_bg = if is_dark {
+            Color::from_rgba8(255, 255, 255, 0.1)
+        } else {
+            Color::from_rgba8(0, 0, 0, 0.05)
+        };
+
+        let base = button::Style {
+            background: Some(Background::Color(Color::TRANSPARENT)),
+            text_color: text_secondary,
+            border: Border {
+                radius: 6.0.into(),
+                width: 0.0,
+                color: Color::TRANSPARENT,
+            },
+            shadow: Shadow::default(),
+            snap: false,
+        };
+
+        match status {
+            button::Status::Active => base,
+            button::Status::Hovered => button::Style {
+                background: Some(Background::Color(hover_bg)),
+                ..base
+            },
+            button::Status::Pressed => button::Style {
+                background: Some(Background::Color(if is_dark {
+                    Color::from_rgba8(255, 255, 255, 0.15)
+                } else {
+                    Color::from_rgba8(0, 0, 0, 0.08)
+                })),
+                ..base
+            },
+            button::Status::Disabled => base,
+        }
+    }
 }
