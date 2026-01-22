@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.1.2-alpha.10] - 2026-01-22
+
+- fix(win): wsl detection
+- chore: update icons
+
+
 ## [0.1.2-alpha.9] - 2026-01-22
 
 - fix(win): imports
