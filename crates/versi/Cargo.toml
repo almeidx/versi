@@ -13,7 +13,7 @@ versi-core = { path = "../versi-core" }
 versi-shell = { path = "../versi-shell" }
 versi-platform = { path = "../versi-platform" }
 
-iced = { version = "0.14.0", features = ["tokio"] }
+iced = { version = "0.14.0", features = ["tokio", "image"] }
 
 tray-icon = "0.21.3"
 dark-light = "2.0"
