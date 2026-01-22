@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.1.2-alpha.9] - 2026-01-22
+
+- fix(win): imports
+- Release v0.1.2-alpha.8 (#18)
+- fix(win): imports
+- chore: release v0.1.2-alpha.7 (#17)
+- fix(windows): add window icon to title bar
+- feat: add about section
+- feat: add WSL environment tabs for Windows
+- refactor: restructure release workflow for immutable releases
+
+
 ## [0.1.2-alpha.8] - 2026-01-22
 
 - fix(windows): add window icon to title bar
