@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.1.2-alpha.7] - 2026-01-22
+
+- fix(windows): add window icon to title bar
+- feat: add about section
+- feat: add WSL environment tabs for Windows
+- refactor: restructure release workflow for immutable releases
+
+
 ## [0.1.2-alpha.6] - 2026-01-22
 
 - fix(wix): move Icon element to Package level
