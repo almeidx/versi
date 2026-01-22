@@ -5274,7 +5274,7 @@ checksum = "7ba6f5989077681266825251a52748b8c1d8a4ad098cc37e440103d0ea717fc0"
 
 [[package]]
 name = "versi"
-version = "0.1.2-alpha.12"
+version = "0.1.2-alpha.13"
 dependencies = [
  "async-stream",
  "chrono",
@@ -5294,7 +5294,7 @@ dependencies = [
 
 [[package]]
 name = "versi-backend"
-version = "0.1.2-alpha.12"
+version = "0.1.2-alpha.13"
 dependencies = [
  "async-trait",
  "chrono",
@@ -5305,7 +5305,7 @@ dependencies = [
 
 [[package]]
 name = "versi-core"
-version = "0.1.2-alpha.12"
+version = "0.1.2-alpha.13"
 dependencies = [
  "async-trait",
  "chrono",
@@ -5321,7 +5321,7 @@ dependencies = [
 
 [[package]]
 name = "versi-platform"
-version = "0.1.2-alpha.12"
+version = "0.1.2-alpha.13"
 dependencies = [
  "dirs",
  "serde",
@@ -5331,7 +5331,7 @@ dependencies = [
 
 [[package]]
 name = "versi-shell"
-version = "0.1.2-alpha.12"
+version = "0.1.2-alpha.13"
 dependencies = [
  "dirs",
  "serde",

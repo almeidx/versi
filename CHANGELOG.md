@@ -3,6 +3,11 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.1.2-alpha.13] - 2026-01-22
+
+- fix(wsl): capture and display actual error messages for install failures
+
+
 ## [0.1.2-alpha.12] - 2026-01-22
 
 - fix(wsl): explicitly source shell config files before running fnm
