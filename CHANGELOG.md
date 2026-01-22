@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.1.2-alpha.12] - 2026-01-22
+
+- fix(wsl): explicitly source shell config files before running fnm
+- fix(installer): convert semantic version to MSI-compatible format
+
+
 ## [0.1.2-alpha.11] - 2026-01-22
 
 - fix(wsl): only detect running WSL distros to avoid starting WSL
