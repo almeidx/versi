@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.1.2-alpha.14] - 2026-01-22
+
+- refactor(wsl): detect and cache user's default shell
+- fix(wsl): use user's default shell instead of hardcoding bash
+
+
 ## [0.1.2-alpha.13] - 2026-01-22
 
 - fix(wsl): capture and display actual error messages for install failures
