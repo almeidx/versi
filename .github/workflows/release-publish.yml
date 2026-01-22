@@ -9,48 +9,32 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
 jobs:
-  tag:
-    name: Create Tag
+  version:
+    name: Get Version
     if: github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'release')
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
 
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Get version and create tag
+      - name: Get version
         id: version
         run: |
           VERSION=$(grep -m1 '^version' Cargo.toml | sed 's/.*"\(.*\)".*/\1/')
           TAG="v$VERSION"
-
           echo "Version: $VERSION"
           echo "Tag: $TAG"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=$TAG" >> $GITHUB_OUTPUT
 
-          # Create and push tag
-          git tag -a "$TAG" -m "Release $TAG"
-          git push origin "$TAG"
-
   build-macos:
     name: Build macOS (Universal)
-    needs: tag
+    needs: version
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          ref: ${{ needs.tag.outputs.tag }}
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -70,7 +54,7 @@ jobs:
 
       - name: Prepare artifacts
         run: |
-          VERSION="${{ needs.tag.outputs.version }}"
+          VERSION="${{ needs.version.outputs.version }}"
           mkdir -p dist
 
           # Create ARM64 .app bundle
@@ -93,22 +77,20 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: versi-macos-arm64
-          path: dist/versi-${{ needs.tag.outputs.version }}-macos-arm64.zip
+          path: dist/versi-${{ needs.version.outputs.version }}-macos-arm64.zip
 
       - name: Upload x64 artifact
         uses: actions/upload-artifact@v6
         with:
           name: versi-macos-x64
-          path: dist/versi-${{ needs.tag.outputs.version }}-macos-x64.zip
+          path: dist/versi-${{ needs.version.outputs.version }}-macos-x64.zip
 
   build-linux-x64:
     name: Build Linux (x64)
-    needs: tag
+    needs: version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          ref: ${{ needs.tag.outputs.tag }}
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -128,7 +110,7 @@ jobs:
 
       - name: Prepare artifact
         run: |
-          VERSION="${{ needs.tag.outputs.version }}"
+          VERSION="${{ needs.version.outputs.version }}"
           mkdir -p dist/pkg
           cp target/x86_64-unknown-linux-gnu/release/versi dist/pkg/
           cp assets/versi.desktop dist/pkg/
@@ -139,16 +121,14 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: versi-linux-x64
-          path: dist/versi-${{ needs.tag.outputs.version }}-linux-x64.zip
+          path: dist/versi-${{ needs.version.outputs.version }}-linux-x64.zip
 
   build-linux-arm64:
     name: Build Linux (ARM64)
-    needs: tag
+    needs: version
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v6
-        with:
-          ref: ${{ needs.tag.outputs.tag }}
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -168,7 +148,7 @@ jobs:
 
       - name: Prepare artifact
         run: |
-          VERSION="${{ needs.tag.outputs.version }}"
+          VERSION="${{ needs.version.outputs.version }}"
           mkdir -p dist/pkg
           cp target/aarch64-unknown-linux-gnu/release/versi dist/pkg/
           cp assets/versi.desktop dist/pkg/
@@ -179,16 +159,14 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: versi-linux-arm64
-          path: dist/versi-${{ needs.tag.outputs.version }}-linux-arm64.zip
+          path: dist/versi-${{ needs.version.outputs.version }}-linux-arm64.zip
 
   build-windows:
     name: Build Windows (x64)
-    needs: tag
+    needs: version
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          ref: ${{ needs.tag.outputs.tag }}
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -205,7 +183,7 @@ jobs:
 
       - name: Create MSI installer
         run: |
-          $VERSION = "${{ needs.tag.outputs.version }}"
+          $VERSION = "${{ needs.version.outputs.version }}"
           dotnet tool install --global wix --version 4.0.5
           wix extension add WixToolset.UI.wixext/4.0.5
           (Get-Content wix/main.wxs) -replace 'VERSION_PLACEHOLDER', $VERSION | Set-Content wix/main.wxs
@@ -216,18 +194,29 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: versi-windows-x64
-          path: dist/versi-${{ needs.tag.outputs.version }}-windows-x64.msi
+          path: dist/versi-${{ needs.version.outputs.version }}-windows-x64.msi
 
   release:
-    name: Create Release
-    needs: [tag, build-macos, build-linux-x64, build-linux-arm64, build-windows]
+    name: Create Tag & Release
+    needs: [version, build-macos, build-linux-x64, build-linux-arm64, build-windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ needs.tag.outputs.tag }}
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Create tag
+        run: |
+          TAG="${{ needs.version.outputs.tag }}"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
 
       - name: Download all artifacts
         uses: actions/download-artifact@v7
@@ -237,10 +226,9 @@ jobs:
       - name: Extract changelog for this version
         id: changelog
         run: |
-          VERSION="${{ needs.tag.outputs.version }}"
+          VERSION="${{ needs.version.outputs.version }}"
 
           # Extract the section for this version from CHANGELOG.md
-          # Matches from "## [VERSION]" until the next "## [" or end of file
           awk -v ver="$VERSION" '
             /^## \[/ {
               if (found) exit
@@ -267,11 +255,11 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.tag.outputs.tag }}
-          name: ${{ needs.tag.outputs.tag }}
+          tag_name: ${{ needs.version.outputs.tag }}
+          name: ${{ needs.version.outputs.tag }}
           body_path: release_notes.txt
           draft: false
-          prerelease: ${{ contains(needs.tag.outputs.version, '-') }}
+          prerelease: ${{ contains(needs.version.outputs.version, '-') }}
           files: release-assets/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
