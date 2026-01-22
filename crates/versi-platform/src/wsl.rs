@@ -55,8 +55,10 @@ pub enum WslError {
 }
 
 pub fn detect_wsl_distros() -> Vec<WslDistro> {
+    // Use --list --running to only get distros that are already running
+    // This avoids accidentally starting WSL
     let output = Command::new("wsl.exe")
-        .args(["--list", "--verbose"])
+        .args(["--list", "--running", "--verbose"])
         .hide_window()
         .output();
 
