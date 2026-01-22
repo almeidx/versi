@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.1.2-alpha.11] - 2026-01-22
+
+- fix(wsl): only detect running WSL distros to avoid starting WSL
+- fix(wsl): run fnm commands through login shell and improve settings UX
+
+
 ## [0.1.2-alpha.10] - 2026-01-22
 
 - fix(win): wsl detection
