@@ -10,4 +10,4 @@ serde.workspace = true
 thiserror.workspace = true
 dirs.workspace = true
 which.workspace = true
-regex = "1"
+regex = "1.12.2"
