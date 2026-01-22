@@ -312,9 +312,11 @@ fn settings_modal_view<'a>(
 
     if is_wsl {
         content = content.push(
-            text("Shell configuration for WSL environments should be done inside the WSL terminal.")
-                .size(12)
-                .color(iced::Color::from_rgb8(142, 142, 147)),
+            text(
+                "Shell configuration for WSL environments should be done inside the WSL terminal.",
+            )
+            .size(12)
+            .color(iced::Color::from_rgb8(142, 142, 147)),
         );
     } else if modal_state.checking_shells {
         content = content.push(text("Checking shell configuration...").size(12));
