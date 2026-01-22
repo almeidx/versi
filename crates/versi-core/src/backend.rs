@@ -5,6 +5,8 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::mpsc;
 
+use crate::commands::HideWindow;
+
 use versi_backend::{
     BackendError, BackendInfo, InstallPhase, InstallProgress, InstalledVersion,
     ManagerCapabilities, NodeVersion, RemoteVersion, ShellInitOptions, VersionManager,
@@ -83,12 +85,14 @@ impl FnmBackend {
                     cmd.env("FNM_NODE_DIST_MIRROR", mirror);
                 }
 
+                cmd.hide_window();
                 cmd
             }
             Environment::Wsl { distro } => {
                 let mut cmd = Command::new("wsl.exe");
                 cmd.args(["-d", distro, "fnm"]);
                 cmd.args(args);
+                cmd.hide_window();
                 cmd
             }
         }

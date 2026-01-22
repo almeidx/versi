@@ -2,6 +2,8 @@ use std::path::PathBuf;
 use tokio::process::Command;
 use which::which;
 
+use crate::commands::HideWindow;
+
 #[derive(Debug, Clone)]
 pub struct FnmDetection {
     pub found: bool,
@@ -110,7 +112,12 @@ fn get_common_fnm_paths() -> Vec<PathBuf> {
 }
 
 async fn get_fnm_version(path: &PathBuf) -> Option<String> {
-    let output = Command::new(path).arg("--version").output().await.ok()?;
+    let output = Command::new(path)
+        .arg("--version")
+        .hide_window()
+        .output()
+        .await
+        .ok()?;
 
     if !output.status.success() {
         return None;
@@ -128,35 +135,25 @@ async fn get_fnm_version(path: &PathBuf) -> Option<String> {
 
 pub async fn install_fnm() -> Result<(), crate::FnmError> {
     #[cfg(unix)]
-    {
-        let status = Command::new("bash")
-            .args(["-c", "curl -fsSL https://fnm.vercel.app/install | bash"])
-            .status()
-            .await?;
-
-        if status.success() {
-            Ok(())
-        } else {
-            Err(crate::FnmError::InstallFailed(
-                "fnm installation script failed".to_string(),
-            ))
-        }
-    }
+    let status = Command::new("bash")
+        .args(["-c", "curl -fsSL https://fnm.vercel.app/install | bash"])
+        .hide_window()
+        .status()
+        .await?;
 
     #[cfg(windows)]
-    {
-        let status = Command::new("powershell")
-            .args(["-Command", "irm https://fnm.vercel.app/install | iex"])
-            .status()
-            .await?;
+    let status = Command::new("powershell")
+        .args(["-Command", "irm https://fnm.vercel.app/install | iex"])
+        .hide_window()
+        .status()
+        .await?;
 
-        if status.success() {
-            Ok(())
-        } else {
-            Err(crate::FnmError::InstallFailed(
-                "fnm installation script failed".to_string(),
-            ))
-        }
+    if status.success() {
+        Ok(())
+    } else {
+        Err(crate::FnmError::InstallFailed(
+            "fnm installation script failed".to_string(),
+        ))
     }
 }
 
@@ -166,6 +163,7 @@ pub async fn _check_fnm_update(current_version: &str) -> Option<String> {
             "-fsSL",
             "https://api.github.com/repos/Schniz/fnm/releases/latest",
         ])
+        .hide_window()
         .output()
         .await
         .ok()?;

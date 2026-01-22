@@ -7,6 +7,7 @@ mod update;
 mod version;
 
 pub mod commands;
+pub use commands::HideWindow;
 
 pub use backend::{Environment, FnmBackend};
 pub use detection::{detect_fnm, detect_fnm_dir, install_fnm, FnmDetection};

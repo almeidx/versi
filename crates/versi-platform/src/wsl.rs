@@ -1,6 +1,40 @@
 use std::process::Command;
 use thiserror::Error;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+trait HideWindow {
+    fn hide_window(&mut self) -> &mut Self;
+}
+
+impl HideWindow for Command {
+    #[cfg(windows)]
+    fn hide_window(&mut self) -> &mut Self {
+        self.creation_flags(CREATE_NO_WINDOW)
+    }
+
+    #[cfg(not(windows))]
+    fn hide_window(&mut self) -> &mut Self {
+        self
+    }
+}
+
+impl HideWindow for tokio::process::Command {
+    #[cfg(windows)]
+    fn hide_window(&mut self) -> &mut Self {
+        self.creation_flags(CREATE_NO_WINDOW)
+    }
+
+    #[cfg(not(windows))]
+    fn hide_window(&mut self) -> &mut Self {
+        self
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct WslDistro {
     pub name: String,
@@ -23,6 +57,7 @@ pub enum WslError {
 pub fn detect_wsl_distros() -> Vec<WslDistro> {
     let output = Command::new("wsl.exe")
         .args(["--list", "--verbose"])
+        .hide_window()
         .output();
 
     match output {
@@ -70,6 +105,7 @@ fn parse_wsl_list(output: &str) -> Vec<WslDistro> {
 pub async fn execute_in_wsl(distro: &str, command: &str) -> Result<String, WslError> {
     let output = tokio::process::Command::new("wsl.exe")
         .args(["-d", distro, "--", "bash", "-c", command])
+        .hide_window()
         .output()
         .await?;
 

@@ -3,6 +3,28 @@ use crate::detect::{FnmShellOptions, ShellType};
 use std::path::PathBuf;
 use tokio::process::Command;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+trait HideWindow {
+    fn hide_window(&mut self) -> &mut Self;
+}
+
+impl HideWindow for Command {
+    #[cfg(windows)]
+    fn hide_window(&mut self) -> &mut Self {
+        self.creation_flags(CREATE_NO_WINDOW)
+    }
+
+    #[cfg(not(windows))]
+    fn hide_window(&mut self) -> &mut Self {
+        self
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum VerificationResult {
     Configured(Option<FnmShellOptions>),
@@ -36,38 +58,40 @@ pub async fn verify_shell_config(shell_type: &ShellType) -> VerificationResult {
 
 async fn functional_test(shell_type: &ShellType) -> bool {
     match shell_type {
-        ShellType::Bash => {
-            let result = Command::new("bash")
-                .args(["-i", "-c", "fnm --version"])
-                .output()
-                .await;
-            result.map(|o| o.status.success()).unwrap_or(false)
-        }
-        ShellType::Zsh => {
-            let result = Command::new("zsh")
-                .args(["-i", "-c", "fnm --version"])
-                .output()
-                .await;
-            result.map(|o| o.status.success()).unwrap_or(false)
-        }
-        ShellType::Fish => {
-            let result = Command::new("fish")
-                .args(["-c", "fnm --version"])
-                .output()
-                .await;
-            result.map(|o| o.status.success()).unwrap_or(false)
-        }
+        ShellType::Bash => Command::new("bash")
+            .args(["-i", "-c", "fnm --version"])
+            .hide_window()
+            .output()
+            .await
+            .map(|o| o.status.success())
+            .unwrap_or(false),
+        ShellType::Zsh => Command::new("zsh")
+            .args(["-i", "-c", "fnm --version"])
+            .hide_window()
+            .output()
+            .await
+            .map(|o| o.status.success())
+            .unwrap_or(false),
+        ShellType::Fish => Command::new("fish")
+            .args(["-c", "fnm --version"])
+            .hide_window()
+            .output()
+            .await
+            .map(|o| o.status.success())
+            .unwrap_or(false),
         ShellType::PowerShell => {
             let shell = if which::which("pwsh").is_ok() {
                 "pwsh"
             } else {
                 "powershell"
             };
-            let result = Command::new(shell)
+            Command::new(shell)
                 .args(["-Command", "fnm --version"])
+                .hide_window()
                 .output()
-                .await;
-            result.map(|o| o.status.success()).unwrap_or(false)
+                .await
+                .map(|o| o.status.success())
+                .unwrap_or(false)
         }
         ShellType::Cmd => false,
     }
