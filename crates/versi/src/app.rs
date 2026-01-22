@@ -1169,13 +1169,11 @@ async fn initialize() -> InitResult {
 
     #[cfg(windows)]
     {
-        use versi_platform::{check_fnm_in_wsl, detect_wsl_distros};
+        use versi_platform::detect_wsl_distros;
         for distro in detect_wsl_distros() {
-            if check_fnm_in_wsl(&distro.name).await {
-                environments.push(EnvironmentId::Wsl {
-                    distro: distro.name,
-                });
-            }
+            environments.push(EnvironmentId::Wsl {
+                distro: distro.name,
+            });
         }
     }
 
