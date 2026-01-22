@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use iced::widget::{button, column, container, row, scrollable, text, Space};
 use iced::{Alignment, Element, Length};
 
-use versi_core::{InstalledVersion, NodeVersion, RemoteVersion, VersionGroup};
+use versi_core::{InstalledVersion, NodeVersion, ReleaseSchedule, RemoteVersion, VersionGroup};
 
 use crate::message::Message;
 use crate::state::EnvironmentState;
@@ -31,6 +31,7 @@ pub fn view<'a>(
     env: &'a EnvironmentState,
     search_query: &'a str,
     remote_versions: &[RemoteVersion],
+    schedule: Option<&ReleaseSchedule>,
 ) -> Element<'a, Message> {
     let latest_by_major = compute_latest_by_major(remote_versions);
     if env.loading {
@@ -105,7 +106,13 @@ pub fn view<'a>(
                     }
                 })
             });
-            version_group_view(group, default_version, search_query, update_available)
+            version_group_view(
+                group,
+                default_version,
+                search_query,
+                update_available,
+                schedule,
+            )
         })
         .collect();
 
@@ -140,12 +147,14 @@ fn version_group_view<'a>(
     default: &'a Option<versi_core::NodeVersion>,
     search_query: &'a str,
     update_available: Option<String>,
+    schedule: Option<&ReleaseSchedule>,
 ) -> Element<'a, Message> {
     let has_lts = group.versions.iter().any(|v| v.lts_codename.is_some());
     let has_default = group
         .versions
         .iter()
         .any(|v| default.as_ref().map(|d| d == &v.version).unwrap_or(false));
+    let is_eol = schedule.map(|s| !s.is_active(group.major)).unwrap_or(false);
 
     let mut header_row = row![
         text(if group.is_expanded { "▼" } else { "▶" }).size(12),
@@ -160,6 +169,14 @@ fn version_group_view<'a>(
             container(text("LTS").size(10))
                 .padding([2, 6])
                 .style(styles::badge_lts),
+        );
+    }
+
+    if is_eol {
+        header_row = header_row.push(
+            container(text("EOL").size(10))
+                .padding([2, 6])
+                .style(styles::badge_eol),
         );
     }
 

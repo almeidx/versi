@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use iced::widget::{button, column, container, row, scrollable, text, text_input, Space};
 use iced::{Alignment, Element, Length};
 
-use versi_core::RemoteVersion;
+use versi_core::{ReleaseSchedule, RemoteVersion};
 
 use crate::message::Message;
 use crate::state::{InstallModalState, MainState};
@@ -90,6 +90,7 @@ pub fn view<'a>(
         .iter()
         .map(|v| v.version.to_string())
         .collect();
+    let schedule = modal_state.schedule.as_ref();
     let header = row![
         text("Install Node.js").size(20),
         Space::new().width(Length::Fill),
@@ -146,7 +147,7 @@ pub fn view<'a>(
             version_items.push(Space::new().height(8).into());
 
             for version in recommended {
-                version_items.push(version_row(version, &installed));
+                version_items.push(version_row(version, &installed, schedule));
             }
 
             version_items.push(Space::new().height(16).into());
@@ -201,7 +202,7 @@ pub fn view<'a>(
                             .into(),
                     );
                     for version in versions {
-                        version_items.push(version_row(version, &installed));
+                        version_items.push(version_row(version, &installed, schedule));
                     }
                     version_items.push(Space::new().height(8).into());
                 }
@@ -226,7 +227,7 @@ pub fn view<'a>(
                             .into(),
                     );
                     for version in versions {
-                        version_items.push(version_row(version, &installed));
+                        version_items.push(version_row(version, &installed, schedule));
                     }
                     version_items.push(Space::new().height(8).into());
                 }
@@ -252,9 +253,13 @@ pub fn view<'a>(
 fn version_row<'a>(
     version: &'a RemoteVersion,
     installed: &std::collections::HashSet<String>,
+    schedule: Option<&ReleaseSchedule>,
 ) -> Element<'a, Message> {
     let version_str = version.version.to_string();
     let is_installed = installed.contains(&version_str);
+    let is_eol = schedule
+        .map(|s| !s.is_active(version.version.major))
+        .unwrap_or(false);
     let version_display = version_str.clone();
     let version_for_changelog = version_str.clone();
 
@@ -274,15 +279,28 @@ fn version_row<'a>(
             .into()
     };
 
+    let lts_badge: Element<Message> = if let Some(lts) = &version.lts_codename {
+        container(text(lts.clone()).size(11))
+            .padding([2, 6])
+            .style(styles::badge_lts)
+            .into()
+    } else {
+        Space::new().width(0).into()
+    };
+
+    let eol_badge: Element<Message> = if is_eol {
+        container(text("EOL").size(11))
+            .padding([2, 6])
+            .style(styles::badge_eol)
+            .into()
+    } else {
+        Space::new().width(0).into()
+    };
+
     row![
         text(version_display).size(14).width(Length::Fixed(100.0)),
-        if let Some(lts) = &version.lts_codename {
-            container(text(lts.clone()).size(11))
-                .padding([2, 6])
-                .style(styles::badge_lts)
-        } else {
-            container(Space::new())
-        },
+        lts_badge,
+        eol_badge,
         Space::new().width(Length::Fill),
         button(text("Changelog").size(11))
             .on_press(Message::OpenChangelog(version_for_changelog))

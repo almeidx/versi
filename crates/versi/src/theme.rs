@@ -345,6 +345,24 @@ pub mod styles {
         }
     }
 
+    pub fn badge_eol(_theme: &Theme) -> container::Style {
+        let eol_color = Color::from_rgb8(255, 149, 0);
+
+        container::Style {
+            background: Some(Background::Color(Color {
+                a: 0.15,
+                ..eol_color
+            })),
+            text_color: Some(eol_color),
+            border: Border {
+                radius: 6.0.into(),
+                width: 0.0,
+                color: Color::TRANSPARENT,
+            },
+            ..Default::default()
+        }
+    }
+
     #[allow(dead_code)]
     pub fn badge_update(_theme: &Theme) -> container::Style {
         let update_color = Color::from_rgb8(0, 122, 255);

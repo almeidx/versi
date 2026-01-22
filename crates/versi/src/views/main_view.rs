@@ -14,6 +14,7 @@ pub fn view<'a>(state: &'a MainState, settings: &'a AppSettings) -> Element<'a, 
         state.active_environment(),
         &state.search_query,
         &state.available_versions.versions,
+        state.available_versions.schedule.as_ref(),
     );
 
     let main_content = column![header, search_bar, version_list]

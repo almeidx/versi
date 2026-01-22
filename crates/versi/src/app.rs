@@ -328,9 +328,10 @@ impl FnmUi {
         );
 
         let fetch_remote = self.handle_fetch_remote_versions();
+        let fetch_schedule = self.handle_fetch_release_schedule();
         let check_update = self.handle_check_for_app_update();
 
-        Task::batch([load_installed, fetch_remote, check_update])
+        Task::batch([load_installed, fetch_remote, fetch_schedule, check_update])
     }
 
     fn handle_environment_loaded(
@@ -497,30 +498,23 @@ impl FnmUi {
                     .iter()
                     .filter(|v| {
                         let major = v.version.major;
-                        let is_active = schedule
-                            .as_ref()
-                            .map(|s| s.is_active(major))
-                            .unwrap_or(true);
 
                         if query_lower == "lts" {
-                            let is_lts = schedule
+                            return schedule
                                 .as_ref()
                                 .map(|s| s.is_lts(major))
                                 .unwrap_or(v.lts_codename.is_some());
-                            return is_lts && is_active;
                         }
                         if query_lower == "latest" {
                             return v.is_latest;
                         }
 
                         let version_str = v.version.to_string();
-                        let matches_query = version_str.contains(&query)
+                        version_str.contains(&query)
                             || v.lts_codename
                                 .as_ref()
                                 .map(|c| c.to_lowercase().contains(&query_lower))
-                                .unwrap_or(false);
-
-                        matches_query && is_active
+                                .unwrap_or(false)
                     })
                     .cloned()
                     .collect();
