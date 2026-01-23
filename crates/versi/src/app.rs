@@ -215,10 +215,9 @@ impl FnmUi {
             }
             Message::RevealLogFile => {
                 let log_path = versi_platform::AppPaths::new().log_file();
-                Task::perform(
-                    async move { reveal_in_file_manager(&log_path) },
-                    |_| Message::NoOp,
-                )
+                Task::perform(async move { reveal_in_file_manager(&log_path) }, |_| {
+                    Message::NoOp
+                })
             }
             Message::LogFileStatsLoaded(size) => {
                 if let AppState::Main(state) = &mut self.state {
@@ -1402,9 +1401,7 @@ fn reveal_in_file_manager(path: &std::path::Path) {
     #[cfg(target_os = "linux")]
     {
         if let Some(parent) = path.parent() {
-            let _ = std::process::Command::new("xdg-open")
-                .arg(parent)
-                .spawn();
+            let _ = std::process::Command::new("xdg-open").arg(parent).spawn();
         }
     }
 }

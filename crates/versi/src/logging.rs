@@ -46,7 +46,7 @@ impl Write for ResilientFileWriter {
         if let Some(ref mut file) = *guard {
             file.write(buf)
         } else {
-            Err(io::Error::new(io::ErrorKind::Other, "File not available"))
+            Err(io::Error::other("File not available"))
         }
     }
 
