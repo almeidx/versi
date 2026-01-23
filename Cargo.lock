@@ -484,9 +484,9 @@ dependencies = [
 
 [[package]]
 name = "aws-lc-rs"
-version = "1.15.3"
+version = "1.15.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e84ce723ab67259cfeb9877c6a639ee9eb7a27b28123abd71db7f0d5d0cc9d86"
+checksum = "7b7b6141e96a8c160799cc2d5adecd5cbbe5054cb8c7c4af53da0f83bb7ad256"
 dependencies = [
  "aws-lc-sys",
  "zeroize",
@@ -494,9 +494,9 @@ dependencies = [
 
 [[package]]
 name = "aws-lc-sys"
-version = "0.36.0"
+version = "0.37.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43a442ece363113bd4bd4c8b18977a7798dd4d3c3383f34fb61936960e8f4ad8"
+checksum = "5c34dda4df7017c8db52132f0f8a2e0f8161649d15723ed63fc00c82d0f2081a"
 dependencies = [
  "cc",
  "cmake",
@@ -4635,9 +4635,9 @@ dependencies = [
 
 [[package]]
 name = "socket2"
-version = "0.6.1"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17129e116933cf371d018bb80ae557e889637989d8638274fb25622827b03881"
+checksum = "86f4aa3ad99f2088c990dfa82d367e19cb29268ed67c574d10d0a4bfe71f07e0"
 dependencies = [
  "libc",
  "windows-sys 0.60.2",
@@ -5348,7 +5348,7 @@ checksum = "7ba6f5989077681266825251a52748b8c1d8a4ad098cc37e440103d0ea717fc0"
 
 [[package]]
 name = "versi"
-version = "0.1.2-alpha.16"
+version = "0.1.2-alpha.17"
 dependencies = [
  "async-stream",
  "chrono",
@@ -5371,7 +5371,7 @@ dependencies = [
 
 [[package]]
 name = "versi-backend"
-version = "0.1.2-alpha.16"
+version = "0.1.2-alpha.17"
 dependencies = [
  "async-trait",
  "chrono",
@@ -5382,7 +5382,7 @@ dependencies = [
 
 [[package]]
 name = "versi-core"
-version = "0.1.2-alpha.16"
+version = "0.1.2-alpha.17"
 dependencies = [
  "async-trait",
  "chrono",
@@ -5399,7 +5399,7 @@ dependencies = [
 
 [[package]]
 name = "versi-platform"
-version = "0.1.2-alpha.16"
+version = "0.1.2-alpha.17"
 dependencies = [
  "dirs",
  "log",
@@ -5410,7 +5410,7 @@ dependencies = [
 
 [[package]]
 name = "versi-shell"
-version = "0.1.2-alpha.16"
+version = "0.1.2-alpha.17"
 dependencies = [
  "dirs",
  "serde",
@@ -6479,9 +6479,9 @@ dependencies = [
 
 [[package]]
 name = "winresource"
-version = "0.1.29"
+version = "0.1.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17cdfa8da4b111045a5e47c7c839e6c5e11c942de1309bc624393ed5d87f89c6"
+checksum = "e287ced0f21cd11f4035fe946fd3af145f068d1acb708afd248100f89ec7432d"
 dependencies = [
  "toml 0.9.11+spec-1.1.0",
  "version_check",

@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.1.2-alpha.17] - 2026-01-23
+
+- feat: add system tray with quick-switch menu
+- fix: show correct fnm version per environment
+
+
 ## [0.1.2-alpha.16] - 2026-01-23
 
 - chore: fix clippy warning and apply cargo fmt
