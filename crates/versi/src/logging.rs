@@ -1,3 +1,5 @@
+#[cfg(debug_assertions)]
+use simplelog::{ColorChoice, TermLogger, TerminalMode};
 use simplelog::{CombinedLogger, ConfigBuilder, LevelFilter, WriteLogger};
 use std::fs::{File, OpenOptions};
 use std::io::{self, Write};
