@@ -251,6 +251,37 @@ pub mod styles {
         }
     }
 
+    pub fn link_button(_theme: &Theme, status: button::Status) -> button::Style {
+        let link_color = Color::from_rgb8(142, 142, 147);
+
+        let base = button::Style {
+            background: None,
+            text_color: link_color,
+            border: Border::default(),
+            shadow: Shadow::default(),
+            snap: false,
+        };
+
+        match status {
+            button::Status::Active => base,
+            button::Status::Hovered => button::Style {
+                text_color: Color::from_rgb8(100, 100, 105),
+                ..base
+            },
+            button::Status::Pressed => button::Style {
+                text_color: Color::from_rgb8(80, 80, 85),
+                ..base
+            },
+            button::Status::Disabled => button::Style {
+                text_color: Color {
+                    a: 0.4,
+                    ..link_color
+                },
+                ..base
+            },
+        }
+    }
+
     pub fn card_container(theme: &Theme) -> container::Style {
         let palette = theme.palette();
         let is_dark = palette.background.r < 0.5;

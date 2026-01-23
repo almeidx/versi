@@ -395,17 +395,24 @@ fn settings_modal_view<'a>(
         .spacing(8)
         .align_y(Alignment::Center),
     );
-    let log_path_hint = {
+    let log_path = {
         let paths = versi_platform::AppPaths::new();
-        format!("Log file: {}", paths.log_file().display())
+        paths.log_file().to_string_lossy().to_string()
     };
     content = content.push(
-        text(log_path_hint)
-            .size(11)
-            .color(iced::Color::from_rgb8(142, 142, 147)),
+        row![
+            text("Log file: ")
+                .size(11)
+                .color(iced::Color::from_rgb8(142, 142, 147)),
+            button(text(log_path.clone()).size(11))
+                .on_press(Message::CopyToClipboard(log_path))
+                .style(styles::link_button)
+                .padding(0),
+        ]
+        .align_y(Alignment::Center),
     );
     content = content.push(
-        text("Requires restart to take effect")
+        text("Restart required to enable/disable or clear log file")
             .size(11)
             .color(iced::Color::from_rgb8(142, 142, 147)),
     );

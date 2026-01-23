@@ -182,6 +182,7 @@ impl FnmUi {
                 let _ = self.settings.save();
                 Task::none()
             }
+            Message::CopyToClipboard(text) => iced::clipboard::write(text),
             Message::ShellFlagsUpdated(_) => Task::none(),
             Message::CheckShellSetup => self.handle_check_shell_setup(),
             Message::ShellSetupChecked(results) => {

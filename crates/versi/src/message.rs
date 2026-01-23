@@ -78,6 +78,7 @@ pub enum Message {
     ShellOptionResolveEnginesToggled(bool),
     ShellOptionCorepackEnabledToggled(bool),
     DebugLoggingToggled(bool),
+    CopyToClipboard(String),
     CheckShellSetup,
     ShellSetupChecked(Vec<(ShellType, versi_shell::VerificationResult)>),
     ConfigureShell(ShellType),
