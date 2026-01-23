@@ -6,7 +6,7 @@ license.workspace = true
 build = "build.rs"
 
 [build-dependencies]
-winresource = "0.1"
+winresource = "0.1.29"
 
 [dependencies]
 versi-core = { path = "../versi-core" }
