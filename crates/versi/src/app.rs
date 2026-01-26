@@ -4,6 +4,8 @@ use std::time::Instant;
 
 use iced::{Element, Subscription, Task, Theme};
 
+#[cfg(windows)]
+use versi_core::HideWindow;
 use versi_core::{
     check_for_fnm_update, check_for_update, detect_fnm, fetch_release_schedule, FnmBackend,
     VersionManager,
@@ -15,8 +17,8 @@ use crate::message::{InitResult, Message};
 use crate::settings::{AppSettings, ThemeSetting, TrayBehavior};
 use crate::state::{
     AppState, EnvironmentState, InstallModalState, MainState, Modal, OnboardingState,
-    OnboardingStep, Operation, SettingsModalState, ShellConfigStatus, ShellSetupStatus,
-    ShellVerificationStatus, Toast, UndoAction,
+    OnboardingStep, Operation, OperationRequest, QueuedOperation, SettingsModalState,
+    ShellConfigStatus, ShellSetupStatus, ShellVerificationStatus, Toast, UndoAction,
 };
 use crate::theme::{dark_theme, get_system_theme, light_theme};
 use crate::tray::{self, TrayMenuData, TrayMessage};
@@ -128,11 +130,26 @@ impl FnmUi {
                 self.handle_close_modal();
                 Task::none()
             }
+            Message::CancelQueuedOperation(id) => self.handle_cancel_queued_operation(id),
             Message::UninstallComplete {
                 version,
                 success,
                 error,
             } => self.handle_uninstall_complete(version, success, error),
+            Message::RequestBulkUpdateMajors => self.handle_request_bulk_update_majors(),
+            Message::RequestBulkUninstallEOL => self.handle_request_bulk_uninstall_eol(),
+            Message::RequestBulkUninstallMajor { major } => {
+                self.handle_request_bulk_uninstall_major(major)
+            }
+            Message::ConfirmBulkUpdateMajors => self.handle_confirm_bulk_update_majors(),
+            Message::ConfirmBulkUninstallEOL => self.handle_confirm_bulk_uninstall_eol(),
+            Message::ConfirmBulkUninstallMajor { major } => {
+                self.handle_confirm_bulk_uninstall_major(major)
+            }
+            Message::CancelBulkOperation => {
+                self.handle_close_modal();
+                Task::none()
+            }
             Message::SetDefault(version) => self.handle_set_default(version),
             Message::DefaultChanged {
                 version,
@@ -465,37 +482,39 @@ impl FnmUi {
 
         self.state = AppState::Main(MainState::new_with_environments(backend, environments));
 
-        let load_backend = FnmBackend::new(fnm_path, result.fnm_version, fnm_dir.clone());
-        let load_backend = if let Some(dir) = fnm_dir {
-            load_backend.with_fnm_dir(dir)
-        } else {
-            load_backend
-        };
-        let load_installed = Task::perform(
-            async move {
-                let versions = load_backend.list_installed().await.unwrap_or_default();
-                let default = load_backend.default_version().await.ok().flatten();
-                (versions, default)
-            },
-            move |(versions, default)| Message::EnvironmentLoaded {
-                env_id: EnvironmentId::Native,
-                versions,
-                default_version: default,
-            },
-        );
+        let mut load_tasks: Vec<Task<Message>> = Vec::new();
+
+        for env_info in &result.environments {
+            let env_id = env_info.id.clone();
+            let backend = create_backend_for_environment(&env_id);
+
+            load_tasks.push(Task::perform(
+                async move {
+                    let versions = backend.list_installed().await.unwrap_or_default();
+                    let default = backend.default_version().await.ok().flatten();
+                    (env_id, versions, default)
+                },
+                move |(env_id, versions, default)| Message::EnvironmentLoaded {
+                    env_id,
+                    versions,
+                    default_version: default,
+                },
+            ));
+        }
 
         let fetch_remote = self.handle_fetch_remote_versions();
         let fetch_schedule = self.handle_fetch_release_schedule();
         let check_app_update = self.handle_check_for_app_update();
         let check_fnm_update = self.handle_check_for_fnm_update();
 
-        Task::batch([
-            load_installed,
+        load_tasks.extend([
             fetch_remote,
             fetch_schedule,
             check_app_update,
             check_fnm_update,
-        ])
+        ]);
+
+        Task::batch(load_tasks)
     }
 
     fn handle_environment_loaded(
@@ -760,7 +779,27 @@ impl FnmUi {
     fn handle_start_install(&mut self, version: String) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
             state.modal = None;
-            state.current_operation = Some(Operation::Install {
+
+            if state.operation_queue.is_busy() {
+                let id = state.operation_queue.next_id();
+                state.operation_queue.pending.push_back(QueuedOperation {
+                    id,
+                    request: OperationRequest::Install {
+                        version: version.clone(),
+                    },
+                    queued_at: Instant::now(),
+                });
+                return Task::none();
+            }
+
+            return self.start_install_internal(version);
+        }
+        Task::none()
+    }
+
+    fn start_install_internal(&mut self, version: String) -> Task<Message> {
+        if let AppState::Main(state) = &mut self.state {
+            state.operation_queue.current = Some(Operation::Install {
                 version: version.clone(),
                 progress: Default::default(),
             });
@@ -821,7 +860,7 @@ impl FnmUi {
             if let Some(Operation::Install {
                 progress: op_progress,
                 ..
-            }) = &mut state.current_operation
+            }) = &mut state.operation_queue.current
             {
                 *op_progress = progress;
             }
@@ -835,7 +874,7 @@ impl FnmUi {
         error: Option<String>,
     ) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            state.current_operation = None;
+            state.operation_queue.current = None;
 
             let toast_id = state.next_toast_id();
             if success {
@@ -853,12 +892,11 @@ impl FnmUi {
                     ),
                 ));
             }
-
-            if success {
-                return self.handle_refresh_environment();
-            }
         }
-        Task::none()
+
+        let next_task = self.process_next_operation();
+        let refresh_task = self.handle_refresh_environment();
+        Task::batch([refresh_task, next_task])
     }
 
     fn handle_request_uninstall(&mut self, version: String) {
@@ -870,7 +908,27 @@ impl FnmUi {
     fn handle_confirm_uninstall(&mut self, version: String) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
             state.modal = None;
-            state.current_operation = Some(Operation::Uninstall {
+
+            if state.operation_queue.is_busy() {
+                let id = state.operation_queue.next_id();
+                state.operation_queue.pending.push_back(QueuedOperation {
+                    id,
+                    request: OperationRequest::Uninstall {
+                        version: version.clone(),
+                    },
+                    queued_at: Instant::now(),
+                });
+                return Task::none();
+            }
+
+            return self.start_uninstall_internal(version);
+        }
+        Task::none()
+    }
+
+    fn start_uninstall_internal(&mut self, version: String) -> Task<Message> {
+        if let AppState::Main(state) = &mut self.state {
+            state.operation_queue.current = Some(Operation::Uninstall {
                 version: version.clone(),
             });
 
@@ -901,7 +959,7 @@ impl FnmUi {
         error: Option<String>,
     ) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            state.current_operation = None;
+            state.operation_queue.current = None;
 
             let toast_id = state.next_toast_id();
             if success {
@@ -920,15 +978,33 @@ impl FnmUi {
                     ),
                 ));
             }
+        }
 
-            if success {
-                return self.handle_refresh_environment();
+        let next_task = self.process_next_operation();
+        let refresh_task = self.handle_refresh_environment();
+        Task::batch([refresh_task, next_task])
+    }
+
+    fn handle_set_default(&mut self, version: String) -> Task<Message> {
+        if let AppState::Main(state) = &mut self.state {
+            if state.operation_queue.is_busy() {
+                let id = state.operation_queue.next_id();
+                state.operation_queue.pending.push_back(QueuedOperation {
+                    id,
+                    request: OperationRequest::SetDefault {
+                        version: version.clone(),
+                    },
+                    queued_at: Instant::now(),
+                });
+                return Task::none();
             }
+
+            return self.start_set_default_internal(version);
         }
         Task::none()
     }
 
-    fn handle_set_default(&mut self, version: String) -> Task<Message> {
+    fn start_set_default_internal(&mut self, version: String) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
             let previous = state
                 .active_environment()
@@ -936,7 +1012,7 @@ impl FnmUi {
                 .as_ref()
                 .map(|v| v.to_string());
 
-            state.current_operation = Some(Operation::SetDefault {
+            state.operation_queue.current = Some(Operation::SetDefault {
                 version: version.clone(),
                 previous: previous.clone(),
             });
@@ -970,7 +1046,7 @@ impl FnmUi {
         error: Option<String>,
     ) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            state.current_operation = None;
+            state.operation_queue.current = None;
 
             let toast_id = state.next_toast_id();
             if success {
@@ -980,7 +1056,6 @@ impl FnmUi {
                     toast = toast.with_undo(UndoAction::ResetDefault { version: prev });
                 }
                 state.add_toast(toast);
-                return self.handle_refresh_environment();
             } else {
                 state.add_toast(Toast::error(
                     toast_id,
@@ -988,7 +1063,10 @@ impl FnmUi {
                 ));
             }
         }
-        Task::none()
+
+        let next_task = self.process_next_operation();
+        let refresh_task = self.handle_refresh_environment();
+        Task::batch([refresh_task, next_task])
     }
 
     fn handle_toast_undo(&mut self, id: usize) -> Task<Message> {
@@ -1007,6 +1085,198 @@ impl FnmUi {
                         }
                     }
                 }
+            }
+        }
+        Task::none()
+    }
+
+    fn handle_request_bulk_update_majors(&mut self) -> Task<Message> {
+        if let AppState::Main(state) = &mut self.state {
+            let env = state.active_environment();
+            let remote = &state.available_versions.versions;
+
+            let latest_by_major: std::collections::HashMap<u32, versi_core::NodeVersion> = {
+                let mut latest = std::collections::HashMap::new();
+                for v in remote {
+                    let major = v.version.major;
+                    latest
+                        .entry(major)
+                        .and_modify(|existing: &mut versi_core::NodeVersion| {
+                            if v.version > *existing {
+                                *existing = v.version.clone();
+                            }
+                        })
+                        .or_insert_with(|| v.version.clone());
+                }
+                latest
+            };
+
+            let versions_to_update: Vec<(String, String)> = env
+                .installed_versions
+                .iter()
+                .filter_map(|installed| {
+                    let major = installed.version.major;
+                    latest_by_major.get(&major).and_then(|latest| {
+                        if latest > &installed.version {
+                            Some((installed.version.to_string(), latest.to_string()))
+                        } else {
+                            None
+                        }
+                    })
+                })
+                .collect();
+
+            if versions_to_update.is_empty() {
+                let toast_id = state.next_toast_id();
+                state.add_toast(Toast::success(
+                    toast_id,
+                    "All versions are up to date".to_string(),
+                ));
+                return Task::none();
+            }
+
+            state.modal = Some(Modal::ConfirmBulkUpdateMajors {
+                versions: versions_to_update,
+            });
+        }
+        Task::none()
+    }
+
+    fn handle_request_bulk_uninstall_eol(&mut self) -> Task<Message> {
+        if let AppState::Main(state) = &mut self.state {
+            let env = state.active_environment();
+            let schedule = state.available_versions.schedule.as_ref();
+
+            let eol_versions: Vec<String> = env
+                .installed_versions
+                .iter()
+                .filter(|v| {
+                    schedule
+                        .map(|s| !s.is_active(v.version.major))
+                        .unwrap_or(false)
+                })
+                .map(|v| v.version.to_string())
+                .collect();
+
+            if eol_versions.is_empty() {
+                let toast_id = state.next_toast_id();
+                state.add_toast(Toast::success(
+                    toast_id,
+                    "No EOL versions installed".to_string(),
+                ));
+                return Task::none();
+            }
+
+            state.modal = Some(Modal::ConfirmBulkUninstallEOL {
+                versions: eol_versions,
+            });
+        }
+        Task::none()
+    }
+
+    fn handle_request_bulk_uninstall_major(&mut self, major: u32) -> Task<Message> {
+        if let AppState::Main(state) = &mut self.state {
+            let env = state.active_environment();
+
+            let versions: Vec<String> = env
+                .installed_versions
+                .iter()
+                .filter(|v| v.version.major == major)
+                .map(|v| v.version.to_string())
+                .collect();
+
+            if versions.is_empty() {
+                return Task::none();
+            }
+
+            state.modal = Some(Modal::ConfirmBulkUninstallMajor { major, versions });
+        }
+        Task::none()
+    }
+
+    fn handle_confirm_bulk_update_majors(&mut self) -> Task<Message> {
+        if let AppState::Main(state) = &mut self.state {
+            if let Some(Modal::ConfirmBulkUpdateMajors { versions }) = state.modal.take() {
+                for (_from, to) in versions {
+                    let id = state.operation_queue.next_id();
+                    state.operation_queue.pending.push_back(QueuedOperation {
+                        id,
+                        request: OperationRequest::Install {
+                            version: to.clone(),
+                        },
+                        queued_at: Instant::now(),
+                    });
+                }
+                return self.process_next_operation();
+            }
+        }
+        Task::none()
+    }
+
+    fn handle_confirm_bulk_uninstall_eol(&mut self) -> Task<Message> {
+        if let AppState::Main(state) = &mut self.state {
+            if let Some(Modal::ConfirmBulkUninstallEOL { versions }) = state.modal.take() {
+                for version in versions {
+                    let id = state.operation_queue.next_id();
+                    state.operation_queue.pending.push_back(QueuedOperation {
+                        id,
+                        request: OperationRequest::Uninstall { version },
+                        queued_at: Instant::now(),
+                    });
+                }
+                return self.process_next_operation();
+            }
+        }
+        Task::none()
+    }
+
+    fn handle_confirm_bulk_uninstall_major(&mut self, major: u32) -> Task<Message> {
+        if let AppState::Main(state) = &mut self.state {
+            if let Some(Modal::ConfirmBulkUninstallMajor { major: m, versions }) =
+                state.modal.take()
+            {
+                if m == major {
+                    for version in versions {
+                        let id = state.operation_queue.next_id();
+                        state.operation_queue.pending.push_back(QueuedOperation {
+                            id,
+                            request: OperationRequest::Uninstall { version },
+                            queued_at: Instant::now(),
+                        });
+                    }
+                    return self.process_next_operation();
+                }
+            }
+        }
+        Task::none()
+    }
+
+    fn process_next_operation(&mut self) -> Task<Message> {
+        if let AppState::Main(state) = &mut self.state {
+            if state.operation_queue.is_busy() {
+                return Task::none();
+            }
+
+            if let Some(next) = state.operation_queue.pending.pop_front() {
+                return match next.request {
+                    OperationRequest::Install { version } => self.start_install_internal(version),
+                    OperationRequest::Uninstall { version } => {
+                        self.start_uninstall_internal(version)
+                    }
+                    OperationRequest::SetDefault { version } => {
+                        self.start_set_default_internal(version)
+                    }
+                };
+            }
+        }
+        Task::none()
+    }
+
+    fn handle_cancel_queued_operation(&mut self, id: usize) -> Task<Message> {
+        if let AppState::Main(state) = &mut self.state {
+            if state.operation_queue.cancel_pending(id) {
+                let toast_id = state.next_toast_id();
+                state.add_toast(Toast::success(toast_id, "Operation cancelled".to_string()));
             }
         }
         Task::none()
@@ -1371,6 +1641,7 @@ impl FnmUi {
             TrayMessage::ShowWindow => {
                 if let Some(id) = self.window_id {
                     Task::batch([
+                        iced::window::set_mode(id, iced::window::Mode::Windowed),
                         iced::window::minimize(id, false),
                         iced::window::gain_focus(id),
                     ])
@@ -1490,6 +1761,7 @@ async fn get_wsl_fnm_version(distro: &str, fnm_path: &str) -> Option<String> {
 
     let output = Command::new("wsl.exe")
         .args(["-d", distro, "--", fnm_path, "--version"])
+        .hide_window()
         .output()
         .await
         .ok()?;
@@ -1539,6 +1811,7 @@ fn reveal_in_file_manager(path: &std::path::Path) {
     {
         let _ = std::process::Command::new("explorer")
             .args(["/select,", &path.to_string_lossy()])
+            .hide_window()
             .spawn();
     }
 

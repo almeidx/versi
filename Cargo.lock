@@ -5366,6 +5366,7 @@ dependencies = [
  "versi-core",
  "versi-platform",
  "versi-shell",
+ "windows-sys 0.59.0",
  "winresource",
 ]
 

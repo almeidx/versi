@@ -6,6 +6,7 @@ mod app;
 mod logging;
 mod message;
 mod settings;
+mod single_instance;
 mod state;
 mod theme;
 mod tray;
@@ -13,6 +14,14 @@ mod views;
 mod widgets;
 
 fn main() -> iced::Result {
+    let _instance_guard = match single_instance::SingleInstance::acquire() {
+        Ok(guard) => guard,
+        Err(_) => {
+            single_instance::bring_existing_window_to_front();
+            return Ok(());
+        }
+    };
+
     let settings = settings::AppSettings::load();
     logging::init_logging(settings.debug_logging);
 

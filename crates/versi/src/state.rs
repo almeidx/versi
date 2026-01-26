@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::time::Instant;
 use versi_core::{
@@ -63,7 +64,7 @@ pub struct MainState {
     pub environments: Vec<EnvironmentState>,
     pub active_environment_idx: usize,
     pub available_versions: VersionCache,
-    pub current_operation: Option<Operation>,
+    pub operation_queue: OperationQueue,
     pub toasts: Vec<Toast>,
     pub modal: Option<Modal>,
     pub search_query: String,
@@ -78,7 +79,7 @@ impl std::fmt::Debug for MainState {
             .field("environments", &self.environments)
             .field("active_environment_idx", &self.active_environment_idx)
             .field("available_versions", &self.available_versions)
-            .field("current_operation", &self.current_operation)
+            .field("operation_queue", &self.operation_queue)
             .field("toasts", &self.toasts)
             .field("modal", &self.modal)
             .field("search_query", &self.search_query)
@@ -95,7 +96,7 @@ impl MainState {
             environments: vec![EnvironmentState::new(EnvironmentId::Native, fnm_version)],
             active_environment_idx: 0,
             available_versions: VersionCache::new(),
-            current_operation: None,
+            operation_queue: OperationQueue::new(),
             toasts: Vec::new(),
             modal: None,
             search_query: String::new(),
@@ -113,7 +114,7 @@ impl MainState {
             environments,
             active_environment_idx: 0,
             available_versions: VersionCache::new(),
-            current_operation: None,
+            operation_queue: OperationQueue::new(),
             toasts: Vec::new(),
             modal: None,
             search_query: String::new(),
@@ -247,6 +248,105 @@ pub enum Operation {
 }
 
 #[derive(Debug, Clone)]
+pub enum OperationRequest {
+    Install { version: String },
+    Uninstall { version: String },
+    SetDefault { version: String },
+}
+
+impl OperationRequest {
+    pub fn version(&self) -> &str {
+        match self {
+            Self::Install { version } => version,
+            Self::Uninstall { version } => version,
+            Self::SetDefault { version } => version,
+        }
+    }
+
+    pub fn description(&self) -> String {
+        match self {
+            Self::Install { version } => format!("Install Node {}", version),
+            Self::Uninstall { version } => format!("Uninstall Node {}", version),
+            Self::SetDefault { version } => format!("Set Node {} as default", version),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct QueuedOperation {
+    pub id: usize,
+    pub request: OperationRequest,
+    #[allow(dead_code)]
+    pub queued_at: Instant,
+}
+
+#[derive(Debug, Clone)]
+pub struct OperationQueue {
+    pub current: Option<Operation>,
+    pub pending: VecDeque<QueuedOperation>,
+    next_id: usize,
+}
+
+impl Default for OperationQueue {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl OperationQueue {
+    pub fn new() -> Self {
+        Self {
+            current: None,
+            pending: VecDeque::new(),
+            next_id: 0,
+        }
+    }
+
+    pub fn next_id(&mut self) -> usize {
+        let id = self.next_id;
+        self.next_id += 1;
+        id
+    }
+
+    pub fn is_busy(&self) -> bool {
+        self.current.is_some()
+    }
+
+    #[allow(dead_code)]
+    pub fn has_pending(&self) -> bool {
+        !self.pending.is_empty()
+    }
+
+    #[allow(dead_code)]
+    pub fn queue_count(&self) -> usize {
+        self.pending.len()
+    }
+
+    pub fn cancel_pending(&mut self, id: usize) -> bool {
+        let before = self.pending.len();
+        self.pending.retain(|op| op.id != id);
+        self.pending.len() < before
+    }
+
+    pub fn has_pending_for_version(&self, version: &str) -> bool {
+        self.pending
+            .iter()
+            .any(|op| op.request.version() == version)
+    }
+
+    pub fn is_current_version(&self, version: &str) -> bool {
+        self.current
+            .as_ref()
+            .map(|op| match op {
+                Operation::Install { version: v, .. } => v == version,
+                Operation::Uninstall { version: v } => v == version,
+                Operation::SetDefault { version: v, .. } => v == version,
+            })
+            .unwrap_or(false)
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Toast {
     pub id: usize,
     pub message: String,
@@ -306,6 +406,9 @@ pub enum Modal {
     Install(InstallModalState),
     Settings(SettingsModalState),
     ConfirmUninstall { version: String },
+    ConfirmBulkUpdateMajors { versions: Vec<(String, String)> },
+    ConfirmBulkUninstallEOL { versions: Vec<String> },
+    ConfirmBulkUninstallMajor { major: u32, versions: Vec<String> },
 }
 
 #[derive(Debug, Clone)]

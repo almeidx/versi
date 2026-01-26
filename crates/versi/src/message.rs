@@ -56,11 +56,24 @@ pub enum Message {
     RequestUninstall(String),
     ConfirmUninstall(String),
     CancelUninstall,
+    CancelQueuedOperation(usize),
     UninstallComplete {
         version: String,
         success: bool,
         error: Option<String>,
     },
+
+    RequestBulkUpdateMajors,
+    RequestBulkUninstallEOL,
+    RequestBulkUninstallMajor {
+        major: u32,
+    },
+    ConfirmBulkUpdateMajors,
+    ConfirmBulkUninstallEOL,
+    ConfirmBulkUninstallMajor {
+        major: u32,
+    },
+    CancelBulkOperation,
 
     SetDefault(String),
     DefaultChanged {

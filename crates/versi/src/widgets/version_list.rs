@@ -6,7 +6,7 @@ use iced::{Alignment, Element, Length};
 use versi_core::{InstalledVersion, NodeVersion, ReleaseSchedule, RemoteVersion, VersionGroup};
 
 use crate::message::Message;
-use crate::state::EnvironmentState;
+use crate::state::{EnvironmentState, OperationQueue};
 use crate::theme::styles;
 
 fn compute_latest_by_major(remote_versions: &[RemoteVersion]) -> HashMap<u32, NodeVersion> {
@@ -32,6 +32,7 @@ pub fn view<'a>(
     search_query: &'a str,
     remote_versions: &[RemoteVersion],
     schedule: Option<&ReleaseSchedule>,
+    operation_queue: &'a OperationQueue,
 ) -> Element<'a, Message> {
     let latest_by_major = compute_latest_by_major(remote_versions);
     if env.loading {
@@ -112,6 +113,7 @@ pub fn view<'a>(
                 search_query,
                 update_available,
                 schedule,
+                operation_queue,
             )
         })
         .collect();
@@ -148,6 +150,7 @@ fn version_group_view<'a>(
     search_query: &'a str,
     update_available: Option<String>,
     schedule: Option<&ReleaseSchedule>,
+    operation_queue: &'a OperationQueue,
 ) -> Element<'a, Message> {
     let has_lts = group.versions.iter().any(|v| v.lts_codename.is_some());
     let has_default = group
@@ -197,21 +200,34 @@ fn version_group_view<'a>(
         })
         .padding([8, 12]);
 
-    let header: Element<Message> = if let Some(new_version) = update_available {
+    let mut header_actions = row![].spacing(8).align_y(Alignment::Center);
+
+    if let Some(new_version) = update_available {
         let version_to_install = new_version.clone();
-        row![
-            header_button,
-            Space::new().width(Length::Fill),
+        header_actions = header_actions.push(
             button(container(text(format!("{} available", new_version)).size(10)).padding([2, 6]))
                 .on_press(Message::StartInstall(version_to_install))
                 .style(styles::update_badge_button)
                 .padding(0),
-        ]
-        .align_y(Alignment::Center)
-        .into()
-    } else {
-        header_button.into()
-    };
+        );
+    }
+
+    if group.is_expanded && group.versions.len() > 1 {
+        header_actions = header_actions.push(
+            button(text("Uninstall All").size(10))
+                .on_press(Message::RequestBulkUninstallMajor { major: group.major })
+                .style(styles::ghost_button)
+                .padding([4, 8]),
+        );
+    }
+
+    let header: Element<Message> = row![
+        header_button,
+        Space::new().width(Length::Fill),
+        header_actions,
+    ]
+    .align_y(Alignment::Center)
+    .into();
 
     if group.is_expanded {
         let filtered_versions: Vec<&InstalledVersion> = group
@@ -222,7 +238,7 @@ fn version_group_view<'a>(
 
         let items: Vec<Element<Message>> = filtered_versions
             .iter()
-            .map(|v| version_item_view(v, default))
+            .map(|v| version_item_view(v, default, operation_queue))
             .collect();
 
         container(
@@ -272,6 +288,7 @@ fn filter_version(version: &InstalledVersion, query: &str) -> bool {
 fn version_item_view<'a>(
     version: &'a InstalledVersion,
     default: &'a Option<versi_core::NodeVersion>,
+    operation_queue: &'a OperationQueue,
 ) -> Element<'a, Message> {
     let is_default = default
         .as_ref()
@@ -282,6 +299,35 @@ fn version_item_view<'a>(
     let version_display = version_str.clone();
     let version_for_default = version_str.clone();
     let version_for_changelog = version_str.clone();
+
+    let is_busy = operation_queue.is_current_version(&version_str)
+        || operation_queue.has_pending_for_version(&version_str);
+
+    let set_default_button = if is_default {
+        button(text("Default").size(12))
+            .style(styles::secondary_button)
+            .padding([6, 12])
+    } else if is_busy {
+        button(text("Set Default").size(12))
+            .style(styles::secondary_button)
+            .padding([6, 12])
+    } else {
+        button(text("Set Default").size(12))
+            .on_press(Message::SetDefault(version_for_default))
+            .style(styles::secondary_button)
+            .padding([6, 12])
+    };
+
+    let uninstall_button = if is_busy {
+        button(text("Uninstall").size(12))
+            .style(styles::danger_button)
+            .padding([6, 12])
+    } else {
+        button(text("Uninstall").size(12))
+            .on_press(Message::RequestUninstall(version_str))
+            .style(styles::danger_button)
+            .padding([6, 12])
+    };
 
     row![
         text(version_display).size(14).width(Length::Fixed(120.0)),
@@ -309,20 +355,8 @@ fn version_item_view<'a>(
             .on_press(Message::OpenChangelog(version_for_changelog))
             .style(styles::ghost_button)
             .padding([4, 8]),
-        if !is_default {
-            button(text("Set Default").size(12))
-                .on_press(Message::SetDefault(version_for_default))
-                .style(styles::secondary_button)
-                .padding([6, 12])
-        } else {
-            button(text("Default").size(12))
-                .style(styles::secondary_button)
-                .padding([6, 12])
-        },
-        button(text("Uninstall").size(12))
-            .on_press(Message::RequestUninstall(version_str))
-            .style(styles::danger_button)
-            .padding([6, 12]),
+        set_default_button,
+        uninstall_button,
     ]
     .spacing(8)
     .align_y(Alignment::Center)

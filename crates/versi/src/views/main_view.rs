@@ -5,7 +5,9 @@ use iced::{Alignment, Element, Length};
 
 use crate::message::Message;
 use crate::settings::{AppSettings, TrayBehavior};
-use crate::state::{MainState, Modal, Operation, SettingsModalState, ShellVerificationStatus};
+use crate::state::{
+    MainState, Modal, Operation, QueuedOperation, SettingsModalState, ShellVerificationStatus,
+};
 use crate::theme::{is_system_dark, styles};
 use crate::widgets::{install_modal, toast_container, version_list};
 
@@ -17,6 +19,7 @@ pub fn view<'a>(state: &'a MainState, settings: &'a AppSettings) -> Element<'a, 
         &state.search_query,
         &state.available_versions.versions,
         state.available_versions.schedule.as_ref(),
+        &state.operation_queue,
     );
 
     let mut main_column = column![].spacing(0);
@@ -80,6 +83,14 @@ fn header_view<'a>(state: &'a MainState) -> Element<'a, Message> {
             .on_press(Message::RefreshEnvironment)
             .style(styles::secondary_button)
             .padding([8, 16]),
+        button(text("Update All").size(13))
+            .on_press(Message::RequestBulkUpdateMajors)
+            .style(styles::secondary_button)
+            .padding([8, 12]),
+        button(text("Clean EOL").size(13))
+            .on_press(Message::RequestBulkUninstallEOL)
+            .style(styles::ghost_button)
+            .padding([8, 12]),
         button(text("Settings").size(13))
             .on_press(Message::OpenSettings)
             .style(styles::ghost_button)
@@ -155,9 +166,35 @@ fn environment_tabs_view<'a>(state: &'a MainState) -> Option<Element<'a, Message
 }
 
 fn operation_status_view<'a>(state: &'a MainState) -> Option<Element<'a, Message>> {
-    let op = state.current_operation.as_ref()?;
+    let queue = &state.operation_queue;
 
-    let element = match op {
+    if queue.current.is_none() && queue.pending.is_empty() {
+        return None;
+    }
+
+    let mut content = column![].spacing(8);
+
+    if let Some(op) = &queue.current {
+        content = content.push(current_operation_view(op));
+    }
+
+    if !queue.pending.is_empty() {
+        content = content.push(text("Queued").size(11));
+        for queued in &queue.pending {
+            content = content.push(queued_operation_view(queued));
+        }
+    }
+
+    Some(
+        container(content.padding(16))
+            .style(styles::card_container)
+            .max_width(320)
+            .into(),
+    )
+}
+
+fn current_operation_view(op: &Operation) -> Element<'_, Message> {
+    match op {
         Operation::Install { version, progress } => {
             let phase_text = match progress.phase {
                 versi_core::InstallPhase::Starting => "Preparing...",
@@ -168,34 +205,34 @@ fn operation_status_view<'a>(state: &'a MainState) -> Option<Element<'a, Message
                 versi_core::InstallPhase::Failed => "Failed",
             };
 
-            container(
-                column![
-                    text(format!("Installing Node {}", version)).size(14),
-                    text(phase_text).size(12),
-                ]
-                .spacing(8)
-                .padding(20),
-            )
-            .style(styles::card_container)
+            column![
+                text(format!("Installing Node {}", version)).size(14),
+                text(phase_text).size(12),
+            ]
+            .spacing(4)
             .into()
         }
-        Operation::Uninstall { version } => container(
-            row![text(format!("Removing Node {}...", version)).size(14),]
-                .spacing(8)
-                .padding(20),
-        )
-        .style(styles::card_container)
-        .into(),
-        Operation::SetDefault { version, .. } => container(
-            row![text(format!("Setting default to Node {}...", version)).size(14),]
-                .spacing(8)
-                .padding(20),
-        )
-        .style(styles::card_container)
-        .into(),
-    };
+        Operation::Uninstall { version } => text(format!("Removing Node {}...", version))
+            .size(14)
+            .into(),
+        Operation::SetDefault { version, .. } => text(format!("Setting default to {}...", version))
+            .size(14)
+            .into(),
+    }
+}
 
-    Some(element)
+fn queued_operation_view(queued: &QueuedOperation) -> Element<'_, Message> {
+    row![
+        text(queued.request.description()).size(12),
+        Space::new().width(Length::Fill),
+        button(text("×").size(12))
+            .on_press(Message::CancelQueuedOperation(queued.id))
+            .style(styles::ghost_button)
+            .padding([2, 6]),
+    ]
+    .spacing(8)
+    .align_y(Alignment::Center)
+    .into()
 }
 
 fn modal_overlay<'a>(
@@ -208,6 +245,11 @@ fn modal_overlay<'a>(
         Modal::Install(install_state) => install_modal::view(install_state, state),
         Modal::Settings(settings_state) => settings_modal_view(settings_state, settings, state),
         Modal::ConfirmUninstall { version } => confirm_uninstall_view(version),
+        Modal::ConfirmBulkUpdateMajors { versions } => confirm_bulk_update_view(versions),
+        Modal::ConfirmBulkUninstallEOL { versions } => confirm_bulk_uninstall_eol_view(versions),
+        Modal::ConfirmBulkUninstallMajor { major, versions } => {
+            confirm_bulk_uninstall_major_view(*major, versions)
+        }
     };
 
     let backdrop = mouse_area(
@@ -248,17 +290,17 @@ fn settings_modal_view<'a>(
     settings: &'a AppSettings,
     _state: &'a MainState,
 ) -> Element<'a, Message> {
+    let header = row![
+        text("Settings").size(20),
+        Space::new().width(Length::Fill),
+        button(text("Done").size(13))
+            .on_press(Message::CloseSettings)
+            .style(styles::primary_button)
+            .padding([6, 14]),
+    ]
+    .align_y(Alignment::Center);
+
     let mut content = column![
-        row![
-            text("Settings").size(20),
-            Space::new().width(Length::Fill),
-            button(text("Done").size(13))
-                .on_press(Message::CloseSettings)
-                .style(styles::primary_button)
-                .padding([6, 14]),
-        ]
-        .align_y(Alignment::Center),
-        Space::new().height(24),
         text("Appearance").size(13),
         Space::new().height(8),
         row![
@@ -505,9 +547,14 @@ fn settings_modal_view<'a>(
         .spacing(8),
     );
 
-    scrollable(content.padding(iced::Padding::default().right(12)))
-        .height(Length::Shrink)
-        .into()
+    column![
+        header,
+        Space::new().height(24),
+        scrollable(content.padding(iced::Padding::default().right(12))).height(Length::Fill),
+    ]
+    .spacing(0)
+    .width(Length::Fill)
+    .into()
 }
 
 fn confirm_uninstall_view<'a>(version: &'a str) -> Element<'a, Message> {
@@ -524,6 +571,154 @@ fn confirm_uninstall_view<'a>(version: &'a str) -> Element<'a, Message> {
             Space::new().width(Length::Fill),
             button(text("Remove").size(13))
                 .on_press(Message::ConfirmUninstall(version.to_string()))
+                .style(styles::danger_button)
+                .padding([10, 20]),
+        ]
+        .spacing(16),
+    ]
+    .spacing(4)
+    .width(Length::Fill)
+    .into()
+}
+
+fn confirm_bulk_update_view(versions: &[(String, String)]) -> Element<'_, Message> {
+    let mut version_list = column![].spacing(4);
+
+    for (from, to) in versions.iter().take(10) {
+        version_list = version_list.push(
+            text(format!("{} → {}", from, to))
+                .size(12)
+                .color(iced::Color::from_rgb8(142, 142, 147)),
+        );
+    }
+
+    if versions.len() > 10 {
+        version_list = version_list.push(
+            text(format!("...and {} more", versions.len() - 10))
+                .size(11)
+                .color(iced::Color::from_rgb8(142, 142, 147)),
+        );
+    }
+
+    column![
+        text("Update All Versions?").size(20),
+        Space::new().height(12),
+        text(format!(
+            "This will install {} newer version(s):",
+            versions.len()
+        ))
+        .size(14),
+        Space::new().height(8),
+        version_list,
+        Space::new().height(24),
+        row![
+            button(text("Cancel").size(13))
+                .on_press(Message::CancelBulkOperation)
+                .style(styles::secondary_button)
+                .padding([10, 20]),
+            Space::new().width(Length::Fill),
+            button(text("Update All").size(13))
+                .on_press(Message::ConfirmBulkUpdateMajors)
+                .style(styles::primary_button)
+                .padding([10, 20]),
+        ]
+        .spacing(16),
+    ]
+    .spacing(4)
+    .width(Length::Fill)
+    .into()
+}
+
+fn confirm_bulk_uninstall_eol_view(versions: &[String]) -> Element<'_, Message> {
+    let mut version_list = column![].spacing(4);
+
+    for version in versions.iter().take(10) {
+        version_list = version_list.push(
+            text(format!("Node {}", version))
+                .size(12)
+                .color(iced::Color::from_rgb8(142, 142, 147)),
+        );
+    }
+
+    if versions.len() > 10 {
+        version_list = version_list.push(
+            text(format!("...and {} more", versions.len() - 10))
+                .size(11)
+                .color(iced::Color::from_rgb8(142, 142, 147)),
+        );
+    }
+
+    column![
+        text("Remove All EOL Versions?").size(20),
+        Space::new().height(12),
+        text(format!(
+            "This will uninstall {} end-of-life version(s):",
+            versions.len()
+        ))
+        .size(14),
+        Space::new().height(8),
+        version_list,
+        Space::new().height(8),
+        text("These versions no longer receive security updates.")
+            .size(12)
+            .color(iced::Color::from_rgb8(255, 149, 0)),
+        Space::new().height(24),
+        row![
+            button(text("Cancel").size(13))
+                .on_press(Message::CancelBulkOperation)
+                .style(styles::secondary_button)
+                .padding([10, 20]),
+            Space::new().width(Length::Fill),
+            button(text("Remove All").size(13))
+                .on_press(Message::ConfirmBulkUninstallEOL)
+                .style(styles::danger_button)
+                .padding([10, 20]),
+        ]
+        .spacing(16),
+    ]
+    .spacing(4)
+    .width(Length::Fill)
+    .into()
+}
+
+fn confirm_bulk_uninstall_major_view(major: u32, versions: &[String]) -> Element<'_, Message> {
+    let mut version_list = column![].spacing(4);
+
+    for version in versions.iter().take(10) {
+        version_list = version_list.push(
+            text(format!("Node {}", version))
+                .size(12)
+                .color(iced::Color::from_rgb8(142, 142, 147)),
+        );
+    }
+
+    if versions.len() > 10 {
+        version_list = version_list.push(
+            text(format!("...and {} more", versions.len() - 10))
+                .size(11)
+                .color(iced::Color::from_rgb8(142, 142, 147)),
+        );
+    }
+
+    column![
+        text(format!("Remove All Node {}.x Versions?", major)).size(20),
+        Space::new().height(12),
+        text(format!(
+            "This will uninstall {} version(s):",
+            versions.len()
+        ))
+        .size(14),
+        Space::new().height(8),
+        version_list,
+        Space::new().height(24),
+        row![
+            button(text("Cancel").size(13))
+                .on_press(Message::CancelBulkOperation)
+                .style(styles::secondary_button)
+                .padding([10, 20]),
+            Space::new().width(Length::Fill),
+            button(text("Remove All").size(13))
+                .on_press(Message::ConfirmBulkUninstallMajor { major })
                 .style(styles::danger_button)
                 .padding([10, 20]),
         ]
