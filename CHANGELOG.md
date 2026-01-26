@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.1.2-alpha.19] - 2026-01-26
+
+- fix(ci): checkout merge commit for release tag
+- ci: improve Rust cache sharing between workflows
+- fix: bulk update only compares latest installed version per major
+- chore: upgrade to Rust 2024 edition
+- chore: release v0.1.2-alpha.18 (#32)
+- fix(windows): add Win32_Security feature for CreateMutexA
+- refactor: consolidate install into main search
+- chore: remove dead code and unnecessary allow attributes
+- feat: add operations queue, bulk operations, and Windows fixes
+- deps: Lock file maintenance (#31)
+- deps: Update Rust crate winresource to 0.1.30 (#30)
+- deps: Update patch/minor dependencies (#29)
+
+
 ## [0.1.2-alpha.18] - 2026-01-26
 
 - fix(windows): add Win32_Security feature for CreateMutexA
