@@ -1710,11 +1710,25 @@ impl FnmUi {
             TrayMessage::ShowWindow => {
                 if let Some(id) = self.window_id {
                     set_dock_visible(true);
-                    Task::batch([
+
+                    let needs_refresh = if let AppState::Main(state) = &self.state {
+                        state.active_environment().installed_versions.is_empty()
+                            && !state.active_environment().loading
+                    } else {
+                        false
+                    };
+
+                    let mut tasks = vec![
                         iced::window::set_mode(id, iced::window::Mode::Windowed),
                         iced::window::minimize(id, false),
                         iced::window::gain_focus(id),
-                    ])
+                    ];
+
+                    if needs_refresh {
+                        tasks.push(Task::done(Message::RefreshEnvironment));
+                    }
+
+                    Task::batch(tasks)
                 } else {
                     Task::none()
                 }
