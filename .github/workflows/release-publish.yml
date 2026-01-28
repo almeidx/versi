@@ -64,7 +64,8 @@ jobs:
           cp target/aarch64-apple-darwin/release/versi "dist/arm64/Versi.app/Contents/MacOS/"
           cp assets/AppIcon.icns "dist/arm64/Versi.app/Contents/Resources/"
           sed "s/VERSION_PLACEHOLDER/$VERSION/g" assets/Info.plist > "dist/arm64/Versi.app/Contents/Info.plist"
-          cd dist/arm64 && zip -r "../versi-${VERSION}-macos-arm64.zip" "Versi.app" && cd -
+          cp scripts/install.sh "dist/arm64/install.sh"
+          cd dist/arm64 && zip -r "../versi-${VERSION}-macos-arm64.zip" "Versi.app" "install.sh" && cd -
 
           # Create x64 .app bundle
           mkdir -p "dist/x64/Versi.app/Contents/MacOS"
@@ -72,7 +73,8 @@ jobs:
           cp target/x86_64-apple-darwin/release/versi "dist/x64/Versi.app/Contents/MacOS/"
           cp assets/AppIcon.icns "dist/x64/Versi.app/Contents/Resources/"
           sed "s/VERSION_PLACEHOLDER/$VERSION/g" assets/Info.plist > "dist/x64/Versi.app/Contents/Info.plist"
-          cd dist/x64 && zip -r "../versi-${VERSION}-macos-x64.zip" "Versi.app" && cd -
+          cp scripts/install.sh "dist/x64/install.sh"
+          cd dist/x64 && zip -r "../versi-${VERSION}-macos-x64.zip" "Versi.app" "install.sh" && cd -
 
       - name: Upload ARM64 artifact
         uses: actions/upload-artifact@v6

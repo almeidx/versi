@@ -35,12 +35,19 @@ Download the latest release for your platform from the [Releases](https://github
 
 1. Download the appropriate `.zip` file for your Mac
 2. Extract the zip file
-3. Drag `Versi.app` to your Applications folder
-4. **Important**: On first launch, macOS may block the app because it's not signed. To fix this:
+3. Run the install script (recommended):
    ```bash
-   xattr -cr "/Applications/Versi.app"
+   ./install.sh
    ```
-   Or right-click the app and select "Open" to bypass Gatekeeper.
+   This will remove the quarantine attribute and move `Versi.app` to your Applications folder.
+
+   **Or install manually:**
+   - Drag `Versi.app` to your Applications folder
+   - On first launch, macOS may block the app because it's not signed. To fix this:
+     ```bash
+     xattr -cr "/Applications/Versi.app"
+     ```
+     Or right-click the app and select "Open" to bypass Gatekeeper.
 
 ### Windows Installation
 
