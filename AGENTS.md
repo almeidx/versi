@@ -25,8 +25,11 @@ versi/
 │   │       ├── state.rs          # Application state structs
 │   │       ├── theme.rs          # Light/dark themes and styles
 │   │       ├── settings.rs       # User settings persistence
-│   │       ├── views/            # UI views (main_view, onboarding, loading)
-│   │       └── widgets/          # Custom widgets (version_list, install_modal, toast)
+│   │       ├── logging.rs        # Debug log file management
+│   │       ├── tray.rs           # System tray integration
+│   │       ├── single_instance.rs # Single-instance enforcement
+│   │       ├── views/            # UI views (main_view, settings_view, onboarding, loading)
+│   │       └── widgets/          # Custom widgets (version_list, toast_container)
 │   ├── versi-core/               # fnm CLI wrapper library
 │   │   └── src/
 │   │       ├── client.rs         # FnmClient - command execution
@@ -64,6 +67,8 @@ The application follows Iced's Elm-style architecture:
 - **Tasks**: Async operations return `Task<Message>` for side effects
 - **Subscriptions**: Time-based events (tick for toast timeouts)
 - **Theming**: Dynamic light/dark themes based on system preference
+- **Operation Queue**: Installs run concurrently (`active_installs: Vec<Operation>`), while uninstall and set-default are exclusive (`exclusive_op: Option<Operation>`). Pending operations are queued and drained when capacity is available.
+- **System Tray**: Optional background tray icon with version switching support
 
 ## Development Commands
 
@@ -160,6 +165,7 @@ Key external crates:
 - All fnm operations execute CLI commands as subprocesses via `FnmClient`
 - Parse stdout/stderr for status and results
 - Long-running operations (install/download) run in async tasks
+- Multiple installs can run concurrently; uninstall and set-default wait for all installs to finish
 - UI remains responsive during operations via Iced's `Task` system
 
 **Key fnm commands used:**
@@ -200,5 +206,4 @@ Key external crates:
 ## Not Yet Implemented
 
 These features are planned but not yet built:
-- Parallel install operations
 - Window size/position persistence
