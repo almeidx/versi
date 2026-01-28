@@ -9,10 +9,13 @@ A native GUI application for [fnm](https://github.com/Schniz/fnm) (Fast Node Man
 - View and manage installed Node.js versions
 - Install/uninstall Node.js versions
 - Set default Node.js version
+- Bulk operations: update all majors, clean EOL versions, keep only latest per major
 - Check for updates and install them
 - Light and dark theme support (follows system preference)
 - Shell configuration detection and setup
 - Search and filter versions
+- System tray support with quick version switching
+- WSL integration on Windows (manage Node.js in WSL distros)
 
 ## Installation
 

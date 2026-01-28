@@ -184,10 +184,13 @@ Key external crates:
 
 ### WSL (Windows Subsystem for Linux)
 - Accessed via Windows app's multi-environment support
-- Uses `wsl.exe --list --running` to detect running distros (avoids starting WSL)
+- Lists all WSL distros via `wsl.exe --list --verbose`
+- Separately checks which distros are running via `wsl.exe --list --running --quiet`
+- Only checks for fnm in running distros (avoids booting non-running distros)
 - Detects fnm binary path by checking common locations (`~/.local/share/fnm/fnm`, `~/.cargo/bin/fnm`, etc.)
-- Only shows WSL tabs for distros where fnm is found
+- Shows all distros as tabs; non-running or fnm-less distros appear disabled with reason
 - Commands executed directly via `wsl.exe -d <distro> /path/to/fnm ...` (no shell needed)
+- Shell detection in settings is environment-aware: shows Linux shells (bash/zsh/fish) for WSL environments
 
 ### Linux
 - Native x64 and ARM64 binaries
