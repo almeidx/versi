@@ -263,13 +263,13 @@ fn version_group_view<'a>(
 
     if is_eol {
         header_row = header_row.push(
-            container(text("EOL").size(10))
+            container(text("End-of-Life").size(10))
                 .padding([2, 6])
                 .style(styles::badge_eol),
         );
     }
 
-    if has_default {
+    if has_default && !group.is_expanded {
         header_row = header_row.push(
             container(text("default").size(10))
                 .padding([2, 6])
@@ -294,7 +294,7 @@ fn version_group_view<'a>(
             button(container(text(format!("{} available", new_version)).size(10)).padding([2, 6]))
                 .on_press(Message::StartInstall(version_to_install))
                 .style(styles::update_badge_button)
-                .padding(0),
+                .padding([0, 4]),
         );
     }
 
@@ -538,7 +538,7 @@ fn available_version_row<'a>(
             container(Space::new())
         },
         if is_eol {
-            container(text("EOL").size(11))
+            container(text("End-of-Life").size(11))
                 .padding([2, 6])
                 .style(styles::badge_eol)
         } else {
