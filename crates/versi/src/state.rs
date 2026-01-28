@@ -281,11 +281,22 @@ pub struct QueuedOperation {
     pub queued_at: Instant,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct OperationQueue {
-    pub current: Option<Operation>,
+    pub active_installs: Vec<Operation>,
+    pub exclusive_op: Option<Operation>,
     pub pending: VecDeque<QueuedOperation>,
     next_id: usize,
+}
+
+impl std::fmt::Debug for OperationQueue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OperationQueue")
+            .field("active_installs", &self.active_installs.len())
+            .field("exclusive_op", &self.exclusive_op)
+            .field("pending", &self.pending.len())
+            .finish()
+    }
 }
 
 impl Default for OperationQueue {
@@ -297,7 +308,8 @@ impl Default for OperationQueue {
 impl OperationQueue {
     pub fn new() -> Self {
         Self {
-            current: None,
+            active_installs: Vec::new(),
+            exclusive_op: None,
             pending: VecDeque::new(),
             next_id: 0,
         }
@@ -309,8 +321,12 @@ impl OperationQueue {
         id
     }
 
-    pub fn is_busy(&self) -> bool {
-        self.current.is_some()
+    pub fn is_busy_for_install(&self) -> bool {
+        self.exclusive_op.is_some()
+    }
+
+    pub fn is_busy_for_exclusive(&self) -> bool {
+        !self.active_installs.is_empty() || self.exclusive_op.is_some()
     }
 
     #[allow(dead_code)]
@@ -336,7 +352,14 @@ impl OperationQueue {
     }
 
     pub fn is_current_version(&self, version: &str) -> bool {
-        self.current
+        let in_installs = self.active_installs.iter().any(|op| match op {
+            Operation::Install { version: v, .. } => v == version,
+            _ => false,
+        });
+        if in_installs {
+            return true;
+        }
+        self.exclusive_op
             .as_ref()
             .map(|op| match op {
                 Operation::Install { version: v, .. } => v == version,
@@ -344,6 +367,26 @@ impl OperationQueue {
                 Operation::SetDefault { version: v } => v == version,
             })
             .unwrap_or(false)
+    }
+
+    pub fn remove_completed_install(&mut self, version: &str) {
+        self.active_installs.retain(|op| match op {
+            Operation::Install { version: v, .. } => v != version,
+            _ => true,
+        });
+    }
+
+    pub fn update_install_progress(&mut self, version: &str, progress: InstallProgress) {
+        if let Some(Operation::Install {
+            progress: op_progress,
+            ..
+        }) = self
+            .active_installs
+            .iter_mut()
+            .find(|op| matches!(op, Operation::Install { version: v, .. } if v == version))
+        {
+            *op_progress = progress;
+        }
     }
 }
 

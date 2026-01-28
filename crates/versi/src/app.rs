@@ -798,7 +798,17 @@ impl FnmUi {
         if let AppState::Main(state) = &mut self.state {
             state.modal = None;
 
-            if state.operation_queue.is_busy() {
+            if state
+                .operation_queue
+                .active_installs
+                .iter()
+                .any(|op| matches!(op, Operation::Install { version: v, .. } if v == &version))
+                || state.operation_queue.has_pending_for_version(&version)
+            {
+                return Task::none();
+            }
+
+            if state.operation_queue.is_busy_for_install() {
                 let id = state.operation_queue.next_id();
                 state.operation_queue.pending.push_back(QueuedOperation {
                     id,
@@ -817,10 +827,13 @@ impl FnmUi {
 
     fn start_install_internal(&mut self, version: String) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            state.operation_queue.current = Some(Operation::Install {
-                version: version.clone(),
-                progress: Default::default(),
-            });
+            state
+                .operation_queue
+                .active_installs
+                .push(Operation::Install {
+                    version: version.clone(),
+                    progress: Default::default(),
+                });
 
             let backend = state.backend.clone();
             let version_clone = version.clone();
@@ -871,14 +884,11 @@ impl FnmUi {
         Task::none()
     }
 
-    fn handle_install_progress(&mut self, _version: String, progress: versi_core::InstallProgress) {
-        if let AppState::Main(state) = &mut self.state
-            && let Some(Operation::Install {
-                progress: op_progress,
-                ..
-            }) = &mut state.operation_queue.current
-        {
-            *op_progress = progress;
+    fn handle_install_progress(&mut self, version: String, progress: versi_core::InstallProgress) {
+        if let AppState::Main(state) = &mut self.state {
+            state
+                .operation_queue
+                .update_install_progress(&version, progress);
         }
     }
 
@@ -889,7 +899,7 @@ impl FnmUi {
         error: Option<String>,
     ) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            state.operation_queue.current = None;
+            state.operation_queue.remove_completed_install(&version);
 
             let toast_id = state.next_toast_id();
             if success {
@@ -932,7 +942,7 @@ impl FnmUi {
         if let AppState::Main(state) = &mut self.state {
             state.modal = None;
 
-            if state.operation_queue.is_busy() {
+            if state.operation_queue.is_busy_for_exclusive() {
                 let id = state.operation_queue.next_id();
                 state.operation_queue.pending.push_back(QueuedOperation {
                     id,
@@ -951,7 +961,7 @@ impl FnmUi {
 
     fn start_uninstall_internal(&mut self, version: String) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            state.operation_queue.current = Some(Operation::Uninstall {
+            state.operation_queue.exclusive_op = Some(Operation::Uninstall {
                 version: version.clone(),
             });
 
@@ -982,7 +992,7 @@ impl FnmUi {
         error: Option<String>,
     ) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            state.operation_queue.current = None;
+            state.operation_queue.exclusive_op = None;
 
             let toast_id = state.next_toast_id();
             if success {
@@ -1010,7 +1020,7 @@ impl FnmUi {
 
     fn handle_set_default(&mut self, version: String) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            if state.operation_queue.is_busy() {
+            if state.operation_queue.is_busy_for_exclusive() {
                 let id = state.operation_queue.next_id();
                 state.operation_queue.pending.push_back(QueuedOperation {
                     id,
@@ -1035,7 +1045,7 @@ impl FnmUi {
                 .as_ref()
                 .map(|v| v.to_string());
 
-            state.operation_queue.current = Some(Operation::SetDefault {
+            state.operation_queue.exclusive_op = Some(Operation::SetDefault {
                 version: version.clone(),
             });
 
@@ -1068,7 +1078,7 @@ impl FnmUi {
         error: Option<String>,
     ) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            state.operation_queue.current = None;
+            state.operation_queue.exclusive_op = None;
 
             let toast_id = state.next_toast_id();
             if success {
@@ -1346,20 +1356,54 @@ impl FnmUi {
 
     fn process_next_operation(&mut self) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            if state.operation_queue.is_busy() {
+            if state.operation_queue.exclusive_op.is_some() {
                 return Task::none();
             }
 
-            if let Some(next) = state.operation_queue.pending.pop_front() {
-                return match next.request {
-                    OperationRequest::Install { version } => self.start_install_internal(version),
+            let mut install_versions: Vec<String> = Vec::new();
+            let mut exclusive_request: Option<OperationRequest> = None;
+
+            while let Some(next) = state.operation_queue.pending.front() {
+                match &next.request {
+                    OperationRequest::Install { version } => {
+                        let already_active = state.operation_queue.active_installs.iter().any(
+                            |op| matches!(op, Operation::Install { version: v, .. } if v == version),
+                        );
+                        if !already_active && !install_versions.contains(version) {
+                            install_versions.push(version.clone());
+                        }
+                        state.operation_queue.pending.pop_front();
+                    }
+                    _ => {
+                        if state.operation_queue.active_installs.is_empty()
+                            && install_versions.is_empty()
+                        {
+                            let queued = state.operation_queue.pending.pop_front().unwrap();
+                            exclusive_request = Some(queued.request);
+                        }
+                        break;
+                    }
+                }
+            }
+
+            let mut tasks: Vec<Task<Message>> = Vec::new();
+            for version in install_versions {
+                tasks.push(self.start_install_internal(version));
+            }
+            if let Some(request) = exclusive_request {
+                match request {
                     OperationRequest::Uninstall { version } => {
-                        self.start_uninstall_internal(version)
+                        tasks.push(self.start_uninstall_internal(version));
                     }
                     OperationRequest::SetDefault { version } => {
-                        self.start_set_default_internal(version)
+                        tasks.push(self.start_set_default_internal(version));
                     }
-                };
+                    OperationRequest::Install { .. } => unreachable!(),
+                }
+            }
+
+            if !tasks.is_empty() {
+                return Task::batch(tasks);
             }
         }
         Task::none()

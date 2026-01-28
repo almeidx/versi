@@ -281,13 +281,18 @@ fn environment_tabs_view<'a>(state: &'a MainState) -> Option<Element<'a, Message
 fn operation_status_view<'a>(state: &'a MainState) -> Option<Element<'a, Message>> {
     let queue = &state.operation_queue;
 
-    if queue.current.is_none() && queue.pending.is_empty() {
+    if queue.active_installs.is_empty() && queue.exclusive_op.is_none() && queue.pending.is_empty()
+    {
         return None;
     }
 
     let mut content = column![].spacing(8);
 
-    if let Some(op) = &queue.current {
+    for op in &queue.active_installs {
+        content = content.push(current_operation_view(op));
+    }
+
+    if let Some(op) = &queue.exclusive_op {
         content = content.push(current_operation_view(op));
     }
 
