@@ -331,7 +331,15 @@ impl FnmUi {
             }
             Message::WindowOpened(id) => {
                 self.window_id = Some(id);
-                Task::none()
+                if self.pending_minimize {
+                    self.pending_minimize = false;
+                    Task::batch([
+                        Task::done(Message::HideDockIcon),
+                        iced::window::set_mode(id, iced::window::Mode::Hidden),
+                    ])
+                } else {
+                    Task::none()
+                }
             }
             Message::HideDockIcon => {
                 set_dock_visible(false);
@@ -603,14 +611,14 @@ impl FnmUi {
         }
         self.update_tray_menu();
 
-        if self.pending_minimize {
+        if self.pending_minimize
+            && let Some(id) = self.window_id
+        {
             self.pending_minimize = false;
-            if let Some(id) = self.window_id {
-                return Task::batch([
-                    Task::done(Message::HideDockIcon),
-                    iced::window::set_mode(id, iced::window::Mode::Hidden),
-                ]);
-            }
+            return Task::batch([
+                Task::done(Message::HideDockIcon),
+                iced::window::set_mode(id, iced::window::Mode::Hidden),
+            ]);
         }
 
         Task::none()
