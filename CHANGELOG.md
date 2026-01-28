@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.3.0] - 2026-01-28
+
+- chore: relicense to GPL-3.0-only
+- fix: correct UTF-16LE detection in WSL output decoder
+- docs: update CLAUDE.md with current project structure and features
+- feat: add search clear button, hide installed during search, changelog link icon
+- fix: limit visible toasts to 3 most recent
+- fix: reduce top padding when environment tabs are absent
+- fix: make modal background opaque and suppress hover bleed-through
+- feat: support parallel install operations
+- feat: add Open Versi and Settings items to system tray menu
+- feat: overhaul UI with settings page, Tahoe aesthetics, and contextual actions
+- test: add comprehensive unit tests for pure functions
+- feat: add macOS install script
+
+
 ## [0.2.1] - 2026-01-28
 
 - fix: check for fnm updates when switching environments
