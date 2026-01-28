@@ -895,7 +895,15 @@ impl FnmUi {
 
     fn handle_request_uninstall(&mut self, version: String) {
         if let AppState::Main(state) = &mut self.state {
-            state.modal = Some(Modal::ConfirmUninstall { version });
+            let is_default = state
+                .active_environment()
+                .default_version
+                .as_ref()
+                .is_some_and(|d| d.to_string() == version);
+            state.modal = Some(Modal::ConfirmUninstall {
+                version,
+                is_default,
+            });
         }
     }
 

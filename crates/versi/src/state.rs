@@ -389,6 +389,7 @@ pub enum Modal {
     Settings(SettingsModalState),
     ConfirmUninstall {
         version: String,
+        is_default: bool,
     },
     ConfirmBulkUpdateMajors {
         versions: Vec<(String, String)>,

@@ -45,6 +45,8 @@ pub mod styles {
     use iced::widget::{button, container, text_input};
     use iced::{Background, Border, Color, Shadow, Theme};
 
+    pub const WARNING_COLOR: Color = Color::from_rgb(0.95, 0.6, 0.1);
+
     pub fn primary_button(theme: &Theme, status: button::Status) -> button::Style {
         let palette = theme.palette();
 

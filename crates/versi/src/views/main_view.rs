@@ -255,7 +255,10 @@ fn modal_overlay<'a>(
 ) -> Element<'a, Message> {
     let modal_content: Element<Message> = match modal {
         Modal::Settings(settings_state) => settings_modal_view(settings_state, settings, state),
-        Modal::ConfirmUninstall { version } => confirm_uninstall_view(version),
+        Modal::ConfirmUninstall {
+            version,
+            is_default,
+        } => confirm_uninstall_view(version, *is_default),
         Modal::ConfirmBulkUpdateMajors { versions } => confirm_bulk_update_view(versions),
         Modal::ConfirmBulkUninstallEOL { versions } => confirm_bulk_uninstall_eol_view(versions),
         Modal::ConfirmBulkUninstallMajor { major, versions } => {
@@ -573,12 +576,31 @@ fn settings_modal_view<'a>(
     .into()
 }
 
-fn confirm_uninstall_view<'a>(version: &'a str) -> Element<'a, Message> {
-    column![
+fn confirm_uninstall_view<'a>(version: &'a str, is_default: bool) -> Element<'a, Message> {
+    let mut content = column![
         text(format!("Remove Node {}?", version)).size(20),
         Space::new().height(12),
-        text("This version will be uninstalled from your system.").size(14),
-        Space::new().height(24),
+    ]
+    .spacing(4);
+
+    if is_default {
+        content = content
+            .push(
+                text("Warning: This is your default Node.js version.")
+                    .size(14)
+                    .color(styles::WARNING_COLOR),
+            )
+            .push(Space::new().height(4))
+            .push(
+                text("You will need to set a new default after uninstalling.")
+                    .size(14)
+                    .color(styles::WARNING_COLOR),
+            );
+    } else {
+        content = content.push(text("This version will be uninstalled from your system.").size(14));
+    }
+
+    content = content.push(Space::new().height(24)).push(
         row![
             button(text("Cancel").size(13))
                 .on_press(Message::CancelUninstall)
@@ -591,10 +613,9 @@ fn confirm_uninstall_view<'a>(version: &'a str) -> Element<'a, Message> {
                 .padding([10, 20]),
         ]
         .spacing(16),
-    ]
-    .spacing(4)
-    .width(Length::Fill)
-    .into()
+    );
+
+    content.width(Length::Fill).into()
 }
 
 fn confirm_bulk_update_view(versions: &[(String, String)]) -> Element<'_, Message> {
