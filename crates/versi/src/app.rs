@@ -1,4 +1,4 @@
-use log::{debug, error, info};
+use log::{debug, error, info, trace};
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -324,10 +324,7 @@ impl FnmUi {
                 set_dock_visible(false);
                 Task::none()
             }
-            Message::WindowEvent(event) => {
-                debug!("Window event received: {:?}", event);
-                Task::none()
-            }
+            Message::WindowEvent(_) => Task::none(),
             Message::CheckForAppUpdate => self.handle_check_for_app_update(),
             Message::AppUpdateChecked(update) => {
                 self.handle_app_update_checked(update);
@@ -575,7 +572,7 @@ impl FnmUi {
             versions.len()
         );
         for v in &versions {
-            debug!(
+            trace!(
                 "  Installed version: {} (default={})",
                 v.version, v.is_default
             );
@@ -1876,7 +1873,7 @@ async fn initialize() -> InitResult {
         environments.len()
     );
     for (i, env) in environments.iter().enumerate() {
-        debug!("  Environment {}: {:?}", i, env);
+        trace!("  Environment {}: {:?}", i, env);
     }
 
     InitResult {
