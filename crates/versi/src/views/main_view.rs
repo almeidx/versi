@@ -10,13 +10,18 @@ use crate::widgets::{toast_container, version_list};
 pub fn view<'a>(state: &'a MainState, settings: &'a AppSettings) -> Element<'a, Message> {
     let header = header_view(state);
     let search_bar = search_bar_view(state);
+    let hovered = if state.modal.is_some() {
+        &None
+    } else {
+        &state.hovered_version
+    };
     let version_list = version_list::view(
         state.active_environment(),
         &state.search_query,
         &state.available_versions.versions,
         state.available_versions.schedule.as_ref(),
         &state.operation_queue,
-        &state.hovered_version,
+        hovered,
     );
 
     let mut main_column = column![].spacing(0);
@@ -394,7 +399,7 @@ fn modal_overlay<'a>(
 
     let modal_container = mouse_area(
         container(modal_content)
-            .style(styles::card_container)
+            .style(styles::modal_container)
             .padding(28)
             .max_width(480),
     )

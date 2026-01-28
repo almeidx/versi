@@ -322,6 +322,36 @@ pub mod styles {
         }
     }
 
+    pub fn modal_container(theme: &Theme) -> container::Style {
+        let palette = theme.palette();
+        let is_dark = palette.background.r < 0.5;
+
+        let bg = if is_dark {
+            Color::from_rgb8(44, 44, 46)
+        } else {
+            Color::from_rgb8(255, 255, 255)
+        };
+
+        container::Style {
+            background: Some(Background::Color(bg)),
+            border: Border {
+                radius: super::tahoe::RADIUS_LG.into(),
+                width: 0.0,
+                color: Color::TRANSPARENT,
+            },
+            shadow: Shadow {
+                color: Color {
+                    a: if is_dark { 0.4 } else { 0.15 },
+                    ..Color::BLACK
+                },
+                offset: iced::Vector::new(0.0, 4.0),
+                blur_radius: 24.0,
+            },
+            text_color: None,
+            snap: false,
+        }
+    }
+
     pub fn search_input(theme: &Theme, _status: text_input::Status) -> text_input::Style {
         let palette = theme.palette();
         let is_dark = palette.background.r < 0.5;

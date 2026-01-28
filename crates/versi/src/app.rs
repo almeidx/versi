@@ -214,7 +214,11 @@ impl FnmUi {
             }
             Message::VersionRowHovered(version) => {
                 if let AppState::Main(state) = &mut self.state {
-                    state.hovered_version = version;
+                    if state.modal.is_some() {
+                        state.hovered_version = None;
+                    } else {
+                        state.hovered_version = version;
+                    }
                 }
                 Task::none()
             }
