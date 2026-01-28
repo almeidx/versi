@@ -8,6 +8,13 @@ use versi_core::{
 use versi_platform::EnvironmentId;
 use versi_shell::ShellType;
 
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum MainViewKind {
+    #[default]
+    Versions,
+    Settings,
+}
+
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
 pub enum AppState {
@@ -65,6 +72,9 @@ pub struct MainState {
     pub backend: Box<dyn VersionManager>,
     pub app_update: Option<AppUpdate>,
     pub fnm_update: Option<FnmUpdate>,
+    pub view: MainViewKind,
+    pub settings_state: SettingsModalState,
+    pub hovered_version: Option<String>,
 }
 
 impl std::fmt::Debug for MainState {
@@ -80,6 +90,8 @@ impl std::fmt::Debug for MainState {
             .field("backend", &self.backend.name())
             .field("app_update", &self.app_update)
             .field("fnm_update", &self.fnm_update)
+            .field("view", &self.view)
+            .field("hovered_version", &self.hovered_version)
             .finish()
     }
 }
@@ -97,6 +109,9 @@ impl MainState {
             backend,
             app_update: None,
             fnm_update: None,
+            view: MainViewKind::default(),
+            settings_state: SettingsModalState::new(),
+            hovered_version: None,
         }
     }
 
@@ -115,6 +130,9 @@ impl MainState {
             backend,
             app_update: None,
             fnm_update: None,
+            view: MainViewKind::default(),
+            settings_state: SettingsModalState::new(),
+            hovered_version: None,
         }
     }
 
@@ -386,7 +404,6 @@ pub enum UndoAction {
 
 #[derive(Debug, Clone)]
 pub enum Modal {
-    Settings(SettingsModalState),
     ConfirmUninstall {
         version: String,
         is_default: bool,

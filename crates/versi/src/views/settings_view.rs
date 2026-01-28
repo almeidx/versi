@@ -1,0 +1,295 @@
+use iced::widget::{Space, button, column, row, scrollable, text, toggler};
+use iced::{Alignment, Element, Length};
+
+use crate::message::Message;
+use crate::settings::{AppSettings, ThemeSetting, TrayBehavior};
+use crate::state::{MainState, SettingsModalState, ShellVerificationStatus};
+use crate::theme::{is_system_dark, styles};
+
+pub fn view<'a>(
+    settings_state: &'a SettingsModalState,
+    settings: &'a AppSettings,
+    _state: &'a MainState,
+) -> Element<'a, Message> {
+    let header = row![
+        button(text("\u{2190}").size(16))
+            .on_press(Message::NavigateToVersions)
+            .style(styles::ghost_button)
+            .padding([4, 8]),
+        text("Settings").size(22),
+        Space::new().width(Length::Fill),
+    ]
+    .spacing(8)
+    .align_y(Alignment::Center);
+
+    let mut content = column![
+        text("Appearance").size(14),
+        Space::new().height(8),
+        row![
+            button(
+                text(if is_system_dark() {
+                    "System (Dark)"
+                } else {
+                    "System (Light)"
+                })
+                .size(13),
+            )
+            .on_press(Message::ThemeChanged(ThemeSetting::System))
+            .style(if settings.theme == ThemeSetting::System {
+                styles::primary_button
+            } else {
+                styles::secondary_button
+            })
+            .padding([10, 16]),
+            button(text("Light").size(13))
+                .on_press(Message::ThemeChanged(ThemeSetting::Light))
+                .style(if settings.theme == ThemeSetting::Light {
+                    styles::primary_button
+                } else {
+                    styles::secondary_button
+                })
+                .padding([10, 16]),
+            button(text("Dark").size(13))
+                .on_press(Message::ThemeChanged(ThemeSetting::Dark))
+                .style(if settings.theme == ThemeSetting::Dark {
+                    styles::primary_button
+                } else {
+                    styles::secondary_button
+                })
+                .padding([10, 16]),
+        ]
+        .spacing(8),
+        Space::new().height(28),
+        text("System Tray").size(14),
+        Space::new().height(8),
+        row![
+            button(text("When Open").size(13))
+                .on_press(Message::TrayBehaviorChanged(TrayBehavior::WhenWindowOpen))
+                .style(if settings.tray_behavior == TrayBehavior::WhenWindowOpen {
+                    styles::primary_button
+                } else {
+                    styles::secondary_button
+                })
+                .padding([10, 16]),
+            button(text("Always").size(13))
+                .on_press(Message::TrayBehaviorChanged(TrayBehavior::AlwaysRunning))
+                .style(if settings.tray_behavior == TrayBehavior::AlwaysRunning {
+                    styles::primary_button
+                } else {
+                    styles::secondary_button
+                })
+                .padding([10, 16]),
+            button(text("Disabled").size(13))
+                .on_press(Message::TrayBehaviorChanged(TrayBehavior::Disabled))
+                .style(if settings.tray_behavior == TrayBehavior::Disabled {
+                    styles::primary_button
+                } else {
+                    styles::secondary_button
+                })
+                .padding([10, 16]),
+        ]
+        .spacing(8),
+        Space::new().height(8),
+        row![
+            toggler(settings.start_minimized)
+                .on_toggle(Message::StartMinimizedToggled)
+                .size(18),
+            text("Start minimized to tray").size(12),
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center),
+        text("\"Always\" keeps the app running in the tray when closed")
+            .size(11)
+            .color(iced::Color::from_rgb8(142, 142, 147)),
+        Space::new().height(28),
+        text("Shell Options").size(14),
+        Space::new().height(8),
+        row![
+            toggler(settings.shell_options.use_on_cd)
+                .on_toggle(Message::ShellOptionUseOnCdToggled)
+                .size(18),
+            text("Auto-switch on cd").size(12),
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center),
+        row![
+            toggler(settings.shell_options.resolve_engines)
+                .on_toggle(Message::ShellOptionResolveEnginesToggled)
+                .size(18),
+            text("Resolve engines from package.json").size(12),
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center),
+        row![
+            toggler(settings.shell_options.corepack_enabled)
+                .on_toggle(Message::ShellOptionCorepackEnabledToggled)
+                .size(18),
+            text("Enable corepack").size(12),
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center),
+        text("Options for new shell configurations")
+            .size(11)
+            .color(iced::Color::from_rgb8(142, 142, 147)),
+    ]
+    .spacing(4)
+    .width(Length::Fill);
+
+    content = content.push(Space::new().height(28));
+    content = content.push(text("Shell Setup").size(14));
+    content = content.push(Space::new().height(8));
+
+    if settings_state.checking_shells {
+        content = content.push(text("Checking shell configuration...").size(12));
+    } else if settings_state.shell_statuses.is_empty() {
+        content = content.push(text("No shells detected").size(12));
+    } else {
+        for shell in &settings_state.shell_statuses {
+            let status_text = match &shell.status {
+                ShellVerificationStatus::Unknown => "Unknown",
+                ShellVerificationStatus::Configured => "Configured \u{2713}",
+                ShellVerificationStatus::NotConfigured => "Not configured",
+                ShellVerificationStatus::NoConfigFile => "No config file",
+                ShellVerificationStatus::FunctionalButNotInConfig => "Working (not in config)",
+                ShellVerificationStatus::Error(_) => "Error",
+            };
+
+            let is_configured = matches!(
+                shell.status,
+                ShellVerificationStatus::Configured
+                    | ShellVerificationStatus::FunctionalButNotInConfig
+            );
+
+            let has_no_config_file = matches!(shell.status, ShellVerificationStatus::NoConfigFile);
+
+            let shell_row = if shell.configuring {
+                row![
+                    text(&shell.shell_name).size(13).width(Length::Fixed(100.0)),
+                    text("Configuring...").size(12),
+                ]
+            } else if is_configured {
+                row![
+                    text(&shell.shell_name).size(13).width(Length::Fixed(100.0)),
+                    text(status_text)
+                        .size(12)
+                        .color(iced::Color::from_rgb8(52, 199, 89)),
+                ]
+            } else if has_no_config_file {
+                row![
+                    text(&shell.shell_name).size(13).width(Length::Fixed(100.0)),
+                    text(status_text)
+                        .size(12)
+                        .color(iced::Color::from_rgb8(142, 142, 147)),
+                ]
+            } else {
+                let shell_type = shell.shell_type.clone();
+                row![
+                    text(&shell.shell_name).size(13).width(Length::Fixed(100.0)),
+                    text(status_text)
+                        .size(12)
+                        .color(iced::Color::from_rgb8(255, 149, 0)),
+                    Space::new().width(Length::Fill),
+                    button(text("Configure").size(11))
+                        .on_press(Message::ConfigureShell(shell_type))
+                        .style(styles::secondary_button)
+                        .padding([4, 10]),
+                ]
+            };
+
+            content = content.push(shell_row.spacing(8).align_y(Alignment::Center));
+        }
+    }
+
+    content = content.push(Space::new().height(28));
+    content = content.push(text("Advanced").size(14));
+    content = content.push(Space::new().height(8));
+    content = content.push(
+        row![
+            toggler(settings.debug_logging)
+                .on_toggle(Message::DebugLoggingToggled)
+                .size(18),
+            text("Debug logging").size(12),
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center),
+    );
+    let log_path = {
+        let paths = versi_platform::AppPaths::new();
+        paths.log_file().to_string_lossy().to_string()
+    };
+    let log_size_text = match settings_state.log_file_size {
+        Some(0) => "empty".to_string(),
+        Some(size) if size < 1024 => format!("{} B", size),
+        Some(size) if size < 1024 * 1024 => format!("{:.1} KB", size as f64 / 1024.0),
+        Some(size) => format!("{:.1} MB", size as f64 / (1024.0 * 1024.0)),
+        None => "not found".to_string(),
+    };
+    content = content.push(
+        row![
+            text("Log file: ")
+                .size(11)
+                .color(iced::Color::from_rgb8(142, 142, 147)),
+            button(text(log_path.clone()).size(11))
+                .on_press(Message::CopyToClipboard(log_path))
+                .style(styles::link_button)
+                .padding(0),
+            text(format!(" ({})", log_size_text))
+                .size(11)
+                .color(iced::Color::from_rgb8(142, 142, 147)),
+        ]
+        .align_y(Alignment::Center),
+    );
+    content = content.push(Space::new().height(8));
+    content = content.push(
+        row![
+            button(text("Show in Folder").size(11))
+                .on_press(Message::RevealLogFile)
+                .style(styles::secondary_button)
+                .padding([4, 10]),
+            button(text("Clear Log").size(11))
+                .on_press(Message::ClearLogFile)
+                .style(styles::secondary_button)
+                .padding([4, 10]),
+        ]
+        .spacing(8),
+    );
+    content = content.push(Space::new().height(28));
+    content = content.push(text("About").size(14));
+    content = content.push(Space::new().height(8));
+    content = content.push(text(format!("Versi v{}", env!("CARGO_PKG_VERSION"))).size(14));
+    content = content.push(Space::new().height(4));
+    content = content.push(
+        text("A native GUI for fnm (Fast Node Manager)")
+            .size(12)
+            .color(iced::Color::from_rgb8(142, 142, 147)),
+    );
+    content = content.push(Space::new().height(12));
+    content = content.push(
+        row![
+            button(text("GitHub").size(12))
+                .on_press(Message::OpenLink(
+                    "https://github.com/almeidx/versi".to_string()
+                ))
+                .style(styles::secondary_button)
+                .padding([6, 12]),
+            button(text("fnm").size(12))
+                .on_press(Message::OpenLink(
+                    "https://github.com/Schniz/fnm".to_string()
+                ))
+                .style(styles::secondary_button)
+                .padding([6, 12]),
+        ]
+        .spacing(8),
+    );
+
+    column![
+        header,
+        Space::new().height(24),
+        scrollable(content.padding(iced::Padding::default().right(12))).height(Length::Fill),
+    ]
+    .spacing(0)
+    .padding(32)
+    .width(Length::Fill)
+    .height(Length::Fill)
+    .into()
+}

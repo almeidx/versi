@@ -89,8 +89,9 @@ pub enum Message {
     ToastDismiss(usize),
     ToastUndo(usize),
 
-    OpenSettings,
-    CloseSettings,
+    NavigateToVersions,
+    NavigateToSettings,
+    VersionRowHovered(Option<String>),
     ThemeChanged(crate::settings::ThemeSetting),
     ShellOptionUseOnCdToggled(bool),
     ShellOptionResolveEnginesToggled(bool),

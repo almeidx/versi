@@ -1,6 +1,20 @@
 use iced::theme::Palette;
 use iced::{Theme, color};
 
+pub mod tahoe {
+    pub const RADIUS_SM: f32 = 8.0;
+    pub const RADIUS_MD: f32 = 12.0;
+    pub const RADIUS_LG: f32 = 16.0;
+
+    pub fn card_bg(is_dark: bool) -> iced::Color {
+        if is_dark {
+            iced::Color::from_rgba8(44, 44, 46, 0.72)
+        } else {
+            iced::Color::from_rgba8(255, 255, 255, 0.72)
+        }
+    }
+}
+
 pub fn light_theme() -> Theme {
     Theme::custom(
         "Versi Light".to_string(),
@@ -54,7 +68,7 @@ pub mod styles {
             background: Some(Background::Color(palette.primary)),
             text_color: Color::WHITE,
             border: Border {
-                radius: 8.0.into(),
+                radius: super::tahoe::RADIUS_MD.into(),
                 width: 0.0,
                 color: Color::TRANSPARENT,
             },
@@ -117,7 +131,7 @@ pub mod styles {
             background: Some(Background::Color(Color::TRANSPARENT)),
             text_color: danger_muted,
             border: Border {
-                radius: 8.0.into(),
+                radius: super::tahoe::RADIUS_MD.into(),
                 width: 0.0,
                 color: Color::TRANSPARENT,
             },
@@ -175,7 +189,7 @@ pub mod styles {
             background: Some(Background::Color(bg_color)),
             text_color: palette.text,
             border: Border {
-                radius: 8.0.into(),
+                radius: super::tahoe::RADIUS_MD.into(),
                 width: 0.0,
                 color: Color::TRANSPARENT,
             },
@@ -288,26 +302,20 @@ pub mod styles {
         let palette = theme.palette();
         let is_dark = palette.background.r < 0.5;
 
-        let card_bg = if is_dark {
-            Color::from_rgb8(44, 44, 46)
-        } else {
-            Color::WHITE
-        };
-
         container::Style {
-            background: Some(Background::Color(card_bg)),
+            background: Some(Background::Color(super::tahoe::card_bg(is_dark))),
             border: Border {
-                radius: 12.0.into(),
+                radius: super::tahoe::RADIUS_LG.into(),
                 width: 0.0,
                 color: Color::TRANSPARENT,
             },
             shadow: Shadow {
                 color: Color {
-                    a: if is_dark { 0.3 } else { 0.08 },
+                    a: if is_dark { 0.25 } else { 0.06 },
                     ..Color::BLACK
                 },
-                offset: iced::Vector::new(0.0, 2.0),
-                blur_radius: 12.0,
+                offset: iced::Vector::new(0.0, 1.0),
+                blur_radius: 16.0,
             },
             text_color: None,
             snap: false,
@@ -332,7 +340,7 @@ pub mod styles {
         text_input::Style {
             background: Background::Color(bg),
             border: Border {
-                radius: 10.0.into(),
+                radius: super::tahoe::RADIUS_MD.into(),
                 width: 0.0,
                 color: Color::TRANSPARENT,
             },
@@ -356,7 +364,7 @@ pub mod styles {
             })),
             text_color: Some(palette.primary),
             border: Border {
-                radius: 6.0.into(),
+                radius: super::tahoe::RADIUS_SM.into(),
                 width: 0.0,
                 color: Color::TRANSPARENT,
             },
@@ -374,7 +382,7 @@ pub mod styles {
             })),
             text_color: Some(palette.success),
             border: Border {
-                radius: 6.0.into(),
+                radius: super::tahoe::RADIUS_SM.into(),
                 width: 0.0,
                 color: Color::TRANSPARENT,
             },
@@ -392,7 +400,7 @@ pub mod styles {
             })),
             text_color: Some(eol_color),
             border: Border {
-                radius: 6.0.into(),
+                radius: super::tahoe::RADIUS_SM.into(),
                 width: 0.0,
                 color: Color::TRANSPARENT,
             },
@@ -597,6 +605,185 @@ pub mod styles {
             },
             shadow: Shadow::default(),
             snap: false,
+        }
+    }
+
+    pub fn version_row_hovered(theme: &Theme) -> container::Style {
+        let palette = theme.palette();
+        let is_dark = palette.background.r < 0.5;
+
+        container::Style {
+            background: Some(Background::Color(if is_dark {
+                Color::from_rgba8(255, 255, 255, 0.04)
+            } else {
+                Color::from_rgba8(0, 0, 0, 0.03)
+            })),
+            border: Border {
+                radius: super::tahoe::RADIUS_SM.into(),
+                width: 0.0,
+                color: Color::TRANSPARENT,
+            },
+            ..Default::default()
+        }
+    }
+
+    pub fn row_action_button(theme: &Theme, status: button::Status) -> button::Style {
+        let palette = theme.palette();
+
+        let base = button::Style {
+            background: Some(Background::Color(Color::TRANSPARENT)),
+            text_color: Color {
+                a: 0.7,
+                ..palette.text
+            },
+            border: Border {
+                radius: super::tahoe::RADIUS_SM.into(),
+                width: 0.0,
+                color: Color::TRANSPARENT,
+            },
+            shadow: Shadow::default(),
+            snap: false,
+        };
+
+        match status {
+            button::Status::Active => base,
+            button::Status::Hovered => button::Style {
+                background: Some(Background::Color(Color {
+                    a: 0.08,
+                    ..palette.text
+                })),
+                text_color: palette.text,
+                ..base
+            },
+            button::Status::Pressed => button::Style {
+                background: Some(Background::Color(Color {
+                    a: 0.12,
+                    ..palette.text
+                })),
+                text_color: palette.text,
+                ..base
+            },
+            button::Status::Disabled => button::Style {
+                text_color: Color {
+                    a: 0.3,
+                    ..palette.text
+                },
+                ..base
+            },
+        }
+    }
+
+    pub fn banner_button_info(theme: &Theme, status: button::Status) -> button::Style {
+        let palette = theme.palette();
+
+        let base = button::Style {
+            background: Some(Background::Color(Color {
+                a: 0.1,
+                ..palette.primary
+            })),
+            text_color: palette.primary,
+            border: Border {
+                radius: super::tahoe::RADIUS_MD.into(),
+                width: 0.0,
+                color: Color::TRANSPARENT,
+            },
+            shadow: Shadow::default(),
+            snap: false,
+        };
+
+        match status {
+            button::Status::Active => base,
+            button::Status::Hovered => button::Style {
+                background: Some(Background::Color(Color {
+                    a: 0.18,
+                    ..palette.primary
+                })),
+                ..base
+            },
+            button::Status::Pressed => button::Style {
+                background: Some(Background::Color(Color {
+                    a: 0.25,
+                    ..palette.primary
+                })),
+                ..base
+            },
+            button::Status::Disabled => base,
+        }
+    }
+
+    pub fn banner_button_warning(theme: &Theme, status: button::Status) -> button::Style {
+        let palette = theme.palette();
+        let warning = palette.warning;
+
+        let base = button::Style {
+            background: Some(Background::Color(Color { a: 0.1, ..warning })),
+            text_color: warning,
+            border: Border {
+                radius: super::tahoe::RADIUS_MD.into(),
+                width: 0.0,
+                color: Color::TRANSPARENT,
+            },
+            shadow: Shadow::default(),
+            snap: false,
+        };
+
+        match status {
+            button::Status::Active => base,
+            button::Status::Hovered => button::Style {
+                background: Some(Background::Color(Color { a: 0.18, ..warning })),
+                ..base
+            },
+            button::Status::Pressed => button::Style {
+                background: Some(Background::Color(Color { a: 0.25, ..warning })),
+                ..base
+            },
+            button::Status::Disabled => base,
+        }
+    }
+
+    pub fn row_action_button_hidden(_theme: &Theme, _status: button::Status) -> button::Style {
+        button::Style {
+            background: Some(Background::Color(Color::TRANSPARENT)),
+            text_color: Color::TRANSPARENT,
+            border: Border {
+                radius: super::tahoe::RADIUS_SM.into(),
+                width: 0.0,
+                color: Color::TRANSPARENT,
+            },
+            shadow: Shadow::default(),
+            snap: false,
+        }
+    }
+
+    pub fn row_action_button_danger(_theme: &Theme, status: button::Status) -> button::Style {
+        let danger = Color::from_rgb8(255, 69, 58);
+
+        let base = button::Style {
+            background: Some(Background::Color(Color::TRANSPARENT)),
+            text_color: danger,
+            border: Border {
+                radius: super::tahoe::RADIUS_SM.into(),
+                width: 0.0,
+                color: Color::TRANSPARENT,
+            },
+            shadow: Shadow::default(),
+            snap: false,
+        };
+
+        match status {
+            button::Status::Active => base,
+            button::Status::Hovered => button::Style {
+                background: Some(Background::Color(Color { a: 0.1, ..danger })),
+                ..base
+            },
+            button::Status::Pressed => button::Style {
+                background: Some(Background::Color(Color { a: 0.15, ..danger })),
+                ..base
+            },
+            button::Status::Disabled => button::Style {
+                text_color: Color { a: 0.4, ..danger },
+                ..base
+            },
         }
     }
 }

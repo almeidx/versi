@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use iced::widget::{Space, button, column, container, row, scrollable, text};
+use iced::widget::{Space, button, column, container, mouse_area, row, scrollable, text};
 use iced::{Alignment, Element, Length};
 
 use versi_core::{InstalledVersion, NodeVersion, ReleaseSchedule, RemoteVersion, VersionGroup};
@@ -81,6 +81,7 @@ pub fn view<'a>(
     remote_versions: &'a [RemoteVersion],
     schedule: Option<&'a ReleaseSchedule>,
     operation_queue: &'a OperationQueue,
+    hovered_version: &'a Option<String>,
 ) -> Element<'a, Message> {
     let latest_by_major = compute_latest_by_major(remote_versions);
 
@@ -161,6 +162,7 @@ pub fn view<'a>(
                 update_available,
                 schedule,
                 operation_queue,
+                hovered_version,
             ));
         }
     }
@@ -186,7 +188,7 @@ pub fn view<'a>(
             content_items.push(
                 container(column(available_rows).spacing(4))
                     .style(styles::card_container)
-                    .padding(8)
+                    .padding(12)
                     .into(),
             );
         }
@@ -244,6 +246,7 @@ fn version_group_view<'a>(
     update_available: Option<String>,
     schedule: Option<&ReleaseSchedule>,
     operation_queue: &'a OperationQueue,
+    hovered_version: &'a Option<String>,
 ) -> Element<'a, Message> {
     let has_lts = group.versions.iter().any(|v| v.lts_codename.is_some());
     let has_default = group
@@ -337,13 +340,13 @@ fn version_group_view<'a>(
 
         let items: Vec<Element<Message>> = filtered_versions
             .iter()
-            .map(|v| version_item_view(v, default, operation_queue))
+            .map(|v| version_item_view(v, default, operation_queue, hovered_version))
             .collect();
 
         container(
             column![
                 header,
-                container(column(items).spacing(4)).padding(iced::Padding {
+                container(column(items).spacing(2)).padding(iced::Padding {
                     top: 0.0,
                     right: 0.0,
                     bottom: 0.0,
@@ -353,12 +356,12 @@ fn version_group_view<'a>(
             .spacing(4),
         )
         .style(styles::card_container)
-        .padding(8)
+        .padding(12)
         .into()
     } else {
         container(header)
             .style(styles::card_container)
-            .padding(8)
+            .padding(12)
             .width(Length::Fill)
             .into()
     }
@@ -388,6 +391,7 @@ fn version_item_view<'a>(
     version: &'a InstalledVersion,
     default: &'a Option<versi_core::NodeVersion>,
     operation_queue: &'a OperationQueue,
+    hovered_version: &'a Option<String>,
 ) -> Element<'a, Message> {
     let is_default = default
         .as_ref()
@@ -398,69 +402,114 @@ fn version_item_view<'a>(
     let version_display = version_str.clone();
     let version_for_default = version_str.clone();
     let version_for_changelog = version_str.clone();
+    let version_for_hover = version_str.clone();
 
     let is_busy = operation_queue.is_current_version(&version_str)
         || operation_queue.has_pending_for_version(&version_str);
 
-    let set_default_button = if is_default {
-        button(text("Default").size(12))
-            .style(styles::secondary_button)
-            .padding([6, 12])
-    } else if is_busy {
-        button(text("Set Default").size(12))
-            .style(styles::secondary_button)
-            .padding([6, 12])
-    } else {
-        button(text("Set Default").size(12))
-            .on_press(Message::SetDefault(version_for_default))
-            .style(styles::secondary_button)
-            .padding([6, 12])
-    };
+    let is_hovered = hovered_version.as_ref().is_some_and(|h| h == &version_str);
+    let show_actions = is_hovered || is_default;
 
-    let uninstall_button = if is_busy {
-        button(text("Uninstall").size(12))
-            .style(styles::danger_button)
-            .padding([6, 12])
-    } else {
-        button(text("Uninstall").size(12))
-            .on_press(Message::RequestUninstall(version_str))
-            .style(styles::danger_button)
-            .padding([6, 12])
-    };
+    let mut row_content = row![text(version_display).size(14).width(Length::Fixed(120.0)),]
+        .spacing(8)
+        .align_y(Alignment::Center);
 
-    row![
-        text(version_display).size(14).width(Length::Fixed(120.0)),
-        if let Some(lts) = &version.lts_codename {
+    if let Some(lts) = &version.lts_codename {
+        row_content = row_content.push(
             container(text(format!("LTS: {}", lts)).size(11))
                 .padding([2, 6])
-                .style(styles::badge_lts)
-        } else {
-            container(Space::new())
-        },
-        if is_default {
+                .style(styles::badge_lts),
+        );
+    }
+
+    if is_default {
+        row_content = row_content.push(
             container(text("default").size(11))
                 .padding([2, 6])
-                .style(styles::badge_default)
-        } else {
-            container(Space::new())
-        },
-        Space::new().width(Length::Fill),
-        if let Some(size) = version.disk_size {
-            text(format_bytes(size)).size(12)
-        } else {
-            text("")
-        },
-        button(text("Changelog").size(11))
-            .on_press(Message::OpenChangelog(version_for_changelog))
-            .style(styles::ghost_button)
-            .padding([4, 8]),
-        set_default_button,
-        uninstall_button,
-    ]
-    .spacing(8)
-    .align_y(Alignment::Center)
-    .padding([4, 8])
-    .into()
+                .style(styles::badge_default),
+        );
+    }
+
+    row_content = row_content.push(Space::new().width(Length::Fill));
+
+    if let Some(size) = version.disk_size {
+        row_content = row_content.push(text(format_bytes(size)).size(12));
+    }
+
+    let action_style = if show_actions {
+        styles::row_action_button
+    } else {
+        styles::row_action_button_hidden
+    };
+    let danger_style = if show_actions {
+        styles::row_action_button_danger
+    } else {
+        styles::row_action_button_hidden
+    };
+
+    if show_actions {
+        row_content = row_content.push(
+            button(text("Changelog").size(11))
+                .on_press(Message::OpenChangelog(version_for_changelog))
+                .style(action_style)
+                .padding([4, 8]),
+        );
+    } else {
+        row_content = row_content.push(
+            button(text("Changelog").size(11))
+                .style(action_style)
+                .padding([4, 8]),
+        );
+    }
+
+    if is_default {
+        row_content = row_content.push(
+            button(text("Default").size(12))
+                .style(action_style)
+                .padding([6, 12]),
+        );
+    } else if is_busy || !show_actions {
+        row_content = row_content.push(
+            button(text("Set Default").size(12))
+                .style(action_style)
+                .padding([6, 12]),
+        );
+    } else {
+        row_content = row_content.push(
+            button(text("Set Default").size(12))
+                .on_press(Message::SetDefault(version_for_default))
+                .style(action_style)
+                .padding([6, 12]),
+        );
+    }
+
+    if is_busy || !show_actions {
+        row_content = row_content.push(
+            button(text("Uninstall").size(12))
+                .style(danger_style)
+                .padding([6, 12]),
+        );
+    } else {
+        row_content = row_content.push(
+            button(text("Uninstall").size(12))
+                .on_press(Message::RequestUninstall(version_str))
+                .style(danger_style)
+                .padding([6, 12]),
+        );
+    }
+
+    let row_style = if is_hovered {
+        styles::version_row_hovered
+    } else {
+        |_: &_| iced::widget::container::Style::default()
+    };
+
+    let row_container = container(row_content.padding([4, 8])).style(row_style);
+
+    mouse_area(row_container)
+        .on_enter(Message::VersionRowHovered(Some(version_for_hover)))
+        .on_exit(Message::VersionRowHovered(None))
+        .into()
 }
 
 fn available_version_row<'a>(

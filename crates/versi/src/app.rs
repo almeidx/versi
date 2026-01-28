@@ -36,8 +36,8 @@ use versi_shell::detect_shells;
 use crate::message::{InitResult, Message};
 use crate::settings::{AppSettings, ThemeSetting, TrayBehavior};
 use crate::state::{
-    AppState, EnvironmentState, MainState, Modal, OnboardingState, OnboardingStep, Operation,
-    OperationRequest, QueuedOperation, SettingsModalState, ShellConfigStatus, ShellSetupStatus,
+    AppState, EnvironmentState, MainState, MainViewKind, Modal, OnboardingState, OnboardingStep,
+    Operation, OperationRequest, QueuedOperation, ShellConfigStatus, ShellSetupStatus,
     ShellVerificationStatus, Toast, UndoAction,
 };
 use crate::theme::{dark_theme, get_system_theme, light_theme};
@@ -114,7 +114,13 @@ impl FnmUi {
                 Task::none()
             }
             Message::CloseModal => {
-                self.handle_close_modal();
+                if let AppState::Main(state) = &mut self.state {
+                    if state.modal.is_some() {
+                        state.modal = None;
+                    } else if state.view == MainViewKind::Settings {
+                        state.view = MainViewKind::Versions;
+                    }
+                }
                 Task::none()
             }
             Message::OpenChangelog(version) => {
@@ -185,11 +191,10 @@ impl FnmUi {
                 Task::none()
             }
             Message::ToastUndo(id) => self.handle_toast_undo(id),
-            Message::OpenSettings => {
+            Message::NavigateToSettings => {
                 if let AppState::Main(state) = &mut self.state {
-                    let mut settings_state = SettingsModalState::new();
-                    settings_state.checking_shells = true;
-                    state.modal = Some(Modal::Settings(settings_state));
+                    state.view = MainViewKind::Settings;
+                    state.settings_state.checking_shells = true;
                 }
                 let shell_task = self.handle_check_shell_setup();
                 let log_stats_task = Task::perform(
@@ -201,8 +206,16 @@ impl FnmUi {
                 );
                 Task::batch([shell_task, log_stats_task])
             }
-            Message::CloseSettings => {
-                self.handle_close_modal();
+            Message::NavigateToVersions => {
+                if let AppState::Main(state) = &mut self.state {
+                    state.view = MainViewKind::Versions;
+                }
+                Task::none()
+            }
+            Message::VersionRowHovered(version) => {
+                if let AppState::Main(state) = &mut self.state {
+                    state.hovered_version = version;
+                }
                 Task::none()
             }
             Message::ThemeChanged(theme) => {
@@ -247,10 +260,8 @@ impl FnmUi {
                 )
             }
             Message::LogFileCleared => {
-                if let AppState::Main(state) = &mut self.state
-                    && let Some(Modal::Settings(settings_state)) = &mut state.modal
-                {
-                    settings_state.log_file_size = Some(0);
+                if let AppState::Main(state) = &mut self.state {
+                    state.settings_state.log_file_size = Some(0);
                 }
                 Task::none()
             }
@@ -261,10 +272,8 @@ impl FnmUi {
                 })
             }
             Message::LogFileStatsLoaded(size) => {
-                if let AppState::Main(state) = &mut self.state
-                    && let Some(Modal::Settings(settings_state)) = &mut state.modal
-                {
-                    settings_state.log_file_size = size;
+                if let AppState::Main(state) = &mut self.state {
+                    state.settings_state.log_file_size = size;
                 }
                 Task::none()
             }
@@ -391,7 +400,12 @@ impl FnmUi {
         match &self.state {
             AppState::Loading => views::loading::view(),
             AppState::Onboarding(state) => views::onboarding::view(state),
-            AppState::Main(state) => views::main_view::view(state, &self.settings),
+            AppState::Main(state) => match state.view {
+                MainViewKind::Versions => views::main_view::view(state, &self.settings),
+                MainViewKind::Settings => {
+                    views::settings_view::view(&state.settings_state, &self.settings, state)
+                }
+            },
         }
     }
 
@@ -1566,11 +1580,9 @@ impl FnmUi {
     ) {
         let mut first_detected_options: Option<versi_shell::FnmShellOptions> = None;
 
-        if let AppState::Main(state) = &mut self.state
-            && let Some(Modal::Settings(settings_state)) = &mut state.modal
-        {
-            settings_state.checking_shells = false;
-            settings_state.shell_statuses = results
+        if let AppState::Main(state) = &mut self.state {
+            state.settings_state.checking_shells = false;
+            state.settings_state.shell_statuses = results
                 .into_iter()
                 .map(|(shell_type, result)| {
                     let status = match result {
@@ -1612,8 +1624,8 @@ impl FnmUi {
 
     fn handle_configure_shell(&mut self, shell_type: versi_shell::ShellType) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state
-            && let Some(Modal::Settings(settings_state)) = &mut state.modal
-            && let Some(shell) = settings_state
+            && let Some(shell) = state
+                .settings_state
                 .shell_statuses
                 .iter_mut()
                 .find(|s| s.shell_type == shell_type)
@@ -1655,8 +1667,8 @@ impl FnmUi {
         result: Result<(), String>,
     ) {
         if let AppState::Main(state) = &mut self.state
-            && let Some(Modal::Settings(settings_state)) = &mut state.modal
-            && let Some(shell) = settings_state
+            && let Some(shell) = state
+                .settings_state
                 .shell_statuses
                 .iter_mut()
                 .find(|s| s.shell_type == shell_type)

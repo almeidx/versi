@@ -1,14 +1,10 @@
-use iced::widget::{
-    Space, button, column, container, mouse_area, row, scrollable, text, text_input, toggler,
-};
+use iced::widget::{Space, button, column, container, mouse_area, row, text, text_input};
 use iced::{Alignment, Element, Length};
 
 use crate::message::Message;
-use crate::settings::{AppSettings, TrayBehavior};
-use crate::state::{
-    MainState, Modal, Operation, QueuedOperation, SettingsModalState, ShellVerificationStatus,
-};
-use crate::theme::{is_system_dark, styles};
+use crate::settings::AppSettings;
+use crate::state::{MainState, Modal, Operation, QueuedOperation};
+use crate::theme::styles;
 use crate::widgets::{toast_container, version_list};
 
 pub fn view<'a>(state: &'a MainState, settings: &'a AppSettings) -> Element<'a, Message> {
@@ -20,6 +16,7 @@ pub fn view<'a>(state: &'a MainState, settings: &'a AppSettings) -> Element<'a, 
         &state.available_versions.versions,
         state.available_versions.schedule.as_ref(),
         &state.operation_queue,
+        &state.hovered_version,
     );
 
     let mut main_column = column![].spacing(0);
@@ -30,9 +27,15 @@ pub fn view<'a>(state: &'a MainState, settings: &'a AppSettings) -> Element<'a, 
         );
     }
 
-    let main_content = column![header, search_bar, version_list]
-        .spacing(20)
-        .padding(32);
+    let mut content_column = column![header, search_bar].spacing(20);
+
+    if let Some(banners) = contextual_banners(state) {
+        content_column = content_column.push(banners);
+    }
+
+    content_column = content_column.push(version_list);
+
+    let main_content = content_column.padding(32);
 
     main_column = main_column.push(main_content);
 
@@ -65,38 +68,19 @@ fn header_view<'a>(state: &'a MainState) -> Element<'a, Message> {
     let env = state.active_environment();
 
     let subtitle = match (&env.default_version, &env.fnm_version) {
-        (Some(v), Some(fnm_v)) => format!("Default: {} · fnm {}", v, fnm_v),
+        (Some(v), Some(fnm_v)) => format!("Default: {} \u{00b7} fnm {}", v, fnm_v),
         (Some(v), None) => format!("Default: {}", v),
         (None, Some(fnm_v)) => format!("fnm {}", fnm_v),
         (None, None) => "No default set".to_string(),
     };
 
     let title_section =
-        column![text("Node Versions").size(28), text(subtitle).size(13),].spacing(2);
+        column![text("Node Versions").size(32), text(subtitle).size(13),].spacing(4);
 
-    let mut button_row = row![
-        button(text("Refresh").size(13))
-            .on_press(Message::RefreshEnvironment)
-            .style(styles::secondary_button)
-            .padding([8, 16]),
-        button(text("Update All").size(13))
-            .on_press(Message::RequestBulkUpdateMajors)
-            .style(styles::secondary_button)
-            .padding([8, 12]),
-        button(text("Clean EOL").size(13))
-            .on_press(Message::RequestBulkUninstallEOL)
-            .style(styles::ghost_button)
-            .padding([8, 12]),
-        button(text("Settings").size(13))
-            .on_press(Message::OpenSettings)
-            .style(styles::ghost_button)
-            .padding([8, 12]),
-    ]
-    .spacing(8)
-    .align_y(Alignment::Center);
+    let mut icon_row = row![].spacing(4).align_y(Alignment::Center);
 
     if let Some(update) = &state.app_update {
-        button_row = button_row.push(
+        icon_row = icon_row.push(
             button(
                 container(text(format!("v{} available", update.latest_version)).size(11))
                     .padding([2, 8]),
@@ -108,7 +92,7 @@ fn header_view<'a>(state: &'a MainState) -> Element<'a, Message> {
     }
 
     if let Some(update) = &state.fnm_update {
-        button_row = button_row.push(
+        icon_row = icon_row.push(
             button(
                 container(text(format!("fnm {} available", update.latest_version)).size(11))
                     .padding([2, 8]),
@@ -119,7 +103,21 @@ fn header_view<'a>(state: &'a MainState) -> Element<'a, Message> {
         );
     }
 
-    row![title_section, Space::new().width(Length::Fill), button_row,]
+    icon_row = icon_row.push(
+        button(text("\u{21bb}").size(16))
+            .on_press(Message::RefreshEnvironment)
+            .style(styles::ghost_button)
+            .padding([6, 8]),
+    );
+
+    icon_row = icon_row.push(
+        button(text("\u{2699}").size(16))
+            .on_press(Message::NavigateToSettings)
+            .style(styles::ghost_button)
+            .padding([6, 8]),
+    );
+
+    row![title_section, Space::new().width(Length::Fill), icon_row,]
         .align_y(Alignment::Center)
         .into()
 }
@@ -134,6 +132,109 @@ fn search_bar_view<'a>(state: &'a MainState) -> Element<'a, Message> {
     .size(14)
     .style(styles::search_input)
     .into()
+}
+
+fn contextual_banners<'a>(state: &'a MainState) -> Option<Element<'a, Message>> {
+    let env = state.active_environment();
+    let schedule = state.available_versions.schedule.as_ref();
+    let remote = &state.available_versions.versions;
+
+    let mut banners: Vec<Element<Message>> = Vec::new();
+
+    let update_count = {
+        let mut latest_by_major: std::collections::HashMap<u32, &versi_core::NodeVersion> =
+            std::collections::HashMap::new();
+        for v in remote {
+            latest_by_major
+                .entry(v.version.major)
+                .and_modify(|existing| {
+                    if &v.version > *existing {
+                        *existing = &v.version;
+                    }
+                })
+                .or_insert(&v.version);
+        }
+
+        env.version_groups
+            .iter()
+            .filter(|group| {
+                let installed_latest = group.versions.iter().map(|v| &v.version).max();
+                latest_by_major.get(&group.major).is_some_and(|latest| {
+                    installed_latest.is_some_and(|installed| *latest > installed)
+                })
+            })
+            .count()
+    };
+
+    if update_count > 0 {
+        banners.push(
+            button(
+                row![
+                    text(format!(
+                        "{} major {} with updates available",
+                        update_count,
+                        if update_count == 1 {
+                            "version"
+                        } else {
+                            "versions"
+                        }
+                    ))
+                    .size(13),
+                    Space::new().width(Length::Fill),
+                    text("Update All").size(13),
+                ]
+                .align_y(Alignment::Center),
+            )
+            .on_press(Message::RequestBulkUpdateMajors)
+            .style(styles::banner_button_info)
+            .padding([12, 16])
+            .width(Length::Fill)
+            .into(),
+        );
+    }
+
+    let eol_count = schedule
+        .map(|s| {
+            env.version_groups
+                .iter()
+                .filter(|g| !s.is_active(g.major))
+                .map(|g| g.versions.len())
+                .sum::<usize>()
+        })
+        .unwrap_or(0);
+
+    if eol_count > 0 {
+        banners.push(
+            button(
+                row![
+                    text(format!(
+                        "{} end-of-life {} installed",
+                        eol_count,
+                        if eol_count == 1 {
+                            "version"
+                        } else {
+                            "versions"
+                        }
+                    ))
+                    .size(13),
+                    Space::new().width(Length::Fill),
+                    text("Clean Up").size(13),
+                ]
+                .align_y(Alignment::Center),
+            )
+            .on_press(Message::RequestBulkUninstallEOL)
+            .style(styles::banner_button_warning)
+            .padding([12, 16])
+            .width(Length::Fill)
+            .into(),
+        );
+    }
+
+    if banners.is_empty() {
+        None
+    } else {
+        Some(column(banners).spacing(8).into())
+    }
 }
 
 fn environment_tabs_view<'a>(state: &'a MainState) -> Option<Element<'a, Message>> {
@@ -250,11 +351,10 @@ fn queued_operation_view(queued: &QueuedOperation) -> Element<'_, Message> {
 fn modal_overlay<'a>(
     content: Element<'a, Message>,
     modal: &'a Modal,
-    state: &'a MainState,
-    settings: &'a AppSettings,
+    _state: &'a MainState,
+    _settings: &'a AppSettings,
 ) -> Element<'a, Message> {
     let modal_content: Element<Message> = match modal {
-        Modal::Settings(settings_state) => settings_modal_view(settings_state, settings, state),
         Modal::ConfirmUninstall {
             version,
             is_default,
@@ -302,278 +402,6 @@ fn modal_overlay<'a>(
         .height(Length::Fill);
 
     iced::widget::stack![content, backdrop, modal_layer].into()
-}
-
-fn settings_modal_view<'a>(
-    modal_state: &'a SettingsModalState,
-    settings: &'a AppSettings,
-    _state: &'a MainState,
-) -> Element<'a, Message> {
-    let header = row![
-        text("Settings").size(20),
-        Space::new().width(Length::Fill),
-        button(text("Done").size(13))
-            .on_press(Message::CloseSettings)
-            .style(styles::primary_button)
-            .padding([6, 14]),
-    ]
-    .align_y(Alignment::Center);
-
-    let mut content = column![
-        text("Appearance").size(13),
-        Space::new().height(8),
-        row![
-            button(
-                text(if is_system_dark() {
-                    "System (Dark)"
-                } else {
-                    "System (Light)"
-                })
-                .size(13),
-            )
-            .on_press(Message::ThemeChanged(crate::settings::ThemeSetting::System))
-            .style(styles::secondary_button)
-            .padding([10, 16]),
-            button(text("Light").size(13))
-                .on_press(Message::ThemeChanged(crate::settings::ThemeSetting::Light))
-                .style(styles::secondary_button)
-                .padding([10, 16]),
-            button(text("Dark").size(13))
-                .on_press(Message::ThemeChanged(crate::settings::ThemeSetting::Dark))
-                .style(styles::secondary_button)
-                .padding([10, 16]),
-        ]
-        .spacing(8),
-        Space::new().height(24),
-        text("System Tray").size(13),
-        Space::new().height(8),
-        row![
-            button(text("When Open").size(13))
-                .on_press(Message::TrayBehaviorChanged(TrayBehavior::WhenWindowOpen))
-                .style(if settings.tray_behavior == TrayBehavior::WhenWindowOpen {
-                    styles::primary_button
-                } else {
-                    styles::secondary_button
-                })
-                .padding([10, 16]),
-            button(text("Always").size(13))
-                .on_press(Message::TrayBehaviorChanged(TrayBehavior::AlwaysRunning))
-                .style(if settings.tray_behavior == TrayBehavior::AlwaysRunning {
-                    styles::primary_button
-                } else {
-                    styles::secondary_button
-                })
-                .padding([10, 16]),
-            button(text("Disabled").size(13))
-                .on_press(Message::TrayBehaviorChanged(TrayBehavior::Disabled))
-                .style(if settings.tray_behavior == TrayBehavior::Disabled {
-                    styles::primary_button
-                } else {
-                    styles::secondary_button
-                })
-                .padding([10, 16]),
-        ]
-        .spacing(8),
-        row![
-            toggler(settings.start_minimized)
-                .on_toggle(Message::StartMinimizedToggled)
-                .size(18),
-            text("Start minimized to tray").size(12),
-        ]
-        .spacing(8)
-        .align_y(Alignment::Center),
-        text("\"Always\" keeps the app running in the tray when closed")
-            .size(11)
-            .color(iced::Color::from_rgb8(142, 142, 147)),
-        Space::new().height(24),
-        text("Shell Options").size(13),
-        Space::new().height(8),
-        row![
-            toggler(settings.shell_options.use_on_cd)
-                .on_toggle(Message::ShellOptionUseOnCdToggled)
-                .size(18),
-            text("Auto-switch on cd").size(12),
-        ]
-        .spacing(8)
-        .align_y(Alignment::Center),
-        row![
-            toggler(settings.shell_options.resolve_engines)
-                .on_toggle(Message::ShellOptionResolveEnginesToggled)
-                .size(18),
-            text("Resolve engines from package.json").size(12),
-        ]
-        .spacing(8)
-        .align_y(Alignment::Center),
-        row![
-            toggler(settings.shell_options.corepack_enabled)
-                .on_toggle(Message::ShellOptionCorepackEnabledToggled)
-                .size(18),
-            text("Enable corepack").size(12),
-        ]
-        .spacing(8)
-        .align_y(Alignment::Center),
-        text("Options for new shell configurations")
-            .size(11)
-            .color(iced::Color::from_rgb8(142, 142, 147)),
-    ]
-    .spacing(4)
-    .width(Length::Fill);
-
-    content = content.push(Space::new().height(24));
-    content = content.push(text("Shell Setup").size(13));
-    content = content.push(Space::new().height(8));
-
-    if modal_state.checking_shells {
-        content = content.push(text("Checking shell configuration...").size(12));
-    } else if modal_state.shell_statuses.is_empty() {
-        content = content.push(text("No shells detected").size(12));
-    } else {
-        for shell in &modal_state.shell_statuses {
-            let status_text = match &shell.status {
-                ShellVerificationStatus::Unknown => "Unknown",
-                ShellVerificationStatus::Configured => "Configured ✓",
-                ShellVerificationStatus::NotConfigured => "Not configured",
-                ShellVerificationStatus::NoConfigFile => "No config file",
-                ShellVerificationStatus::FunctionalButNotInConfig => "Working (not in config)",
-                ShellVerificationStatus::Error(_) => "Error",
-            };
-
-            let is_configured = matches!(
-                shell.status,
-                ShellVerificationStatus::Configured
-                    | ShellVerificationStatus::FunctionalButNotInConfig
-            );
-
-            let has_no_config_file = matches!(shell.status, ShellVerificationStatus::NoConfigFile);
-
-            let shell_row = if shell.configuring {
-                row![
-                    text(&shell.shell_name).size(13).width(Length::Fixed(100.0)),
-                    text("Configuring...").size(12),
-                ]
-            } else if is_configured {
-                row![
-                    text(&shell.shell_name).size(13).width(Length::Fixed(100.0)),
-                    text(status_text)
-                        .size(12)
-                        .color(iced::Color::from_rgb8(52, 199, 89)),
-                ]
-            } else if has_no_config_file {
-                row![
-                    text(&shell.shell_name).size(13).width(Length::Fixed(100.0)),
-                    text(status_text)
-                        .size(12)
-                        .color(iced::Color::from_rgb8(142, 142, 147)),
-                ]
-            } else {
-                let shell_type = shell.shell_type.clone();
-                row![
-                    text(&shell.shell_name).size(13).width(Length::Fixed(100.0)),
-                    text(status_text)
-                        .size(12)
-                        .color(iced::Color::from_rgb8(255, 149, 0)),
-                    Space::new().width(Length::Fill),
-                    button(text("Configure").size(11))
-                        .on_press(Message::ConfigureShell(shell_type))
-                        .style(styles::secondary_button)
-                        .padding([4, 10]),
-                ]
-            };
-
-            content = content.push(shell_row.spacing(8).align_y(Alignment::Center));
-        }
-    }
-
-    content = content.push(Space::new().height(24));
-    content = content.push(text("Advanced").size(13));
-    content = content.push(Space::new().height(8));
-    content = content.push(
-        row![
-            toggler(settings.debug_logging)
-                .on_toggle(Message::DebugLoggingToggled)
-                .size(18),
-            text("Debug logging").size(12),
-        ]
-        .spacing(8)
-        .align_y(Alignment::Center),
-    );
-    let log_path = {
-        let paths = versi_platform::AppPaths::new();
-        paths.log_file().to_string_lossy().to_string()
-    };
-    let log_size_text = match modal_state.log_file_size {
-        Some(0) => "empty".to_string(),
-        Some(size) if size < 1024 => format!("{} B", size),
-        Some(size) if size < 1024 * 1024 => format!("{:.1} KB", size as f64 / 1024.0),
-        Some(size) => format!("{:.1} MB", size as f64 / (1024.0 * 1024.0)),
-        None => "not found".to_string(),
-    };
-    content = content.push(
-        row![
-            text("Log file: ")
-                .size(11)
-                .color(iced::Color::from_rgb8(142, 142, 147)),
-            button(text(log_path.clone()).size(11))
-                .on_press(Message::CopyToClipboard(log_path))
-                .style(styles::link_button)
-                .padding(0),
-            text(format!(" ({})", log_size_text))
-                .size(11)
-                .color(iced::Color::from_rgb8(142, 142, 147)),
-        ]
-        .align_y(Alignment::Center),
-    );
-    content = content.push(Space::new().height(8));
-    content = content.push(
-        row![
-            button(text("Show in Folder").size(11))
-                .on_press(Message::RevealLogFile)
-                .style(styles::secondary_button)
-                .padding([4, 10]),
-            button(text("Clear Log").size(11))
-                .on_press(Message::ClearLogFile)
-                .style(styles::secondary_button)
-                .padding([4, 10]),
-        ]
-        .spacing(8),
-    );
-    content = content.push(Space::new().height(24));
-    content = content.push(text("About").size(13));
-    content = content.push(Space::new().height(8));
-    content = content.push(text(format!("Versi v{}", env!("CARGO_PKG_VERSION"))).size(14));
-    content = content.push(Space::new().height(4));
-    content = content.push(
-        text("A native GUI for fnm (Fast Node Manager)")
-            .size(12)
-            .color(iced::Color::from_rgb8(142, 142, 147)),
-    );
-    content = content.push(Space::new().height(12));
-    content = content.push(
-        row![
-            button(text("GitHub").size(12))
-                .on_press(Message::OpenLink(
-                    "https://github.com/almeidx/versi".to_string()
-                ))
-                .style(styles::secondary_button)
-                .padding([6, 12]),
-            button(text("fnm").size(12))
-                .on_press(Message::OpenLink(
-                    "https://github.com/Schniz/fnm".to_string()
-                ))
-                .style(styles::secondary_button)
-                .padding([6, 12]),
-        ]
-        .spacing(8),
-    );
-
-    column![
-        header,
-        Space::new().height(24),
-        scrollable(content.padding(iced::Padding::default().right(12))).height(Length::Fill),
-    ]
-    .spacing(0)
-    .width(Length::Fill)
-    .into()
 }
 
 fn confirm_uninstall_view<'a>(version: &'a str, is_default: bool) -> Element<'a, Message> {
