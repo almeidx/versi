@@ -163,7 +163,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Update Cargo.lock
-        run: cargo generate-lockfile
+        run: cargo update --workspace
 
       - name: Create release branch and push
         run: |
