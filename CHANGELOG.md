@@ -3,6 +3,11 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.3.1] - 2026-01-28
+
+- fix: populate tray menu when starting minimized
+
+
 ## [0.3.0] - 2026-01-28
 
 - chore: relicense to GPL-3.0-only
