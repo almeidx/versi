@@ -9,8 +9,15 @@ pub fn view<'a>(content: Element<'a, Message>, toasts: &'a [Toast]) -> Element<'
         return content;
     }
 
-    let toast_elements: Vec<Element<Message>> =
-        toasts.iter().map(|toast| toast_view(toast)).collect();
+    let visible_toasts = if toasts.len() > 3 {
+        &toasts[toasts.len() - 3..]
+    } else {
+        toasts
+    };
+    let toast_elements: Vec<Element<Message>> = visible_toasts
+        .iter()
+        .map(|toast| toast_view(toast))
+        .collect();
 
     let toast_column = column(toast_elements).spacing(8);
 
