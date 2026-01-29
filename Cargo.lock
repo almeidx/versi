@@ -5354,6 +5354,7 @@ dependencies = [
  "chrono",
  "dark-light",
  "dirs",
+ "gtk",
  "iced",
  "image",
  "log",
