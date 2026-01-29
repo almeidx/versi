@@ -22,7 +22,7 @@ impl ResilientFileWriter {
     }
 
     fn ensure_file(&self) -> io::Result<()> {
-        let mut guard = self.file.lock().unwrap();
+        let mut guard = self.file.lock().unwrap_or_else(|e| e.into_inner());
 
         if !self.path.exists() {
             if let Some(parent) = self.path.parent() {
@@ -42,7 +42,7 @@ impl ResilientFileWriter {
 impl Write for ResilientFileWriter {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.ensure_file()?;
-        let mut guard = self.file.lock().unwrap();
+        let mut guard = self.file.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(ref mut file) = *guard {
             file.write(buf)
         } else {
@@ -51,7 +51,7 @@ impl Write for ResilientFileWriter {
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        let mut guard = self.file.lock().unwrap();
+        let mut guard = self.file.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(ref mut file) = *guard {
             file.flush()
         } else {
