@@ -95,7 +95,7 @@ fn header_view<'a>(state: &'a MainState) -> Element<'a, Message> {
     if let Some(update) = &state.app_update {
         icon_row = icon_row.push(
             button(
-                container(text(format!("v{} available", update.latest_version)).size(11))
+                container(text(format!("v{} available \u{2197}", update.latest_version)).size(11))
                     .padding([2, 8]),
             )
             .on_press(Message::OpenAppUpdate)
@@ -107,8 +107,10 @@ fn header_view<'a>(state: &'a MainState) -> Element<'a, Message> {
     if let Some(update) = &state.fnm_update {
         icon_row = icon_row.push(
             button(
-                container(text(format!("fnm {} available", update.latest_version)).size(11))
-                    .padding([2, 8]),
+                container(
+                    text(format!("fnm {} available \u{2197}", update.latest_version)).size(11),
+                )
+                .padding([2, 8]),
             )
             .on_press(Message::OpenFnmUpdate)
             .style(styles::app_update_button)

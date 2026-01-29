@@ -270,13 +270,13 @@ pub fn view<'a>(
     content = content.push(Space::new().height(12));
     content = content.push(
         row![
-            button(text("GitHub").size(12))
+            button(text("GitHub \u{2197}").size(12))
                 .on_press(Message::OpenLink(
                     "https://github.com/almeidx/versi".to_string()
                 ))
                 .style(styles::secondary_button)
                 .padding([6, 12]),
-            button(text("fnm").size(12))
+            button(text("fnm \u{2197}").size(12))
                 .on_press(Message::OpenLink(
                     "https://github.com/Schniz/fnm".to_string()
                 ))
