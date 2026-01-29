@@ -3,6 +3,21 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.3.3] - 2026-01-29
+
+- chore: lockfile
+- fix: truncate debug log file when it exceeds 5MB
+- fix: remove default version from header subtitle
+- feat: add arrow icon to browser-opening buttons
+- fix: recover from poisoned mutex in logging
+- feat: add tooltips to icon buttons
+- fix: replace .unwrap() calls with safe patterns in app.rs
+- fix: initialize GTK before tray icon on Linux
+- chore: release v0.3.2 (#41)
+- fix: use detected fnm path for initial environment load
+- fix: improve badges and update screenshot
+
+
 ## [0.3.2] - 2026-01-28
 
 - fix: use detected fnm path for initial environment load
