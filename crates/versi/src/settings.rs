@@ -27,6 +27,9 @@ pub struct AppSettings {
 
     #[serde(default)]
     pub debug_logging: bool,
+
+    #[serde(default)]
+    pub window_geometry: Option<WindowGeometry>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,6 +73,7 @@ impl Default for AppSettings {
             node_dist_mirror: None,
             shell_options: ShellOptions::default(),
             debug_logging: false,
+            window_geometry: None,
         }
     }
 }
@@ -97,6 +101,14 @@ impl AppSettings {
         std::fs::write(paths.settings_file(), content)?;
         Ok(())
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WindowGeometry {
+    pub width: f32,
+    pub height: f32,
+    pub x: i32,
+    pub y: i32,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]

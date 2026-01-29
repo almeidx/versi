@@ -51,6 +51,8 @@ pub struct FnmUi {
     pending_minimize: bool,
     fnm_path: PathBuf,
     fnm_dir: Option<PathBuf>,
+    window_size: Option<iced::Size>,
+    window_position: Option<iced::Point>,
 }
 
 impl FnmUi {
@@ -67,6 +69,8 @@ impl FnmUi {
             pending_minimize: should_minimize,
             fnm_path: PathBuf::from("fnm"),
             fnm_dir: None,
+            window_size: None,
+            window_position: None,
         };
 
         let init_task = Task::perform(initialize(), Message::Initialized);
@@ -328,6 +332,7 @@ impl FnmUi {
                 Task::none()
             }
             Message::WindowEvent(iced::window::Event::CloseRequested) | Message::CloseWindow => {
+                self.save_window_geometry();
                 if self.settings.tray_behavior == TrayBehavior::AlwaysRunning
                     && tray::is_tray_active()
                 {
@@ -340,6 +345,14 @@ impl FnmUi {
                 } else {
                     iced::exit()
                 }
+            }
+            Message::WindowEvent(iced::window::Event::Resized(size)) => {
+                self.window_size = Some(size);
+                Task::none()
+            }
+            Message::WindowEvent(iced::window::Event::Moved(point)) => {
+                self.window_position = Some(point);
+                Task::none()
             }
             Message::WindowOpened(id) => {
                 self.window_id = Some(id);
@@ -402,6 +415,7 @@ impl FnmUi {
                 }
                 Task::none()
             }
+            Message::WindowGeometrySaved => Task::none(),
             Message::OpenLink(url) => Task::perform(
                 async move {
                     let _ = open::that(&url);
@@ -489,6 +503,18 @@ impl FnmUi {
         let window_open_sub = iced::window::open_events().map(Message::WindowOpened);
 
         Subscription::batch([tick, keyboard, window_events, tray_sub, window_open_sub])
+    }
+
+    fn save_window_geometry(&mut self) {
+        if let (Some(size), Some(pos)) = (self.window_size, self.window_position) {
+            self.settings.window_geometry = Some(crate::settings::WindowGeometry {
+                width: size.width,
+                height: size.height,
+                x: pos.x as i32,
+                y: pos.y as i32,
+            });
+            let _ = self.settings.save();
+        }
     }
 
     fn handle_initialized(&mut self, result: InitResult) -> Task<Message> {

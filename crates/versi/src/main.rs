@@ -40,12 +40,21 @@ fn main() -> iced::Result {
 
     let icon = window::icon::from_file_data(include_bytes!("../../../assets/logo.png"), None).ok();
 
+    let (window_size, window_position) = match &settings.window_geometry {
+        Some(geo) => (
+            iced::Size::new(geo.width, geo.height),
+            window::Position::Specific(iced::Point::new(geo.x as f32, geo.y as f32)),
+        ),
+        None => (iced::Size::new(800.0, 600.0), window::Position::Default),
+    };
+
     iced::application(app::FnmUi::new, app::FnmUi::update, app::FnmUi::view)
         .title(|state: &app::FnmUi| state.title())
         .subscription(|state: &app::FnmUi| state.subscription())
         .theme(|state: &app::FnmUi| state.theme())
         .window(window::Settings {
-            size: iced::Size::new(800.0, 600.0),
+            size: window_size,
+            position: window_position,
             min_size: Some(iced::Size::new(600.0, 400.0)),
             icon,
             visible: true,

@@ -137,6 +137,7 @@ pub enum Message {
     OpenFnmUpdate,
 
     OpenLink(String),
+    WindowGeometrySaved,
 }
 
 #[derive(Debug, Clone)]
