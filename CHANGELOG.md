@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.4.0] - 2026-01-30
+
+- deps: Update Rust crate gtk to 0.18.2 (#43)
+- feat: add network error handling, disk caching, and retry with backoff
+- feat: replace Unicode icons with embedded SVG icons
+- feat: persist window size and position across sessions
+- feat: add About as a separate tab accessible from homepage and tray
+
+
 ## [0.3.3] - 2026-01-29
 
 - chore: lockfile
