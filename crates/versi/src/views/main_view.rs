@@ -4,7 +4,7 @@ use iced::{Alignment, Element, Length};
 use crate::icon;
 use crate::message::Message;
 use crate::settings::AppSettings;
-use crate::state::{MainState, Modal, NetworkStatus, Operation, QueuedOperation};
+use crate::state::{MainState, Modal, NetworkStatus};
 use crate::theme::styles;
 use crate::widgets::{toast_container, version_list};
 
@@ -64,23 +64,7 @@ pub fn view<'a>(state: &'a MainState, settings: &'a AppSettings) -> Element<'a, 
         main_column.into()
     };
 
-    let with_toasts = toast_container::view(with_modal, &state.toasts);
-
-    if let Some(operation) = operation_status_view(state) {
-        let operation_overlay = container(operation)
-            .padding(16)
-            .align_x(iced::alignment::Horizontal::Left)
-            .align_y(iced::alignment::Vertical::Bottom)
-            .width(Length::Fill)
-            .height(Length::Fill);
-
-        iced::widget::stack![with_toasts, operation_overlay]
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .into()
-    } else {
-        with_toasts
-    }
+    toast_container::view(with_modal, &state.toasts)
 }
 
 fn header_view<'a>(state: &'a MainState) -> Element<'a, Message> {
@@ -403,81 +387,6 @@ fn environment_tabs_view<'a>(state: &'a MainState) -> Option<Element<'a, Message
     Some(row(tabs).spacing(4).into())
 }
 
-fn operation_status_view<'a>(state: &'a MainState) -> Option<Element<'a, Message>> {
-    let queue = &state.operation_queue;
-
-    if queue.active_installs.is_empty() && queue.exclusive_op.is_none() && queue.pending.is_empty()
-    {
-        return None;
-    }
-
-    let mut content = column![].spacing(8);
-
-    for op in &queue.active_installs {
-        content = content.push(current_operation_view(op));
-    }
-
-    if let Some(op) = &queue.exclusive_op {
-        content = content.push(current_operation_view(op));
-    }
-
-    if !queue.pending.is_empty() {
-        content = content.push(text("Queued").size(11));
-        for queued in &queue.pending {
-            content = content.push(queued_operation_view(queued));
-        }
-    }
-
-    Some(
-        container(content.padding(16))
-            .style(styles::card_container)
-            .max_width(320)
-            .into(),
-    )
-}
-
-fn current_operation_view(op: &Operation) -> Element<'_, Message> {
-    match op {
-        Operation::Install { version, progress } => {
-            let phase_text = match progress.phase {
-                versi_core::InstallPhase::Starting => "Preparing...",
-                versi_core::InstallPhase::Downloading => "Downloading...",
-                versi_core::InstallPhase::Extracting => "Extracting...",
-                versi_core::InstallPhase::Installing => "Installing...",
-                versi_core::InstallPhase::Complete => "Complete!",
-                versi_core::InstallPhase::Failed => "Failed",
-            };
-
-            column![
-                text(format!("Installing Node {}", version)).size(14),
-                text(phase_text).size(12),
-            ]
-            .spacing(4)
-            .into()
-        }
-        Operation::Uninstall { version } => text(format!("Removing Node {}...", version))
-            .size(14)
-            .into(),
-        Operation::SetDefault { version } => text(format!("Setting default to {}...", version))
-            .size(14)
-            .into(),
-    }
-}
-
-fn queued_operation_view(queued: &QueuedOperation) -> Element<'_, Message> {
-    row![
-        text(queued.request.description()).size(12),
-        Space::new().width(Length::Fill),
-        button(icon::close(12.0))
-            .on_press(Message::CancelQueuedOperation(queued.id))
-            .style(styles::ghost_button)
-            .padding([2, 6]),
-    ]
-    .spacing(8)
-    .align_y(Alignment::Center)
-    .into()
-}
-
 fn modal_overlay<'a>(
     content: Element<'a, Message>,
     modal: &'a Modal,
@@ -485,10 +394,6 @@ fn modal_overlay<'a>(
     _settings: &'a AppSettings,
 ) -> Element<'a, Message> {
     let modal_content: Element<Message> = match modal {
-        Modal::ConfirmUninstall {
-            version,
-            is_default,
-        } => confirm_uninstall_view(version, *is_default),
         Modal::ConfirmBulkUpdateMajors { versions } => confirm_bulk_update_view(versions),
         Modal::ConfirmBulkUninstallEOL { versions } => confirm_bulk_uninstall_eol_view(versions),
         Modal::ConfirmBulkUninstallMajor { major, versions } => {
@@ -532,48 +437,6 @@ fn modal_overlay<'a>(
         .height(Length::Fill);
 
     iced::widget::stack![content, backdrop, modal_layer].into()
-}
-
-fn confirm_uninstall_view<'a>(version: &'a str, is_default: bool) -> Element<'a, Message> {
-    let mut content = column![
-        text(format!("Remove Node {}?", version)).size(20),
-        Space::new().height(12),
-    ]
-    .spacing(4);
-
-    if is_default {
-        content = content
-            .push(
-                text("Warning: This is your default Node.js version.")
-                    .size(14)
-                    .color(styles::WARNING_COLOR),
-            )
-            .push(Space::new().height(4))
-            .push(
-                text("You will need to set a new default after uninstalling.")
-                    .size(14)
-                    .color(styles::WARNING_COLOR),
-            );
-    } else {
-        content = content.push(text("This version will be uninstalled from your system.").size(14));
-    }
-
-    content = content.push(Space::new().height(24)).push(
-        row![
-            button(text("Cancel").size(13))
-                .on_press(Message::CancelUninstall)
-                .style(styles::secondary_button)
-                .padding([10, 20]),
-            Space::new().width(Length::Fill),
-            button(text("Remove").size(13))
-                .on_press(Message::ConfirmUninstall(version.to_string()))
-                .style(styles::danger_button)
-                .padding([10, 20]),
-        ]
-        .spacing(16),
-    );
-
-    content.width(Length::Fill).into()
 }
 
 fn confirm_bulk_update_view(versions: &[(String, String)]) -> Element<'_, Message> {

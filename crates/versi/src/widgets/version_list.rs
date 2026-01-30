@@ -7,7 +7,7 @@ use versi_core::{InstalledVersion, NodeVersion, ReleaseSchedule, RemoteVersion, 
 
 use crate::icon;
 use crate::message::Message;
-use crate::state::{EnvironmentState, OperationQueue};
+use crate::state::{EnvironmentState, Operation, OperationQueue};
 use crate::theme::styles;
 
 fn compute_latest_by_major(remote_versions: &[RemoteVersion]) -> HashMap<u32, NodeVersion> {
@@ -31,7 +31,6 @@ fn compute_latest_by_major(remote_versions: &[RemoteVersion]) -> HashMap<u32, No
 fn filter_available_versions<'a>(
     versions: &'a [RemoteVersion],
     query: &str,
-    installed: &HashSet<String>,
 ) -> Vec<&'a RemoteVersion> {
     let query_lower = query.to_lowercase();
 
@@ -39,9 +38,6 @@ fn filter_available_versions<'a>(
         .iter()
         .filter(|v| {
             let version_str = v.version.to_string();
-            if installed.contains(&version_str) {
-                return false;
-            }
 
             if query_lower == "lts" {
                 return v.lts_codename.is_some();
@@ -159,12 +155,12 @@ pub fn view<'a>(
     }
 
     if !search_query.is_empty() {
-        let available = filter_available_versions(remote_versions, search_query, &installed_set);
+        let available = filter_available_versions(remote_versions, search_query);
 
         if !available.is_empty() {
             content_items.push(Space::new().height(16).into());
             content_items.push(
-                text("Available to Install")
+                text("Available Versions")
                     .size(12)
                     .color(iced::Color::from_rgb8(142, 142, 147))
                     .into(),
@@ -173,7 +169,15 @@ pub fn view<'a>(
 
             let available_rows: Vec<Element<Message>> = available
                 .iter()
-                .map(|v| available_version_row(v, schedule, operation_queue))
+                .map(|v| {
+                    available_version_row(
+                        v,
+                        schedule,
+                        operation_queue,
+                        &installed_set,
+                        hovered_version,
+                    )
+                })
                 .collect();
 
             content_items.push(
@@ -405,8 +409,12 @@ fn version_item_view<'a>(
     let version_for_changelog = version_str.clone();
     let version_for_hover = version_str.clone();
 
-    let is_busy = operation_queue.is_current_version(&version_str)
-        || operation_queue.has_pending_for_version(&version_str);
+    let active_op = operation_queue.active_operation_for(&version_str);
+    let is_pending = operation_queue.has_pending_for_version(&version_str);
+    let is_busy = active_op.is_some() || is_pending;
+
+    let is_uninstalling = matches!(active_op, Some(Operation::Uninstall { .. }));
+    let is_setting_default = matches!(active_op, Some(Operation::SetDefault { .. }));
 
     let is_hovered = hovered_version.as_ref().is_some_and(|h| h == &version_str);
     let show_actions = is_hovered || is_default;
@@ -473,6 +481,12 @@ fn version_item_view<'a>(
                 .style(action_style)
                 .padding([6, 12]),
         );
+    } else if is_setting_default {
+        row_content = row_content.push(
+            button(text("Setting...").size(12))
+                .style(action_style)
+                .padding([6, 12]),
+        );
     } else if is_busy || !show_actions {
         row_content = row_content.push(
             button(text("Set Default").size(12))
@@ -488,7 +502,13 @@ fn version_item_view<'a>(
         );
     }
 
-    if is_busy || !show_actions {
+    if is_uninstalling {
+        row_content = row_content.push(
+            button(text("Removing...").size(12))
+                .style(danger_style)
+                .padding([6, 12]),
+        );
+    } else if is_busy || !show_actions {
         row_content = row_content.push(
             button(text("Uninstall").size(12))
                 .style(danger_style)
@@ -521,6 +541,8 @@ fn available_version_row<'a>(
     version: &'a RemoteVersion,
     schedule: Option<&ReleaseSchedule>,
     operation_queue: &'a OperationQueue,
+    installed_set: &HashSet<String>,
+    hovered_version: &'a Option<String>,
 ) -> Element<'a, Message> {
     let version_str = version.version.to_string();
     let is_eol = schedule
@@ -528,19 +550,44 @@ fn available_version_row<'a>(
         .unwrap_or(false);
     let version_display = version_str.clone();
     let version_for_changelog = version_str.clone();
+    let version_for_hover = version_str.clone();
+    let is_installed = installed_set.contains(&version_str);
 
-    let is_busy = operation_queue.is_current_version(&version_str)
-        || operation_queue.has_pending_for_version(&version_str);
+    let is_active = operation_queue.is_current_version(&version_str);
+    let is_pending = operation_queue.has_pending_for_version(&version_str);
+    let is_button_hovered = hovered_version.as_ref().is_some_and(|h| h == &version_str);
 
-    let install_button = if is_busy {
+    let action_button: Element<Message> = if is_active {
         button(text("Installing...").size(12))
             .style(styles::primary_button)
             .padding([6, 12])
+            .into()
+    } else if is_pending {
+        button(text("Queued").size(12))
+            .style(styles::secondary_button)
+            .padding([6, 12])
+            .into()
+    } else if is_installed {
+        let btn = if is_button_hovered {
+            button(text("Uninstall").size(12))
+                .on_press(Message::RequestUninstall(version_str))
+                .style(styles::danger_button)
+                .padding([6, 12])
+        } else {
+            button(text("Installed").size(12))
+                .style(styles::secondary_button)
+                .padding([6, 12])
+        };
+        mouse_area(btn)
+            .on_enter(Message::VersionRowHovered(Some(version_for_hover)))
+            .on_exit(Message::VersionRowHovered(None))
+            .into()
     } else {
         button(text("Install").size(12))
             .on_press(Message::StartInstall(version_str))
             .style(styles::primary_button)
             .padding([6, 12])
+            .into()
     };
 
     row![
@@ -568,7 +615,7 @@ fn available_version_row<'a>(
         .on_press(Message::OpenChangelog(version_for_changelog))
         .style(styles::ghost_button)
         .padding([4, 8]),
-        install_button,
+        action_button,
     ]
     .spacing(8)
     .align_y(Alignment::Center)

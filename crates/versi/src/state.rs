@@ -287,19 +287,10 @@ impl OperationRequest {
             Self::SetDefault { version } => version,
         }
     }
-
-    pub fn description(&self) -> String {
-        match self {
-            Self::Install { version } => format!("Install Node {}", version),
-            Self::Uninstall { version } => format!("Uninstall Node {}", version),
-            Self::SetDefault { version } => format!("Set Node {} as default", version),
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
 pub struct QueuedOperation {
-    pub id: usize,
     pub request: OperationRequest,
     #[allow(dead_code)]
     pub queued_at: Instant,
@@ -310,7 +301,6 @@ pub struct OperationQueue {
     pub active_installs: Vec<Operation>,
     pub exclusive_op: Option<Operation>,
     pub pending: VecDeque<QueuedOperation>,
-    next_id: usize,
 }
 
 impl std::fmt::Debug for OperationQueue {
@@ -335,14 +325,7 @@ impl OperationQueue {
             active_installs: Vec::new(),
             exclusive_op: None,
             pending: VecDeque::new(),
-            next_id: 0,
         }
-    }
-
-    pub fn next_id(&mut self) -> usize {
-        let id = self.next_id;
-        self.next_id += 1;
-        id
     }
 
     pub fn is_busy_for_install(&self) -> bool {
@@ -361,12 +344,6 @@ impl OperationQueue {
     #[allow(dead_code)]
     pub fn queue_count(&self) -> usize {
         self.pending.len()
-    }
-
-    pub fn cancel_pending(&mut self, id: usize) -> bool {
-        let before = self.pending.len();
-        self.pending.retain(|op| op.id != id);
-        self.pending.len() < before
     }
 
     pub fn has_pending_for_version(&self, version: &str) -> bool {
@@ -391,6 +368,21 @@ impl OperationQueue {
                 Operation::SetDefault { version: v } => v == version,
             })
             .unwrap_or(false)
+    }
+
+    pub fn active_operation_for(&self, version: &str) -> Option<&Operation> {
+        if let Some(op) = self
+            .active_installs
+            .iter()
+            .find(|op| matches!(op, Operation::Install { version: v, .. } if v == version))
+        {
+            return Some(op);
+        }
+        self.exclusive_op.as_ref().filter(|op| match op {
+            Operation::Install { version: v, .. } => v == version,
+            Operation::Uninstall { version: v } => v == version,
+            Operation::SetDefault { version: v } => v == version,
+        })
     }
 
     pub fn remove_completed_install(&mut self, version: &str) {
@@ -418,35 +410,16 @@ impl OperationQueue {
 pub struct Toast {
     pub id: usize,
     pub message: String,
-    pub status: ToastStatus,
-    pub undo_action: Option<UndoAction>,
     pub created_at: Instant,
 }
 
 impl Toast {
-    pub fn success(id: usize, message: String) -> Self {
-        Self {
-            id,
-            message,
-            status: ToastStatus::Success,
-            undo_action: None,
-            created_at: Instant::now(),
-        }
-    }
-
     pub fn error(id: usize, message: String) -> Self {
         Self {
             id,
             message,
-            status: ToastStatus::Error,
-            undo_action: None,
             created_at: Instant::now(),
         }
-    }
-
-    pub fn with_undo(mut self, action: UndoAction) -> Self {
-        self.undo_action = Some(action);
-        self
     }
 
     pub fn is_expired(&self) -> bool {
@@ -454,27 +427,8 @@ impl Toast {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-#[allow(dead_code)]
-pub enum ToastStatus {
-    Info,
-    Success,
-    Warning,
-    Error,
-}
-
-#[derive(Debug, Clone)]
-pub enum UndoAction {
-    Reinstall { version: String },
-    ResetDefault { version: String },
-}
-
 #[derive(Debug, Clone)]
 pub enum Modal {
-    ConfirmUninstall {
-        version: String,
-        is_default: bool,
-    },
     ConfirmBulkUpdateMajors {
         versions: Vec<(String, String)>,
     },

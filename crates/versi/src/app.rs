@@ -38,7 +38,7 @@ use crate::settings::{AppSettings, ThemeSetting, TrayBehavior};
 use crate::state::{
     AppState, EnvironmentState, MainState, MainViewKind, Modal, OnboardingState, OnboardingStep,
     Operation, OperationRequest, QueuedOperation, ShellConfigStatus, ShellSetupStatus,
-    ShellVerificationStatus, Toast, UndoAction,
+    ShellVerificationStatus, Toast,
 };
 use crate::theme::{dark_theme, get_system_theme, light_theme};
 use crate::tray::{self, TrayMenuData, TrayMessage};
@@ -160,16 +160,7 @@ impl FnmUi {
                 success,
                 error,
             } => self.handle_install_complete(version, success, error),
-            Message::RequestUninstall(version) => {
-                self.handle_request_uninstall(version);
-                Task::none()
-            }
-            Message::ConfirmUninstall(version) => self.handle_confirm_uninstall(version),
-            Message::CancelUninstall => {
-                self.handle_close_modal();
-                Task::none()
-            }
-            Message::CancelQueuedOperation(id) => self.handle_cancel_queued_operation(id),
+            Message::RequestUninstall(version) => self.handle_uninstall(version),
             Message::UninstallComplete {
                 version,
                 success,
@@ -208,7 +199,6 @@ impl FnmUi {
                 }
                 Task::none()
             }
-            Message::ToastUndo(id) => self.handle_toast_undo(id),
             Message::NavigateToSettings => {
                 if let AppState::Main(state) = &mut self.state {
                     state.view = MainViewKind::Settings;
@@ -959,9 +949,7 @@ impl FnmUi {
             }
 
             if state.operation_queue.is_busy_for_install() {
-                let id = state.operation_queue.next_id();
                 state.operation_queue.pending.push_back(QueuedOperation {
-                    id,
                     request: OperationRequest::Install {
                         version: version.clone(),
                     },
@@ -1069,28 +1057,10 @@ impl FnmUi {
         Task::batch([refresh_task, next_task])
     }
 
-    fn handle_request_uninstall(&mut self, version: String) {
+    fn handle_uninstall(&mut self, version: String) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            let is_default = state
-                .active_environment()
-                .default_version
-                .as_ref()
-                .is_some_and(|d| d.to_string() == version);
-            state.modal = Some(Modal::ConfirmUninstall {
-                version,
-                is_default,
-            });
-        }
-    }
-
-    fn handle_confirm_uninstall(&mut self, version: String) -> Task<Message> {
-        if let AppState::Main(state) = &mut self.state {
-            state.modal = None;
-
             if state.operation_queue.is_busy_for_exclusive() {
-                let id = state.operation_queue.next_id();
                 state.operation_queue.pending.push_back(QueuedOperation {
-                    id,
                     request: OperationRequest::Uninstall {
                         version: version.clone(),
                     },
@@ -1139,14 +1109,8 @@ impl FnmUi {
         if let AppState::Main(state) = &mut self.state {
             state.operation_queue.exclusive_op = None;
 
-            let toast_id = state.next_toast_id();
-            if success {
-                let toast = Toast::success(toast_id, format!("Node {} uninstalled", version))
-                    .with_undo(UndoAction::Reinstall {
-                        version: version.clone(),
-                    });
-                state.add_toast(toast);
-            } else {
+            if !success {
+                let toast_id = state.next_toast_id();
                 state.add_toast(Toast::error(
                     toast_id,
                     format!(
@@ -1166,9 +1130,7 @@ impl FnmUi {
     fn handle_set_default(&mut self, version: String) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
             if state.operation_queue.is_busy_for_exclusive() {
-                let id = state.operation_queue.next_id();
                 state.operation_queue.pending.push_back(QueuedOperation {
-                    id,
                     request: OperationRequest::SetDefault {
                         version: version.clone(),
                     },
@@ -1217,23 +1179,16 @@ impl FnmUi {
 
     fn handle_default_changed(
         &mut self,
-        version: String,
-        previous: Option<String>,
+        _version: String,
+        _previous: Option<String>,
         success: bool,
         error: Option<String>,
     ) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
             state.operation_queue.exclusive_op = None;
 
-            let toast_id = state.next_toast_id();
-            if success {
-                let mut toast =
-                    Toast::success(toast_id, format!("Default set to Node {}", version));
-                if let Some(prev) = previous {
-                    toast = toast.with_undo(UndoAction::ResetDefault { version: prev });
-                }
-                state.add_toast(toast);
-            } else {
+            if !success {
+                let toast_id = state.next_toast_id();
                 state.add_toast(Toast::error(
                     toast_id,
                     format!("Failed to set default: {}", error.unwrap_or_default()),
@@ -1244,27 +1199,6 @@ impl FnmUi {
         let next_task = self.process_next_operation();
         let refresh_task = self.handle_refresh_environment();
         Task::batch([refresh_task, next_task])
-    }
-
-    fn handle_toast_undo(&mut self, id: usize) -> Task<Message> {
-        if let AppState::Main(state) = &mut self.state {
-            let toast = state.toasts.iter().find(|t| t.id == id).cloned();
-            state.remove_toast(id);
-
-            if let Some(toast) = toast
-                && let Some(undo_action) = toast.undo_action
-            {
-                match undo_action {
-                    UndoAction::Reinstall { version } => {
-                        return self.handle_start_install(version);
-                    }
-                    UndoAction::ResetDefault { version } => {
-                        return self.handle_set_default(version);
-                    }
-                }
-            }
-        }
-        Task::none()
     }
 
     fn handle_request_bulk_update_majors(&mut self) -> Task<Message> {
@@ -1318,11 +1252,6 @@ impl FnmUi {
                 .collect();
 
             if versions_to_update.is_empty() {
-                let toast_id = state.next_toast_id();
-                state.add_toast(Toast::success(
-                    toast_id,
-                    "All versions are up to date".to_string(),
-                ));
                 return Task::none();
             }
 
@@ -1350,11 +1279,6 @@ impl FnmUi {
                 .collect();
 
             if eol_versions.is_empty() {
-                let toast_id = state.next_toast_id();
-                state.add_toast(Toast::success(
-                    toast_id,
-                    "No EOL versions installed".to_string(),
-                ));
                 return Task::none();
             }
 
@@ -1390,9 +1314,7 @@ impl FnmUi {
             && let Some(Modal::ConfirmBulkUpdateMajors { versions }) = state.modal.take()
         {
             for (_from, to) in versions {
-                let id = state.operation_queue.next_id();
                 state.operation_queue.pending.push_back(QueuedOperation {
-                    id,
                     request: OperationRequest::Install {
                         version: to.clone(),
                     },
@@ -1409,9 +1331,7 @@ impl FnmUi {
             && let Some(Modal::ConfirmBulkUninstallEOL { versions }) = state.modal.take()
         {
             for version in versions {
-                let id = state.operation_queue.next_id();
                 state.operation_queue.pending.push_back(QueuedOperation {
-                    id,
                     request: OperationRequest::Uninstall { version },
                     queued_at: Instant::now(),
                 });
@@ -1428,9 +1348,7 @@ impl FnmUi {
             && m == major
         {
             for version in versions {
-                let id = state.operation_queue.next_id();
                 state.operation_queue.pending.push_back(QueuedOperation {
-                    id,
                     request: OperationRequest::Uninstall { version },
                     queued_at: Instant::now(),
                 });
@@ -1453,11 +1371,6 @@ impl FnmUi {
             versions_in_major.sort_by(|a, b| b.version.cmp(&a.version));
 
             if versions_in_major.len() <= 1 {
-                let toast_id = state.next_toast_id();
-                state.add_toast(Toast::success(
-                    toast_id,
-                    format!("Only one Node {}.x version installed", major),
-                ));
                 return Task::none();
             }
 
@@ -1489,9 +1402,7 @@ impl FnmUi {
             && m == major
         {
             for version in versions {
-                let id = state.operation_queue.next_id();
                 state.operation_queue.pending.push_back(QueuedOperation {
-                    id,
                     request: OperationRequest::Uninstall { version },
                     queued_at: Instant::now(),
                 });
@@ -1552,16 +1463,6 @@ impl FnmUi {
             if !tasks.is_empty() {
                 return Task::batch(tasks);
             }
-        }
-        Task::none()
-    }
-
-    fn handle_cancel_queued_operation(&mut self, id: usize) -> Task<Message> {
-        if let AppState::Main(state) = &mut self.state
-            && state.operation_queue.cancel_pending(id)
-        {
-            let toast_id = state.next_toast_id();
-            state.add_toast(Toast::success(toast_id, "Operation cancelled".to_string()));
         }
         Task::none()
     }

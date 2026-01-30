@@ -51,9 +51,6 @@ pub enum Message {
     },
 
     RequestUninstall(String),
-    ConfirmUninstall(String),
-    CancelUninstall,
-    CancelQueuedOperation(usize),
     UninstallComplete {
         version: String,
         success: bool,
@@ -87,7 +84,6 @@ pub enum Message {
     },
 
     ToastDismiss(usize),
-    ToastUndo(usize),
 
     NavigateToVersions,
     NavigateToSettings,
