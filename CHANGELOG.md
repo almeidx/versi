@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.5.0] - 2026-01-30
+
+- fix: resolve Windows build errors in shell setup handler
+- feat: animate refresh icon with spinning rotation during environment load
+- feat: add keyboard shortcuts for search focus, settings, and refresh
+- refactor: make codebase engine-agnostic with BackendProvider trait
+- refactor: rename FnmUi to Versi and split large files into modules
+- refactor: remove unused function parameters and redundant data
+- feat: replace toasts and overlays with inline reactive UI feedback
+- fix: fnm detection and window close on Linux/GNOME
+- feat: clean up config, cache, and log data on uninstall
+- feat: position scrollbars flush against the right window edge
+- feat: remove install success toasts in favor of inline UI feedback
+- feat: streamline onboarding by removing Install Node and Complete steps
+
+
 ## [0.4.0] - 2026-01-30
 
 - deps: Update Rust crate gtk to 0.18.2 (#43)
