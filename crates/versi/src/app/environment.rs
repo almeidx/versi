@@ -130,8 +130,9 @@ impl Versi {
             let env = state.active_environment_mut();
             env.loading = true;
             env.error = None;
-
             let env_id = env.id.clone();
+
+            state.refresh_rotation = std::f32::consts::TAU / 40.0;
             let backend = state.backend.clone();
 
             return Task::perform(

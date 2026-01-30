@@ -31,6 +31,10 @@ pub fn refresh(size: f32) -> svg::Svg<'static, Theme> {
     themed_icon(include_bytes!("../../../assets/icons/refresh.svg"), size)
 }
 
+pub fn refresh_spinning(size: f32, radians: f32) -> svg::Svg<'static, Theme> {
+    themed_icon(include_bytes!("../../../assets/icons/refresh.svg"), size).rotation(radians)
+}
+
 pub fn settings(size: f32) -> svg::Svg<'static, Theme> {
     themed_icon(include_bytes!("../../../assets/icons/settings.svg"), size)
 }

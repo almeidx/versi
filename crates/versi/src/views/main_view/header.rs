@@ -61,8 +61,14 @@ pub(super) fn header_view<'a>(state: &'a MainState) -> Element<'a, Message> {
         );
     }
 
+    let refresh_icon = if state.refresh_rotation != 0.0 {
+        icon::refresh_spinning(16.0, state.refresh_rotation)
+    } else {
+        icon::refresh(16.0)
+    };
+
     icon_row = icon_row.push(tooltip(
-        button(icon::refresh(16.0))
+        button(refresh_icon)
             .on_press(Message::RefreshEnvironment)
             .style(styles::ghost_button)
             .padding([6, 8]),

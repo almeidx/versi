@@ -19,6 +19,7 @@ pub struct MainState {
     pub settings_state: SettingsModalState,
     pub hovered_version: Option<String>,
     pub backend_name: &'static str,
+    pub refresh_rotation: f32,
 }
 
 impl std::fmt::Debug for MainState {
@@ -61,6 +62,7 @@ impl MainState {
             settings_state: SettingsModalState::new(),
             hovered_version: None,
             backend_name,
+            refresh_rotation: 0.0,
         }
     }
 

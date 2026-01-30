@@ -309,6 +309,16 @@ impl Versi {
                 Task::none()
             }
             Message::OnboardingComplete => self.handle_onboarding_complete(),
+            Message::AnimationTick => {
+                if let AppState::Main(state) = &mut self.state {
+                    let loading = state.active_environment().loading;
+                    state.refresh_rotation += std::f32::consts::TAU / 40.0;
+                    if !loading && state.refresh_rotation >= std::f32::consts::TAU {
+                        state.refresh_rotation = 0.0;
+                    }
+                }
+                Task::none()
+            }
             Message::Tick => {
                 if let AppState::Main(state) = &mut self.state {
                     state.toasts.retain(|t| !t.is_expired());
@@ -492,7 +502,28 @@ impl Versi {
 
         let window_open_sub = iced::window::open_events().map(Message::WindowOpened);
 
-        Subscription::batch([tick, keyboard, window_events, tray_sub, window_open_sub])
+        let animation_tick = if self.is_refresh_animating() {
+            iced::time::every(std::time::Duration::from_millis(16)).map(|_| Message::AnimationTick)
+        } else {
+            Subscription::none()
+        };
+
+        Subscription::batch([
+            tick,
+            keyboard,
+            window_events,
+            tray_sub,
+            window_open_sub,
+            animation_tick,
+        ])
+    }
+
+    fn is_refresh_animating(&self) -> bool {
+        if let AppState::Main(state) = &self.state {
+            state.refresh_rotation != 0.0
+        } else {
+            false
+        }
     }
 
     fn save_window_geometry(&mut self) {

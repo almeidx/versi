@@ -110,6 +110,7 @@ pub enum Message {
     OnboardingShellConfigResult(Result<(), String>),
     OnboardingComplete,
 
+    AnimationTick,
     Tick,
     WindowEvent(iced::window::Event),
     CloseWindow,
