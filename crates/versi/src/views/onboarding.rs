@@ -10,8 +10,6 @@ pub fn view<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
         OnboardingStep::Welcome => welcome_step(),
         OnboardingStep::InstallFnm => install_fnm_step(state),
         OnboardingStep::ConfigureShell => configure_shell_step(state),
-        OnboardingStep::InstallNode => install_node_step(state),
-        OnboardingStep::Complete => complete_step(),
     };
 
     let progress = step_indicator(state);
@@ -39,8 +37,6 @@ fn step_indicator<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
         ("Welcome", OnboardingStep::Welcome),
         ("Install fnm", OnboardingStep::InstallFnm),
         ("Configure Shell", OnboardingStep::ConfigureShell),
-        ("Install Node", OnboardingStep::InstallNode),
-        ("Complete", OnboardingStep::Complete),
     ];
 
     let indicators: Vec<Element<Message>> = steps
@@ -85,8 +81,6 @@ fn step_index(step: &OnboardingStep) -> usize {
         OnboardingStep::Welcome => 0,
         OnboardingStep::InstallFnm => 1,
         OnboardingStep::ConfigureShell => 2,
-        OnboardingStep::InstallNode => 3,
-        OnboardingStep::Complete => 4,
     }
 }
 
@@ -191,30 +185,6 @@ fn configure_shell_step<'a>(state: &'a OnboardingState) -> Element<'a, Message> 
     content.into()
 }
 
-fn install_node_step<'a>(_state: &'a OnboardingState) -> Element<'a, Message> {
-    column![
-        text("Install Node.js").size(28),
-        Space::new().height(16),
-        text("You can now install your first Node.js version.").size(16),
-        Space::new().height(8),
-        text("You can skip this step and install Node.js later from the main interface.").size(14),
-    ]
-    .spacing(8)
-    .into()
-}
-
-fn complete_step() -> Element<'static, Message> {
-    column![
-        text("Setup Complete!").size(32),
-        Space::new().height(16),
-        text("fnm is now configured and ready to use.").size(16),
-        Space::new().height(8),
-        text("Click 'Finish' to start using Versi.").size(16),
-    ]
-    .spacing(8)
-    .into()
-}
-
 fn navigation_buttons<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
     let back_button = if state.step != OnboardingStep::Welcome {
         button(text("Back"))
@@ -228,8 +198,7 @@ fn navigation_buttons<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
     };
 
     let next_label = match state.step {
-        OnboardingStep::Complete => "Finish",
-        OnboardingStep::InstallNode => "Skip & Finish",
+        OnboardingStep::ConfigureShell => "Finish",
         _ => "Next",
     };
 
@@ -239,7 +208,7 @@ fn navigation_buttons<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
         _ => true,
     };
 
-    let next_message = if state.step == OnboardingStep::Complete {
+    let next_message = if state.step == OnboardingStep::ConfigureShell {
         Message::OnboardingComplete
     } else {
         Message::OnboardingNext

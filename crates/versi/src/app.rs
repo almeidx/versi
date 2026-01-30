@@ -1574,9 +1574,7 @@ impl FnmUi {
             state.step = match state.step {
                 OnboardingStep::Welcome => OnboardingStep::InstallFnm,
                 OnboardingStep::InstallFnm => OnboardingStep::ConfigureShell,
-                OnboardingStep::ConfigureShell => OnboardingStep::InstallNode,
-                OnboardingStep::InstallNode => OnboardingStep::Complete,
-                OnboardingStep::Complete => return self.handle_onboarding_complete(),
+                OnboardingStep::ConfigureShell => return self.handle_onboarding_complete(),
             };
         }
         Task::none()
@@ -1588,8 +1586,6 @@ impl FnmUi {
                 OnboardingStep::Welcome => OnboardingStep::Welcome,
                 OnboardingStep::InstallFnm => OnboardingStep::Welcome,
                 OnboardingStep::ConfigureShell => OnboardingStep::InstallFnm,
-                OnboardingStep::InstallNode => OnboardingStep::ConfigureShell,
-                OnboardingStep::Complete => OnboardingStep::InstallNode,
             };
         }
     }
@@ -1699,7 +1695,9 @@ impl FnmUi {
             backend
         };
         let backend: Box<dyn VersionManager> = Box::new(backend.clone());
-        self.state = AppState::Main(MainState::new(backend, None));
+        let mut main_state = MainState::new(backend, None);
+        main_state.search_query = "lts".to_string();
+        self.state = AppState::Main(main_state);
 
         let load_backend = FnmBackend::new(fnm_path, None, fnm_dir.clone());
         let load_backend = if let Some(dir) = fnm_dir {
@@ -1707,7 +1705,7 @@ impl FnmUi {
         } else {
             load_backend
         };
-        Task::perform(
+        let load_task = Task::perform(
             async move {
                 let versions = load_backend.list_installed().await.unwrap_or_default();
                 let default = load_backend.default_version().await.ok().flatten();
@@ -1718,7 +1716,12 @@ impl FnmUi {
                 versions,
                 default_version: default,
             },
-        )
+        );
+
+        let fetch_remote = self.handle_fetch_remote_versions();
+        let fetch_schedule = self.handle_fetch_release_schedule();
+
+        Task::batch([load_task, fetch_remote, fetch_schedule])
     }
 
     fn handle_check_shell_setup(&mut self) -> Task<Message> {

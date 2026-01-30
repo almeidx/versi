@@ -48,8 +48,6 @@ pub enum OnboardingStep {
     Welcome,
     InstallFnm,
     ConfigureShell,
-    InstallNode,
-    Complete,
 }
 
 #[derive(Debug, Clone)]
