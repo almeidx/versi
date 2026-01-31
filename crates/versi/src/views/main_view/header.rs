@@ -14,13 +14,9 @@ pub(super) fn header_view<'a>(state: &'a MainState) -> Element<'a, Message> {
         None => state.backend_name.to_string(),
     };
 
-    let mut left = row![
-        text(subtitle)
-            .size(12)
-            .color(iced::Color::from_rgb8(142, 142, 147)),
-    ]
-    .spacing(8)
-    .align_y(Alignment::Center);
+    let mut left = row![text(subtitle).size(14),]
+        .spacing(8)
+        .align_y(Alignment::Center);
 
     if let Some(update) = &state.app_update {
         left = left.push(

@@ -47,7 +47,9 @@ pub fn view<'a>(state: &'a MainState, settings: &'a AppSettings) -> Element<'a, 
     ]
     .spacing(12);
 
-    if let Some(banner_content) = banners::contextual_banners(state) {
+    if state.search_query.is_empty()
+        && let Some(banner_content) = banners::contextual_banners(state)
+    {
         content_column = content_column.push(container(banner_content).padding(right_inset));
     }
 

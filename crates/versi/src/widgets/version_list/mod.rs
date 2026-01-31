@@ -143,15 +143,6 @@ pub fn view<'a>(
         let available_list = filter_available_versions(remote_versions, search_query);
 
         if !available_list.is_empty() {
-            content_items.push(Space::new().height(16).into());
-            content_items.push(
-                text("Available Versions")
-                    .size(12)
-                    .color(iced::Color::from_rgb8(142, 142, 147))
-                    .into(),
-            );
-            content_items.push(Space::new().height(8).into());
-
             let available_rows: Vec<Element<Message>> = available_list
                 .iter()
                 .map(|v| {
