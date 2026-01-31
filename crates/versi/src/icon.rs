@@ -16,15 +16,15 @@ fn themed_icon(bytes: &'static [u8], size: f32) -> svg::Svg<'static, Theme> {
         })
 }
 
-pub fn arrow_left(size: f32) -> svg::Svg<'static, Theme> {
-    themed_icon(include_bytes!("../../../assets/icons/arrow-left.svg"), size)
-}
-
 pub fn arrow_up_right(size: f32) -> svg::Svg<'static, Theme> {
     themed_icon(
         include_bytes!("../../../assets/icons/arrow-up-right.svg"),
         size,
     )
+}
+
+pub fn home(size: f32) -> svg::Svg<'static, Theme> {
+    themed_icon(include_bytes!("../../../assets/icons/home.svg"), size)
 }
 
 pub fn refresh(size: f32) -> svg::Svg<'static, Theme> {

@@ -1,11 +1,11 @@
-use iced::widget::{Space, button, container, row, text, tooltip};
+use iced::widget::{Space, button, container, row, text};
 use iced::{Alignment, Element, Length};
 
 use crate::icon;
 use crate::message::Message;
 use crate::state::MainState;
 use crate::theme::styles;
-use crate::widgets::helpers::styled_tooltip;
+use crate::widgets::helpers::nav_icons;
 
 pub(super) fn header_view<'a>(state: &'a MainState) -> Element<'a, Message> {
     let env = state.active_environment();
@@ -61,42 +61,11 @@ pub(super) fn header_view<'a>(state: &'a MainState) -> Element<'a, Message> {
         );
     }
 
-    let refresh_icon = if state.refresh_rotation != 0.0 {
-        icon::refresh_spinning(16.0, state.refresh_rotation)
-    } else {
-        icon::refresh(16.0)
-    };
-
-    let icon_row = row![
-        styled_tooltip(
-            button(refresh_icon)
-                .on_press(Message::RefreshEnvironment)
-                .style(styles::ghost_button)
-                .padding([4, 6]),
-            "Refresh",
-            tooltip::Position::Bottom,
-        ),
-        styled_tooltip(
-            button(icon::settings(16.0))
-                .on_press(Message::NavigateToSettings)
-                .style(styles::ghost_button)
-                .padding([4, 6]),
-            "Settings",
-            tooltip::Position::Bottom,
-        ),
-        styled_tooltip(
-            button(icon::info(16.0))
-                .on_press(Message::NavigateToAbout)
-                .style(styles::ghost_button)
-                .padding([4, 6]),
-            "About",
-            tooltip::Position::Bottom,
-        ),
+    row![
+        left,
+        Space::new().width(Length::Fill),
+        nav_icons(&state.view, state.refresh_rotation),
     ]
-    .spacing(2)
-    .align_y(Alignment::Center);
-
-    row![left, Space::new().width(Length::Fill), icon_row]
-        .align_y(Alignment::Center)
-        .into()
+    .align_y(Alignment::Center)
+    .into()
 }

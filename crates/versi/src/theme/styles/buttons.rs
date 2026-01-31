@@ -209,6 +209,50 @@ pub fn ghost_button(theme: &Theme, status: button::Status) -> button::Style {
     }
 }
 
+pub fn ghost_button_active(theme: &Theme, status: button::Status) -> button::Style {
+    let palette = theme.palette();
+
+    let base = button::Style {
+        background: Some(Background::Color(Color {
+            a: 0.08,
+            ..palette.text
+        })),
+        text_color: palette.text,
+        border: Border {
+            radius: 6.0.into(),
+            width: 0.0,
+            color: Color::TRANSPARENT,
+        },
+        shadow: Shadow::default(),
+        snap: false,
+    };
+
+    match status {
+        button::Status::Active => base,
+        button::Status::Hovered => button::Style {
+            background: Some(Background::Color(Color {
+                a: 0.12,
+                ..palette.text
+            })),
+            ..base
+        },
+        button::Status::Pressed => button::Style {
+            background: Some(Background::Color(Color {
+                a: 0.15,
+                ..palette.text
+            })),
+            ..base
+        },
+        button::Status::Disabled => button::Style {
+            text_color: Color {
+                a: 0.3,
+                ..palette.text
+            },
+            ..base
+        },
+    }
+}
+
 pub fn link_button(_theme: &Theme, status: button::Status) -> button::Style {
     let link_color = Color::from_rgb8(142, 142, 147);
 

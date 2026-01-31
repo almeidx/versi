@@ -1,23 +1,17 @@
-use iced::widget::{Space, button, column, container, row, scrollable, text, tooltip};
+use iced::widget::{Space, button, column, container, row, scrollable, text};
 use iced::{Alignment, Element, Length};
 
 use crate::icon;
 use crate::message::Message;
+use crate::state::MainState;
 use crate::theme::styles;
-use crate::widgets::helpers::styled_tooltip;
+use crate::widgets::helpers::nav_icons;
 
-pub fn view<'a>() -> Element<'a, Message> {
+pub fn view<'a>(state: &'a MainState) -> Element<'a, Message> {
     let header = row![
-        styled_tooltip(
-            button(icon::arrow_left(16.0))
-                .on_press(Message::NavigateToVersions)
-                .style(styles::ghost_button)
-                .padding([4, 8]),
-            "Back",
-            tooltip::Position::Bottom,
-        ),
         text("About").size(14),
         Space::new().width(Length::Fill),
+        nav_icons(&state.view, state.refresh_rotation),
     ]
     .spacing(8)
     .align_y(Alignment::Center);
@@ -62,7 +56,7 @@ pub fn view<'a>() -> Element<'a, Message> {
         scrollable(content.padding(iced::Padding::default().right(24.0))).height(Length::Fill),
     ]
     .spacing(0)
-    .padding(iced::Padding::new(24.0).right(0.0))
+    .padding(iced::Padding::new(24.0).top(12.0).right(0.0))
     .width(Length::Fill)
     .height(Length::Fill)
     .into()

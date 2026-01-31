@@ -197,6 +197,12 @@ impl Versi {
                 }
                 Task::none()
             }
+            Message::NavigateToVersions => {
+                if let AppState::Main(state) = &mut self.state {
+                    state.view = MainViewKind::Versions;
+                }
+                Task::none()
+            }
             Message::NavigateToSettings => {
                 if let AppState::Main(state) = &mut self.state {
                     state.view = MainViewKind::Settings;
@@ -215,12 +221,6 @@ impl Versi {
             Message::NavigateToAbout => {
                 if let AppState::Main(state) = &mut self.state {
                     state.view = MainViewKind::About;
-                }
-                Task::none()
-            }
-            Message::NavigateToVersions => {
-                if let AppState::Main(state) = &mut self.state {
-                    state.view = MainViewKind::Versions;
                 }
                 Task::none()
             }
@@ -454,7 +454,7 @@ impl Versi {
                 MainViewKind::Settings => {
                     views::settings_view::view(&state.settings_state, &self.settings, state)
                 }
-                MainViewKind::About => views::about_view::view(),
+                MainViewKind::About => views::about_view::view(state),
             },
         }
     }
