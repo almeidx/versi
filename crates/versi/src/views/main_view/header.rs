@@ -1,4 +1,4 @@
-use iced::widget::{Space, button, column, container, row, text, tooltip};
+use iced::widget::{Space, button, container, row, text, tooltip};
 use iced::{Alignment, Element, Length};
 
 use crate::icon;
@@ -11,16 +11,19 @@ pub(super) fn header_view<'a>(state: &'a MainState) -> Element<'a, Message> {
 
     let subtitle = match &env.backend_version {
         Some(v) => format!("{} {}", state.backend_name, v),
-        None => String::new(),
+        None => state.backend_name.to_string(),
     };
 
-    let title_section =
-        column![text("Node Versions").size(32), text(subtitle).size(13),].spacing(4);
-
-    let mut icon_row = row![].spacing(4).align_y(Alignment::Center);
+    let mut left = row![
+        text(subtitle)
+            .size(12)
+            .color(iced::Color::from_rgb8(142, 142, 147)),
+    ]
+    .spacing(8)
+    .align_y(Alignment::Center);
 
     if let Some(update) = &state.app_update {
-        icon_row = icon_row.push(
+        left = left.push(
             button(
                 container(
                     row![
@@ -39,7 +42,7 @@ pub(super) fn header_view<'a>(state: &'a MainState) -> Element<'a, Message> {
     }
 
     if let Some(update) = &state.backend_update {
-        icon_row = icon_row.push(
+        left = left.push(
             button(
                 container(
                     row![
@@ -67,34 +70,36 @@ pub(super) fn header_view<'a>(state: &'a MainState) -> Element<'a, Message> {
         icon::refresh(16.0)
     };
 
-    icon_row = icon_row.push(tooltip(
-        button(refresh_icon)
-            .on_press(Message::RefreshEnvironment)
-            .style(styles::ghost_button)
-            .padding([6, 8]),
-        text("Refresh").size(12),
-        tooltip::Position::Bottom,
-    ));
+    let icon_row = row![
+        tooltip(
+            button(refresh_icon)
+                .on_press(Message::RefreshEnvironment)
+                .style(styles::ghost_button)
+                .padding([4, 6]),
+            text("Refresh").size(12),
+            tooltip::Position::Bottom,
+        ),
+        tooltip(
+            button(icon::settings(16.0))
+                .on_press(Message::NavigateToSettings)
+                .style(styles::ghost_button)
+                .padding([4, 6]),
+            text("Settings").size(12),
+            tooltip::Position::Bottom,
+        ),
+        tooltip(
+            button(icon::info(16.0))
+                .on_press(Message::NavigateToAbout)
+                .style(styles::ghost_button)
+                .padding([4, 6]),
+            text("About").size(12),
+            tooltip::Position::Bottom,
+        ),
+    ]
+    .spacing(2)
+    .align_y(Alignment::Center);
 
-    icon_row = icon_row.push(tooltip(
-        button(icon::settings(16.0))
-            .on_press(Message::NavigateToSettings)
-            .style(styles::ghost_button)
-            .padding([6, 8]),
-        text("Settings").size(12),
-        tooltip::Position::Bottom,
-    ));
-
-    icon_row = icon_row.push(tooltip(
-        button(icon::info(16.0))
-            .on_press(Message::NavigateToAbout)
-            .style(styles::ghost_button)
-            .padding([6, 8]),
-        text("About").size(12),
-        tooltip::Position::Bottom,
-    ));
-
-    row![title_section, Space::new().width(Length::Fill), icon_row,]
+    row![left, Space::new().width(Length::Fill), icon_row]
         .align_y(Alignment::Center)
         .into()
 }

@@ -33,19 +33,19 @@ pub fn view<'a>(state: &'a MainState, settings: &'a AppSettings) -> Element<'a, 
 
     let has_tabs = if let Some(tab_row) = tabs::environment_tabs_view(state) {
         main_column = main_column.push(
-            container(tab_row).padding(iced::Padding::new(0.0).top(16.0).left(32.0).right(32.0)),
+            container(tab_row).padding(iced::Padding::new(0.0).top(12.0).left(24.0).right(24.0)),
         );
         true
     } else {
         false
     };
 
-    let right_inset = iced::Padding::new(0.0).right(32.0);
+    let right_inset = iced::Padding::new(0.0).right(24.0);
     let mut content_column = column![
         container(header).padding(right_inset),
         container(search_bar).padding(right_inset),
     ]
-    .spacing(20);
+    .spacing(12);
 
     if let Some(banner_content) = banners::contextual_banners(state) {
         content_column = content_column.push(container(banner_content).padding(right_inset));
@@ -54,9 +54,9 @@ pub fn view<'a>(state: &'a MainState, settings: &'a AppSettings) -> Element<'a, 
     content_column = content_column.push(version_list);
 
     let content_padding = if has_tabs {
-        iced::Padding::new(32.0).right(0.0)
+        iced::Padding::new(24.0).right(0.0)
     } else {
-        iced::Padding::new(32.0).top(16.0).right(0.0)
+        iced::Padding::new(24.0).top(12.0).right(0.0)
     };
     let main_content = content_column.padding(content_padding);
 
