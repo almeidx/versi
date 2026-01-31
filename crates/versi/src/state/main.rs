@@ -19,6 +19,7 @@ pub struct MainState {
     pub settings_state: SettingsModalState,
     pub hovered_version: Option<String>,
     pub backend_name: &'static str,
+    pub detected_backends: Vec<&'static str>,
     pub refresh_rotation: f32,
 }
 
@@ -62,6 +63,7 @@ impl MainState {
             settings_state: SettingsModalState::new(),
             hovered_version: None,
             backend_name,
+            detected_backends: Vec::new(),
             refresh_rotation: 0.0,
         }
     }

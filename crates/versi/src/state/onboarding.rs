@@ -8,6 +8,8 @@ pub struct OnboardingState {
     pub backend_installing: bool,
     pub install_error: Option<String>,
     pub detected_shells: Vec<ShellConfigStatus>,
+    pub available_backends: Vec<BackendOption>,
+    pub selected_backend: Option<String>,
 }
 
 impl OnboardingState {
@@ -17,6 +19,8 @@ impl OnboardingState {
             backend_installing: false,
             install_error: None,
             detected_shells: Vec::new(),
+            available_backends: Vec::new(),
+            selected_backend: None,
         }
     }
 }
@@ -24,6 +28,7 @@ impl OnboardingState {
 #[derive(Debug, Clone, PartialEq)]
 pub enum OnboardingStep {
     Welcome,
+    SelectBackend,
     InstallBackend,
     ConfigureShell,
 }
@@ -36,4 +41,11 @@ pub struct ShellConfigStatus {
     pub config_path: Option<PathBuf>,
     pub configuring: bool,
     pub error: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct BackendOption {
+    pub name: &'static str,
+    pub display_name: &'static str,
+    pub detected: bool,
 }

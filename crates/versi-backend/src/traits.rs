@@ -40,6 +40,10 @@ pub trait BackendProvider: Send + Sync {
         distro: String,
         backend_path: String,
     ) -> Box<dyn VersionManager>;
+
+    fn wsl_search_paths(&self) -> Vec<&'static str> {
+        vec![]
+    }
 }
 
 #[derive(Debug, Clone, Default)]

@@ -41,7 +41,7 @@ pub struct WslDistro {
     pub name: String,
     pub is_default: bool,
     pub version: u8,
-    pub fnm_path: Option<String>,
+    pub backend_path: Option<String>,
     pub is_running: bool,
 }
 
@@ -57,7 +57,7 @@ pub enum WslError {
     IoError(#[from] std::io::Error),
 }
 
-pub fn detect_wsl_distros() -> Vec<WslDistro> {
+pub fn detect_wsl_distros(search_paths: &[&str]) -> Vec<WslDistro> {
     info!("Detecting WSL distros...");
 
     let running_distros = get_running_distro_names();
@@ -87,22 +87,28 @@ pub fn detect_wsl_distros() -> Vec<WslDistro> {
 
                 for distro in &mut distros {
                     if distro.is_running {
-                        debug!("Checking for fnm in running distro: {}", distro.name);
-                        distro.fnm_path = find_fnm_path(&distro.name);
-                        if let Some(ref path) = distro.fnm_path {
-                            info!("Found fnm in {}: {}", distro.name, path);
+                        debug!("Checking for backend in running distro: {}", distro.name);
+                        distro.backend_path = find_backend_path(&distro.name, search_paths);
+                        if let Some(ref path) = distro.backend_path {
+                            info!("Found backend in {}: {}", distro.name, path);
                         } else {
-                            warn!("fnm not found in distro: {}", distro.name);
+                            warn!("Backend not found in distro: {}", distro.name);
                         }
                     } else {
-                        debug!("Skipping fnm check for non-running distro: {}", distro.name);
+                        debug!(
+                            "Skipping backend check for non-running distro: {}",
+                            distro.name
+                        );
                     }
                 }
 
-                let with_fnm: Vec<_> = distros.iter().filter(|d| d.fnm_path.is_some()).collect();
+                let with_backend: Vec<_> = distros
+                    .iter()
+                    .filter(|d| d.backend_path.is_some())
+                    .collect();
                 info!(
-                    "WSL detection complete: {} distros with fnm, {} running, {} total",
-                    with_fnm.len(),
+                    "WSL detection complete: {} distros with backend, {} running, {} total",
+                    with_backend.len(),
                     distros.iter().filter(|d| d.is_running).count(),
                     distros.len()
                 );
@@ -142,23 +148,19 @@ fn get_running_distro_names() -> Vec<String> {
     }
 }
 
-fn find_fnm_path(distro: &str) -> Option<String> {
-    let common_paths = [
-        "$HOME/.local/share/fnm/fnm",
-        "$HOME/.cargo/bin/fnm",
-        "/usr/local/bin/fnm",
-        "/usr/bin/fnm",
-        "$HOME/.fnm/fnm",
-    ];
+fn find_backend_path(distro: &str, search_paths: &[&str]) -> Option<String> {
+    if search_paths.is_empty() {
+        return None;
+    }
 
-    let check_cmd = common_paths
+    let check_cmd = search_paths
         .iter()
         .map(|p| format!("[ -x {} ] && {{ echo {}; exit 0; }}", p, p))
         .collect::<Vec<_>>()
         .join("; ");
 
     debug!(
-        "Running fnm path detection for {}: wsl.exe -d {} -- sh -c \"{}\"",
+        "Running backend path detection for {}: wsl.exe -d {} -- sh -c \"{}\"",
         distro, distro, check_cmd
     );
 
@@ -170,15 +172,15 @@ fn find_fnm_path(distro: &str) -> Option<String> {
     match output {
         Ok(output) => {
             debug!(
-                "fnm path detection for {} - exit status: {:?}",
+                "Backend path detection for {} - exit status: {:?}",
                 distro, output.status
             );
             trace!(
-                "fnm path detection stdout: {:?}",
+                "Backend path detection stdout: {:?}",
                 String::from_utf8_lossy(&output.stdout)
             );
             trace!(
-                "fnm path detection stderr: {:?}",
+                "Backend path detection stderr: {:?}",
                 String::from_utf8_lossy(&output.stderr)
             );
 
@@ -190,20 +192,20 @@ fn find_fnm_path(distro: &str) -> Option<String> {
                     .filter(|s| !s.is_empty());
 
                 if let Some(ref p) = path {
-                    debug!("fnm found at: {}", p);
+                    debug!("Backend found at: {}", p);
                     return path;
                 }
-                debug!("fnm path detection returned empty output");
+                debug!("Backend path detection returned empty output");
             } else {
                 warn!(
-                    "fnm path detection failed for {}: {}",
+                    "Backend path detection failed for {}: {}",
                     distro,
                     String::from_utf8_lossy(&output.stderr)
                 );
             }
         }
         Err(e) => {
-            error!("Failed to run fnm path detection for {}: {}", distro, e);
+            error!("Failed to run backend path detection for {}: {}", distro, e);
         }
     }
 
@@ -250,7 +252,7 @@ fn parse_wsl_list(output: &str, running_distros: &[String]) -> Vec<WslDistro> {
                     name,
                     is_default,
                     version: parts[2].parse().unwrap_or(2),
-                    fnm_path: None,
+                    backend_path: None,
                     is_running,
                 })
             } else if !parts.is_empty() {
@@ -260,7 +262,7 @@ fn parse_wsl_list(output: &str, running_distros: &[String]) -> Vec<WslDistro> {
                     name,
                     is_default,
                     version: 2,
-                    fnm_path: None,
+                    backend_path: None,
                     is_running,
                 })
             } else {
@@ -376,12 +378,12 @@ mod tests {
     }
 
     #[test]
-    fn test_wsl_distro_fnm_path_default() {
+    fn test_wsl_distro_backend_path_default() {
         let output = "  NAME      STATE           VERSION\nUbuntu    Running         2";
         let running: Vec<String> = vec![];
         let distros = parse_wsl_list(output, &running);
 
-        assert!(distros[0].fnm_path.is_none());
+        assert!(distros[0].backend_path.is_none());
     }
 }
 

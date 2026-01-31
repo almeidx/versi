@@ -1,7 +1,5 @@
 use iced::Task;
 
-use versi_platform::EnvironmentId;
-
 use crate::message::Message;
 use crate::state::{AppState, OnboardingStep};
 
@@ -11,7 +9,14 @@ impl Versi {
     pub(super) fn handle_onboarding_next(&mut self) -> Task<Message> {
         if let AppState::Onboarding(state) = &mut self.state {
             state.step = match state.step {
-                OnboardingStep::Welcome => OnboardingStep::InstallBackend,
+                OnboardingStep::Welcome => {
+                    if state.available_backends.len() > 1 {
+                        OnboardingStep::SelectBackend
+                    } else {
+                        OnboardingStep::InstallBackend
+                    }
+                }
+                OnboardingStep::SelectBackend => OnboardingStep::InstallBackend,
                 OnboardingStep::InstallBackend => OnboardingStep::ConfigureShell,
                 OnboardingStep::ConfigureShell => return self.handle_onboarding_complete(),
             };
@@ -23,9 +28,28 @@ impl Versi {
         if let AppState::Onboarding(state) = &mut self.state {
             state.step = match state.step {
                 OnboardingStep::Welcome => OnboardingStep::Welcome,
-                OnboardingStep::InstallBackend => OnboardingStep::Welcome,
+                OnboardingStep::SelectBackend => OnboardingStep::Welcome,
+                OnboardingStep::InstallBackend => {
+                    if state.available_backends.len() > 1 {
+                        OnboardingStep::SelectBackend
+                    } else {
+                        OnboardingStep::Welcome
+                    }
+                }
                 OnboardingStep::ConfigureShell => OnboardingStep::InstallBackend,
             };
+        }
+    }
+
+    pub(super) fn handle_onboarding_select_backend(&mut self, name: String) {
+        if let AppState::Onboarding(state) = &mut self.state {
+            state.selected_backend = Some(name.clone());
+        }
+        self.settings.preferred_backend = Some(name.clone());
+        let _ = self.settings.save();
+
+        if let Some(provider) = self.providers.get(name.as_str()) {
+            self.provider = provider.clone();
         }
     }
 
@@ -147,18 +171,12 @@ impl Versi {
     }
 
     pub(super) fn handle_onboarding_complete(&mut self) -> Task<Message> {
-        Task::done(Message::Initialized(crate::message::InitResult {
-            backend_found: true,
-            backend_path: None,
-            backend_dir: None,
-            backend_version: None,
-            environments: vec![crate::message::EnvironmentInfo {
-                id: EnvironmentId::Native,
-                backend_version: None,
-                available: true,
-                unavailable_reason: None,
-            }],
-        }))
+        let all_providers = self.all_providers();
+        let preferred = self.settings.preferred_backend.clone();
+        Task::perform(
+            super::init::initialize(all_providers, preferred),
+            Message::Initialized,
+        )
     }
 }
 

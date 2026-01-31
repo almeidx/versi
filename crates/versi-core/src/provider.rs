@@ -82,4 +82,14 @@ impl BackendProvider for FnmProvider {
     ) -> Box<dyn VersionManager> {
         Box::new(FnmBackend::with_wsl(distro, backend_path))
     }
+
+    fn wsl_search_paths(&self) -> Vec<&'static str> {
+        vec![
+            "$HOME/.local/share/fnm/fnm",
+            "$HOME/.cargo/bin/fnm",
+            "/usr/local/bin/fnm",
+            "/usr/bin/fnm",
+            "$HOME/.fnm/fnm",
+        ]
+    }
 }

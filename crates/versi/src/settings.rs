@@ -26,6 +26,9 @@ pub struct AppSettings {
     pub shell_options: ShellOptions,
 
     #[serde(default)]
+    pub preferred_backend: Option<String>,
+
+    #[serde(default)]
     pub debug_logging: bool,
 
     #[serde(default)]
@@ -71,6 +74,7 @@ impl Default for AppSettings {
             start_minimized: false,
             fnm_dir: None,
             node_dist_mirror: None,
+            preferred_backend: None,
             shell_options: ShellOptions::default(),
             debug_logging: false,
             window_geometry: None,

@@ -8,6 +8,7 @@ mod tray_handlers;
 mod versions;
 
 use log::info;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -32,6 +33,7 @@ pub struct Versi {
     pub(crate) window_size: Option<iced::Size>,
     pub(crate) window_position: Option<iced::Point>,
     pub(crate) http_client: reqwest::Client,
+    pub(crate) providers: HashMap<&'static str, Arc<dyn BackendProvider>>,
     pub(crate) provider: Arc<dyn BackendProvider>,
 }
 
@@ -48,22 +50,36 @@ impl Versi {
             .build()
             .unwrap_or_default();
 
-        let provider: Arc<dyn BackendProvider> = Arc::new(versi_core::FnmProvider::new());
+        let fnm_provider: Arc<dyn BackendProvider> = Arc::new(versi_core::FnmProvider::new());
+        let nvm_provider: Arc<dyn BackendProvider> = Arc::new(versi_nvm::NvmProvider::new());
+
+        let mut providers: HashMap<&'static str, Arc<dyn BackendProvider>> = HashMap::new();
+        providers.insert(fnm_provider.name(), fnm_provider.clone());
+        providers.insert(nvm_provider.name(), nvm_provider.clone());
+
+        let preferred = settings.preferred_backend.as_deref().unwrap_or("fnm");
+        let active_provider = providers.get(preferred).cloned().unwrap_or(fnm_provider);
 
         let app = Self {
             state: AppState::Loading,
             settings,
             window_id: None,
             pending_minimize: should_minimize,
-            backend_path: PathBuf::from(provider.name()),
+            backend_path: PathBuf::from(active_provider.name()),
             backend_dir: None,
             window_size: None,
             window_position: None,
             http_client,
-            provider: provider.clone(),
+            providers: providers.clone(),
+            provider: active_provider,
         };
 
-        let init_task = Task::perform(init::initialize(provider), Message::Initialized);
+        let all_providers: Vec<Arc<dyn BackendProvider>> = providers.values().cloned().collect();
+        let preferred_backend = app.settings.preferred_backend.clone();
+        let init_task = Task::perform(
+            init::initialize(all_providers, preferred_backend),
+            Message::Initialized,
+        );
 
         (app, init_task)
     }
@@ -292,9 +308,14 @@ impl Versi {
                 self.handle_shell_configured(shell_type, result);
                 Task::none()
             }
+            Message::PreferredBackendChanged(name) => self.handle_preferred_backend_changed(name),
             Message::OnboardingNext => self.handle_onboarding_next(),
             Message::OnboardingBack => {
                 self.handle_onboarding_back();
+                Task::none()
+            }
+            Message::OnboardingSelectBackend(name) => {
+                self.handle_onboarding_select_backend(name);
                 Task::none()
             }
             Message::OnboardingInstallBackend => self.handle_onboarding_install_backend(),
@@ -434,7 +455,13 @@ impl Versi {
     pub fn view(&self) -> Element<'_, Message> {
         match &self.state {
             AppState::Loading => views::loading::view(),
-            AppState::Onboarding(state) => views::onboarding::view(state, self.provider.name()),
+            AppState::Onboarding(state) => {
+                let backend_name = state
+                    .selected_backend
+                    .as_deref()
+                    .unwrap_or(self.provider.name());
+                views::onboarding::view(state, backend_name)
+            }
             AppState::Main(state) => match state.view {
                 MainViewKind::Versions => views::main_view::view(state, &self.settings),
                 MainViewKind::Settings => {
@@ -524,6 +551,33 @@ impl Versi {
         } else {
             false
         }
+    }
+
+    fn handle_preferred_backend_changed(&mut self, name: String) -> Task<Message> {
+        self.settings.preferred_backend = Some(name.clone());
+        let _ = self.settings.save();
+
+        if let AppState::Main(state) = &mut self.state {
+            let is_detected = state.detected_backends.contains(&name.as_str());
+            if is_detected && state.backend_name != name.as_str() {
+                if let Some(provider) = self.providers.get(name.as_str()) {
+                    self.provider = provider.clone();
+                }
+                let all_providers = self.all_providers();
+                let preferred = self.settings.preferred_backend.clone();
+                self.state = AppState::Loading;
+                return Task::perform(
+                    init::initialize(all_providers, preferred),
+                    Message::Initialized,
+                );
+            }
+        }
+
+        Task::none()
+    }
+
+    pub(crate) fn all_providers(&self) -> Vec<Arc<dyn BackendProvider>> {
+        self.providers.values().cloned().collect()
     }
 
     fn save_window_geometry(&mut self) {

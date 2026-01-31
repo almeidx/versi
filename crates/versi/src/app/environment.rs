@@ -85,13 +85,20 @@ impl Versi {
                 env.loading || (env.installed_versions.is_empty() && env.error.is_none());
             debug!("Environment needs loading: {}", needs_load);
 
+            let env_provider = self
+                .providers
+                .get(env.backend_name)
+                .cloned()
+                .unwrap_or_else(|| self.provider.clone());
+
             let new_backend = create_backend_for_environment(
                 &env_id,
                 &self.backend_path,
                 &self.backend_dir,
-                &self.provider,
+                &env_provider,
             );
             state.backend = new_backend;
+            state.backend_name = env.backend_name;
 
             state.backend_update = None;
 

@@ -11,6 +11,7 @@ winresource = "0.1.30"
 [dependencies]
 versi-backend = { path = "../versi-backend" }
 versi-core = { path = "../versi-core" }
+versi-nvm = { path = "../versi-nvm" }
 versi-shell = { path = "../versi-shell" }
 versi-platform = { path = "../versi-platform" }
 

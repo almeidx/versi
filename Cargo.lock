@@ -5534,6 +5534,7 @@ dependencies = [
  "tray-icon",
  "versi-backend",
  "versi-core",
+ "versi-nvm",
  "versi-platform",
  "versi-shell",
  "windows-sys 0.61.2",
@@ -5558,6 +5559,22 @@ version = "0.5.0"
 dependencies = [
  "async-trait",
  "chrono",
+ "dirs",
+ "log",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "versi-backend",
+ "which",
+]
+
+[[package]]
+name = "versi-nvm"
+version = "0.5.0"
+dependencies = [
+ "async-trait",
  "dirs",
  "log",
  "reqwest",

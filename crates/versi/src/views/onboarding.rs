@@ -8,6 +8,7 @@ use crate::theme::styles;
 pub fn view<'a>(state: &'a OnboardingState, backend_name: &'a str) -> Element<'a, Message> {
     let content = match state.step {
         OnboardingStep::Welcome => welcome_step(backend_name),
+        OnboardingStep::SelectBackend => select_backend_step(state),
         OnboardingStep::InstallBackend => install_backend_step(state, backend_name),
         OnboardingStep::ConfigureShell => configure_shell_step(state, backend_name),
     };
@@ -33,17 +34,23 @@ pub fn view<'a>(state: &'a OnboardingState, backend_name: &'a str) -> Element<'a
 }
 
 fn step_indicator<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
-    let steps = [
-        ("Welcome", OnboardingStep::Welcome),
-        ("Install", OnboardingStep::InstallBackend),
-        ("Configure Shell", OnboardingStep::ConfigureShell),
-    ];
+    let has_select = state.available_backends.len() > 1;
+
+    let mut steps: Vec<(&str, OnboardingStep)> = vec![("Welcome", OnboardingStep::Welcome)];
+
+    if has_select {
+        steps.push(("Engine", OnboardingStep::SelectBackend));
+    }
+
+    steps.push(("Install", OnboardingStep::InstallBackend));
+    steps.push(("Configure Shell", OnboardingStep::ConfigureShell));
 
     let indicators: Vec<Element<Message>> = steps
         .iter()
         .map(|(name, step)| {
             let is_current = &state.step == step;
-            let is_past = step_index(&state.step) > step_index(step);
+            let is_past =
+                full_step_index(&state.step, has_select) > full_step_index(step, has_select);
 
             let dot_color = if is_current || is_past {
                 iced::Color::from_rgb(0.0, 0.5, 0.0)
@@ -76,11 +83,24 @@ fn step_indicator<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
         .into()
 }
 
-fn step_index(step: &OnboardingStep) -> usize {
+fn full_step_index(step: &OnboardingStep, has_select: bool) -> usize {
     match step {
         OnboardingStep::Welcome => 0,
-        OnboardingStep::InstallBackend => 1,
-        OnboardingStep::ConfigureShell => 2,
+        OnboardingStep::SelectBackend => 1,
+        OnboardingStep::InstallBackend => {
+            if has_select {
+                2
+            } else {
+                1
+            }
+        }
+        OnboardingStep::ConfigureShell => {
+            if has_select {
+                3
+            } else {
+                2
+            }
+        }
     }
 }
 
@@ -98,6 +118,46 @@ fn welcome_step(backend_name: &str) -> Element<'_, Message> {
     ]
     .spacing(8)
     .into()
+}
+
+fn select_backend_step<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
+    let mut content = column![
+        text("Choose an Engine").size(28),
+        Space::new().height(16),
+        text("Select which Node.js version manager you'd like to use.").size(16),
+        Space::new().height(24),
+    ]
+    .spacing(8);
+
+    let selected = state.selected_backend.as_deref();
+
+    for backend in &state.available_backends {
+        let is_selected = selected == Some(backend.name);
+        let name = backend.name.to_string();
+
+        let btn_style = if is_selected {
+            styles::primary_button
+        } else {
+            styles::secondary_button
+        };
+
+        let label = if backend.detected {
+            format!("{} (detected)", backend.display_name)
+        } else {
+            backend.display_name.to_string()
+        };
+
+        content = content.push(
+            button(text(label).size(14))
+                .on_press(Message::OnboardingSelectBackend(name))
+                .style(btn_style)
+                .padding([12, 24])
+                .width(Length::Fill),
+        );
+        content = content.push(Space::new().height(8));
+    }
+
+    content.into()
 }
 
 fn install_backend_step<'a>(
@@ -219,6 +279,7 @@ fn navigation_buttons<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
     };
 
     let can_proceed = match state.step {
+        OnboardingStep::SelectBackend => state.selected_backend.is_some(),
         OnboardingStep::InstallBackend => !state.backend_installing,
         OnboardingStep::ConfigureShell => state.detected_shells.iter().any(|s| s.configured),
         _ => true,

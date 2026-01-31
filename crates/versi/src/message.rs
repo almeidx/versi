@@ -102,8 +102,11 @@ pub enum Message {
     ShellConfigured(ShellType, Result<(), String>),
     ShellFlagsUpdated(Result<usize, String>),
 
+    PreferredBackendChanged(String),
+
     OnboardingNext,
     OnboardingBack,
+    OnboardingSelectBackend(String),
     OnboardingInstallBackend,
     OnboardingBackendInstallResult(Result<(), String>),
     OnboardingConfigureShell(ShellType),
@@ -143,11 +146,13 @@ pub struct InitResult {
     pub backend_dir: Option<PathBuf>,
     pub backend_version: Option<String>,
     pub environments: Vec<EnvironmentInfo>,
+    pub detected_backends: Vec<&'static str>,
 }
 
 #[derive(Debug, Clone)]
 pub struct EnvironmentInfo {
     pub id: EnvironmentId,
+    pub backend_name: &'static str,
     pub backend_version: Option<String>,
     pub available: bool,
     pub unavailable_reason: Option<String>,

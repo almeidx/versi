@@ -10,7 +10,7 @@ use crate::theme::{is_system_dark, styles};
 pub fn view<'a>(
     settings_state: &'a SettingsModalState,
     settings: &'a AppSettings,
-    _state: &'a MainState,
+    state: &'a MainState,
 ) -> Element<'a, Message> {
     let header = row![
         tooltip(
@@ -26,6 +26,8 @@ pub fn view<'a>(
     ]
     .spacing(8)
     .align_y(Alignment::Center);
+
+    let capabilities = state.backend.capabilities();
 
     let mut content = column![
         text("Appearance").size(14),
@@ -64,6 +66,16 @@ pub fn view<'a>(
                 .padding([10, 16]),
         ]
         .spacing(8),
+        Space::new().height(28),
+        text("Preferred Engine").size(14),
+        Space::new().height(8),
+        engine_selector(settings, state),
+        text(format!("Currently using: {}", state.backend_name))
+            .size(11)
+            .color(iced::Color::from_rgb8(142, 142, 147)),
+        text("Each environment uses whichever engine is available")
+            .size(11)
+            .color(iced::Color::from_rgb8(142, 142, 147)),
         Space::new().height(28),
         text("System Tray").size(14),
         Space::new().height(8),
@@ -109,36 +121,65 @@ pub fn view<'a>(
         Space::new().height(28),
         text("Shell Options").size(14),
         Space::new().height(8),
-        row![
-            toggler(settings.shell_options.use_on_cd)
-                .on_toggle(Message::ShellOptionUseOnCdToggled)
-                .size(18),
-            text("Auto-switch on cd").size(12),
-        ]
-        .spacing(8)
-        .align_y(Alignment::Center),
-        row![
-            toggler(settings.shell_options.resolve_engines)
-                .on_toggle(Message::ShellOptionResolveEnginesToggled)
-                .size(18),
-            text("Resolve engines from package.json").size(12),
-        ]
-        .spacing(8)
-        .align_y(Alignment::Center),
-        row![
-            toggler(settings.shell_options.corepack_enabled)
-                .on_toggle(Message::ShellOptionCorepackEnabledToggled)
-                .size(18),
-            text("Enable corepack").size(12),
-        ]
-        .spacing(8)
-        .align_y(Alignment::Center),
-        text("Options for new shell configurations")
-            .size(11)
-            .color(iced::Color::from_rgb8(142, 142, 147)),
     ]
     .spacing(4)
     .width(Length::Fill);
+
+    if capabilities.supports_auto_switch {
+        content = content.push(
+            row![
+                toggler(settings.shell_options.use_on_cd)
+                    .on_toggle(Message::ShellOptionUseOnCdToggled)
+                    .size(18),
+                text("Auto-switch on cd").size(12),
+            ]
+            .spacing(8)
+            .align_y(Alignment::Center),
+        );
+    }
+
+    if capabilities.supports_resolve_engines {
+        content = content.push(
+            row![
+                toggler(settings.shell_options.resolve_engines)
+                    .on_toggle(Message::ShellOptionResolveEnginesToggled)
+                    .size(18),
+                text("Resolve engines from package.json").size(12),
+            ]
+            .spacing(8)
+            .align_y(Alignment::Center),
+        );
+    }
+
+    if capabilities.supports_corepack {
+        content = content.push(
+            row![
+                toggler(settings.shell_options.corepack_enabled)
+                    .on_toggle(Message::ShellOptionCorepackEnabledToggled)
+                    .size(18),
+                text("Enable corepack").size(12),
+            ]
+            .spacing(8)
+            .align_y(Alignment::Center),
+        );
+    }
+
+    if !capabilities.supports_auto_switch
+        && !capabilities.supports_resolve_engines
+        && !capabilities.supports_corepack
+    {
+        content = content.push(
+            text("No shell options available for this engine")
+                .size(12)
+                .color(iced::Color::from_rgb8(142, 142, 147)),
+        );
+    } else {
+        content = content.push(
+            text("Options for new shell configurations")
+                .size(11)
+                .color(iced::Color::from_rgb8(142, 142, 147)),
+        );
+    }
 
     content = content.push(Space::new().height(28));
     content = content.push(text("Shell Setup").size(14));
@@ -280,5 +321,66 @@ pub fn view<'a>(
     .padding(iced::Padding::new(32.0).right(0.0))
     .width(Length::Fill)
     .height(Length::Fill)
+    .into()
+}
+
+fn engine_button<'a>(
+    name: &'static str,
+    is_selected: bool,
+    is_detected: bool,
+) -> Element<'a, Message> {
+    let btn = button(text(name).size(13))
+        .style(if is_selected {
+            styles::primary_button
+        } else {
+            styles::secondary_button
+        })
+        .padding([10, 16]);
+
+    if is_detected {
+        btn.on_press(Message::PreferredBackendChanged(name.to_string()))
+            .into()
+    } else {
+        tooltip(
+            btn,
+            container(text(format!("{} is not installed", name)).size(11))
+                .padding([4, 8])
+                .style(|theme: &iced::Theme| {
+                    let palette = theme.palette();
+                    container::Style {
+                        background: Some(iced::Background::Color(palette.background)),
+                        border: iced::Border {
+                            radius: 4.0.into(),
+                            width: 1.0,
+                            color: iced::Color::from_rgb8(180, 180, 180),
+                        },
+                        shadow: iced::Shadow {
+                            color: iced::Color {
+                                a: 0.15,
+                                ..iced::Color::BLACK
+                            },
+                            offset: iced::Vector::new(0.0, 2.0),
+                            blur_radius: 4.0,
+                        },
+                        ..Default::default()
+                    }
+                }),
+            tooltip::Position::Bottom,
+        )
+        .gap(4.0)
+        .into()
+    }
+}
+
+fn engine_selector<'a>(settings: &'a AppSettings, state: &'a MainState) -> Element<'a, Message> {
+    let preferred = settings.preferred_backend.as_deref().unwrap_or("fnm");
+    let fnm_detected = state.detected_backends.contains(&"fnm");
+    let nvm_detected = state.detected_backends.contains(&"nvm");
+
+    row![
+        engine_button("fnm", preferred == "fnm", fnm_detected),
+        engine_button("nvm", preferred == "nvm", nvm_detected),
+    ]
+    .spacing(8)
     .into()
 }

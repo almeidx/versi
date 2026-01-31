@@ -8,6 +8,7 @@ pub struct EnvironmentState {
     pub installed_versions: Vec<InstalledVersion>,
     pub version_groups: Vec<VersionGroup>,
     pub default_version: Option<NodeVersion>,
+    pub backend_name: &'static str,
     pub backend_version: Option<String>,
     pub loading: bool,
     pub error: Option<String>,
@@ -15,7 +16,11 @@ pub struct EnvironmentState {
 }
 
 impl EnvironmentState {
-    pub fn new(id: EnvironmentId, backend_version: Option<String>) -> Self {
+    pub fn new(
+        id: EnvironmentId,
+        backend_name: &'static str,
+        backend_version: Option<String>,
+    ) -> Self {
         let name = id.display_name();
         Self {
             id,
@@ -23,6 +28,7 @@ impl EnvironmentState {
             installed_versions: Vec::new(),
             version_groups: Vec::new(),
             default_version: None,
+            backend_name,
             backend_version,
             loading: true,
             error: None,
@@ -30,7 +36,7 @@ impl EnvironmentState {
         }
     }
 
-    pub fn unavailable(id: EnvironmentId, reason: &str) -> Self {
+    pub fn unavailable(id: EnvironmentId, backend_name: &'static str, reason: &str) -> Self {
         let name = id.display_name();
         Self {
             id,
@@ -38,6 +44,7 @@ impl EnvironmentState {
             installed_versions: Vec::new(),
             version_groups: Vec::new(),
             default_version: None,
+            backend_name,
             backend_version: None,
             loading: false,
             error: Some(reason.to_string()),
