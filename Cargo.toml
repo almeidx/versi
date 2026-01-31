@@ -4,6 +4,7 @@ members = [
     "crates/versi",
     "crates/versi-backend",
     "crates/versi-core",
+    "crates/versi-fnm",
     "crates/versi-nvm",
     "crates/versi-shell",
     "crates/versi-platform",

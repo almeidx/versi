@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use versi_core::{ReleaseSchedule, RemoteVersion};
+use versi_backend::RemoteVersion;
+use versi_core::ReleaseSchedule;
 use versi_platform::AppPaths;
 
 #[derive(Serialize, Deserialize)]

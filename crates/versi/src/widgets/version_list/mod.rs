@@ -8,7 +8,8 @@ use std::collections::HashSet;
 use iced::widget::{Space, button, column, container, scrollable, text};
 use iced::{Alignment, Element, Length};
 
-use versi_core::{InstalledVersion, ReleaseSchedule, RemoteVersion, VersionGroup};
+use versi_backend::{InstalledVersion, RemoteVersion, VersionGroup};
+use versi_core::ReleaseSchedule;
 
 use crate::message::Message;
 use crate::state::{EnvironmentState, OperationQueue};

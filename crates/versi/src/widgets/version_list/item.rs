@@ -1,7 +1,7 @@
 use iced::widget::{Space, button, container, mouse_area, row, text};
 use iced::{Alignment, Element, Length};
 
-use versi_core::InstalledVersion;
+use versi_backend::InstalledVersion;
 
 use crate::icon;
 use crate::message::Message;
@@ -10,7 +10,7 @@ use crate::theme::styles;
 
 pub(super) fn version_item_view<'a>(
     version: &'a InstalledVersion,
-    default: &'a Option<versi_core::NodeVersion>,
+    default: &'a Option<versi_backend::NodeVersion>,
     operation_queue: &'a OperationQueue,
     hovered_version: &'a Option<String>,
 ) -> Element<'a, Message> {

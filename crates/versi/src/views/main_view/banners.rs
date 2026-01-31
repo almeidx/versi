@@ -70,7 +70,7 @@ pub(super) fn contextual_banners<'a>(state: &'a MainState) -> Option<Element<'a,
     }
 
     let update_count = {
-        let mut latest_by_major: std::collections::HashMap<u32, &versi_core::NodeVersion> =
+        let mut latest_by_major: std::collections::HashMap<u32, &versi_backend::NodeVersion> =
             std::collections::HashMap::new();
         for v in remote {
             latest_by_major

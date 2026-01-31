@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use tokio::process::Command;
 use which::which;
 
-use crate::commands::HideWindow;
+use versi_core::HideWindow;
 
 #[derive(Debug, Clone)]
 pub struct FnmDetection {

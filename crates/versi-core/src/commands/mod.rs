@@ -1,5 +1,3 @@
-pub use crate::backend::FnmBackend;
-
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use versi_core::{NodeVersion, RemoteVersion};
+use versi_backend::{NodeVersion, RemoteVersion};
 
 pub(super) fn compute_latest_by_major(
     remote_versions: &[RemoteVersion],

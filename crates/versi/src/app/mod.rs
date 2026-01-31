@@ -50,7 +50,7 @@ impl Versi {
             .build()
             .unwrap_or_default();
 
-        let fnm_provider: Arc<dyn BackendProvider> = Arc::new(versi_core::FnmProvider::new());
+        let fnm_provider: Arc<dyn BackendProvider> = Arc::new(versi_fnm::FnmProvider::new());
         let nvm_provider: Arc<dyn BackendProvider> = Arc::new(versi_nvm::NvmProvider::new());
 
         let mut providers: HashMap<&'static str, Arc<dyn BackendProvider>> = HashMap::new();

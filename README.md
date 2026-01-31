@@ -1,6 +1,6 @@
 # Versi
 
-A native GUI application for [fnm](https://github.com/Schniz/fnm) (Fast Node Manager).
+A native GUI application for managing Node.js versions.
 
 ![Versi screenshot](assets/screenshot.png)
 

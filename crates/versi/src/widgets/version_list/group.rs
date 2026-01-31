@@ -1,7 +1,8 @@
 use iced::widget::{Space, button, column, container, row, text};
 use iced::{Alignment, Element, Length};
 
-use versi_core::{InstalledVersion, ReleaseSchedule, VersionGroup};
+use versi_backend::{InstalledVersion, VersionGroup};
+use versi_core::ReleaseSchedule;
 
 use crate::icon;
 use crate::message::Message;
@@ -13,7 +14,7 @@ use super::item::version_item_view;
 
 pub(super) fn version_group_view<'a>(
     group: &'a VersionGroup,
-    default: &'a Option<versi_core::NodeVersion>,
+    default: &'a Option<versi_backend::NodeVersion>,
     search_query: &'a str,
     update_available: Option<String>,
     schedule: Option<&ReleaseSchedule>,

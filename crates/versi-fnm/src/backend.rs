@@ -6,7 +6,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::mpsc;
 
-use crate::commands::HideWindow;
+use versi_core::HideWindow;
 
 use versi_backend::{
     BackendError, BackendInfo, InstallPhase, InstallProgress, InstalledVersion,

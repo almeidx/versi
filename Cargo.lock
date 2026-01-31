@@ -5534,6 +5534,7 @@ dependencies = [
  "tray-icon",
  "versi-backend",
  "versi-core",
+ "versi-fnm",
  "versi-nvm",
  "versi-platform",
  "versi-shell",
@@ -5557,8 +5558,17 @@ dependencies = [
 name = "versi-core"
 version = "0.5.0"
 dependencies = [
- "async-trait",
  "chrono",
+ "reqwest",
+ "serde",
+ "tokio",
+]
+
+[[package]]
+name = "versi-fnm"
+version = "0.5.0"
+dependencies = [
+ "async-trait",
  "dirs",
  "log",
  "reqwest",
@@ -5567,6 +5577,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "versi-backend",
+ "versi-core",
  "which",
 ]
 

@@ -1,0 +1,18 @@
+[package]
+name = "versi-fnm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+versi-backend = { path = "../versi-backend" }
+versi-core = { path = "../versi-core" }
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+which.workspace = true
+dirs.workspace = true
+reqwest.workspace = true
+async-trait.workspace = true
+log.workspace = true

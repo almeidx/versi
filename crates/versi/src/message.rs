@@ -1,8 +1,7 @@
 use std::path::PathBuf;
 
-use versi_core::{
-    AppUpdate, BackendUpdate, InstallProgress, InstalledVersion, ReleaseSchedule, RemoteVersion,
-};
+use versi_backend::{BackendUpdate, InstallProgress, InstalledVersion, RemoteVersion};
+use versi_core::{AppUpdate, ReleaseSchedule};
 use versi_platform::EnvironmentId;
 use versi_shell::ShellType;
 

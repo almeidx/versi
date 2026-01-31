@@ -50,7 +50,7 @@ impl Versi {
 
     pub(super) fn handle_remote_versions_fetched(
         &mut self,
-        result: Result<Vec<versi_core::RemoteVersion>, String>,
+        result: Result<Vec<versi_backend::RemoteVersion>, String>,
     ) {
         if let AppState::Main(state) = &mut self.state {
             state.available_versions.loading = false;
@@ -176,7 +176,7 @@ impl Versi {
 
     pub(super) fn handle_backend_update_checked(
         &mut self,
-        result: Result<Option<versi_core::BackendUpdate>, String>,
+        result: Result<Option<versi_backend::BackendUpdate>, String>,
     ) {
         if let AppState::Main(state) = &mut self.state {
             match result {

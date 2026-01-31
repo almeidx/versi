@@ -59,8 +59,8 @@ impl Versi {
                         let mut final_success = false;
                         let mut last_error: Option<String> = None;
                         while let Some(progress) = rx.recv().await {
-                            let is_complete = progress.phase == versi_core::InstallPhase::Complete;
-                            let is_failed = progress.phase == versi_core::InstallPhase::Failed;
+                            let is_complete = progress.phase == versi_backend::InstallPhase::Complete;
+                            let is_failed = progress.phase == versi_backend::InstallPhase::Failed;
 
                             if is_failed {
                                 last_error = progress.error.clone();
@@ -102,7 +102,7 @@ impl Versi {
     pub(super) fn handle_install_progress(
         &mut self,
         version: String,
-        progress: versi_core::InstallProgress,
+        progress: versi_backend::InstallProgress,
     ) {
         if let AppState::Main(state) = &mut self.state {
             state
@@ -271,13 +271,13 @@ impl Versi {
             let env = state.active_environment();
             let remote = &state.available_versions.versions;
 
-            let latest_remote_by_major: std::collections::HashMap<u32, versi_core::NodeVersion> = {
+            let latest_remote_by_major: std::collections::HashMap<u32, versi_backend::NodeVersion> = {
                 let mut latest = std::collections::HashMap::new();
                 for v in remote {
                     let major = v.version.major;
                     latest
                         .entry(major)
-                        .and_modify(|existing: &mut versi_core::NodeVersion| {
+                        .and_modify(|existing: &mut versi_backend::NodeVersion| {
                             if v.version > *existing {
                                 *existing = v.version.clone();
                             }
@@ -287,13 +287,16 @@ impl Versi {
                 latest
             };
 
-            let latest_installed_by_major: std::collections::HashMap<u32, versi_core::NodeVersion> = {
+            let latest_installed_by_major: std::collections::HashMap<
+                u32,
+                versi_backend::NodeVersion,
+            > = {
                 let mut latest = std::collections::HashMap::new();
                 for v in &env.installed_versions {
                     let major = v.version.major;
                     latest
                         .entry(major)
-                        .and_modify(|existing: &mut versi_core::NodeVersion| {
+                        .and_modify(|existing: &mut versi_backend::NodeVersion| {
                             if v.version > *existing {
                                 *existing = v.version.clone();
                             }
@@ -427,7 +430,7 @@ impl Versi {
         if let AppState::Main(state) = &mut self.state {
             let env = state.active_environment();
 
-            let mut versions_in_major: Vec<&versi_core::InstalledVersion> = env
+            let mut versions_in_major: Vec<&versi_backend::InstalledVersion> = env
                 .installed_versions
                 .iter()
                 .filter(|v| v.version.major == major)

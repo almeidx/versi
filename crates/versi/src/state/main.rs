@@ -1,6 +1,7 @@
 use std::time::Instant;
 
-use versi_core::{AppUpdate, BackendUpdate, ReleaseSchedule, RemoteVersion, VersionManager};
+use versi_backend::{BackendUpdate, RemoteVersion, VersionManager};
+use versi_core::{AppUpdate, ReleaseSchedule};
 
 use super::{EnvironmentState, MainViewKind, Modal, OperationQueue, SettingsModalState, Toast};
 

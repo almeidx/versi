@@ -1,4 +1,4 @@
-use versi_core::{InstalledVersion, NodeVersion, VersionGroup};
+use versi_backend::{InstalledVersion, NodeVersion, VersionGroup};
 use versi_platform::EnvironmentId;
 
 #[derive(Debug)]

@@ -14,7 +14,7 @@ impl Versi {
     pub(super) fn handle_environment_loaded(
         &mut self,
         env_id: EnvironmentId,
-        versions: Vec<versi_core::InstalledVersion>,
+        versions: Vec<versi_backend::InstalledVersion>,
     ) -> Task<Message> {
         info!(
             "Environment loaded: {:?} with {} versions",

@@ -45,16 +45,20 @@ versi/
 │   │       ├── types.rs          # Shared types (NodeVersion, InstalledVersion, RemoteVersion, etc.)
 │   │       ├── error.rs          # BackendError type
 │   │       └── lib.rs            # Re-exports
-│   ├── versi-core/               # fnm backend implementation
+│   ├── versi-core/               # Shared utilities (release schedule, app updates, HideWindow)
+│   │   └── src/
+│   │       ├── schedule.rs       # Node.js release schedule fetching
+│   │       ├── update.rs         # App update checking, GitHubRelease, version comparison
+│   │       └── commands/mod.rs   # HideWindow trait + impls
+│   ├── versi-fnm/                # fnm backend implementation
 │   │   └── src/
 │   │       ├── provider.rs       # FnmProvider - implements BackendProvider
 │   │       ├── backend.rs        # FnmBackend - implements VersionManager
 │   │       ├── client.rs         # FnmClient - CLI command execution
 │   │       ├── version.rs        # Version parsing
 │   │       ├── progress.rs       # Install progress tracking
-│   │       ├── detection.rs      # fnm binary detection (pub(crate))
+│   │       ├── detection.rs      # fnm binary detection
 │   │       ├── update.rs         # fnm update checking
-│   │       ├── schedule.rs       # Node.js release schedule fetching
 │   │       └── error.rs          # Error types
 │   ├── versi-shell/              # Shell detection & configuration (backend-agnostic)
 │   │   └── src/
@@ -134,7 +138,7 @@ cargo clippy
 2. `crates/versi/src/state.rs` - All state types and their relationships
 3. `crates/versi/src/message.rs` - All possible application events
 4. `crates/versi-backend/src/traits.rs` - `BackendProvider` and `VersionManager` trait definitions
-5. `crates/versi-core/src/provider.rs` - `FnmProvider` (concrete backend implementation)
+5. `crates/versi-fnm/src/provider.rs` - `FnmProvider` (concrete backend implementation)
 
 ## Common Tasks
 
@@ -147,15 +151,15 @@ cargo clippy
 
 ### Adding a New Backend
 
-1. Create a new crate (e.g., `versi-nvm`)
+1. Create a new crate (e.g., `versi-volta`), following `versi-fnm` as a reference
 2. Implement `BackendProvider` trait (detection, installation, update checking)
 3. Implement `VersionManager` trait (list installed/remote, install, uninstall, set default)
 4. Wire the new provider into `Versi::new()` in `app/mod.rs`
 
 ### Adding a New Command to the fnm Backend
 
-1. Add method to `FnmClient` in `versi-core/src/client.rs`
-2. Add any new types to `versi-backend/src/types.rs` if they're shared, or `versi-core/src/version.rs` if fnm-specific
+1. Add method to `FnmBackend` in `versi-fnm/src/backend.rs`
+2. Add any new types to `versi-backend/src/types.rs` if they're shared, or `versi-fnm/src/version.rs` if fnm-specific
 3. Expose via the `VersionManager` trait if applicable
 4. Create corresponding message and handler in versi
 
@@ -201,7 +205,7 @@ The GUI interacts with backends exclusively through the `BackendProvider` and `V
 - Parse stdout/stderr for status and results
 - Multiple installs can run concurrently; uninstall and set-default wait for all installs to finish
 
-**Key fnm commands used (in versi-core):**
+**Key fnm commands used (in versi-fnm):**
 - `fnm list` - Get installed versions
 - `fnm list-remote` - Get available versions
 - `fnm install <version>` - Install a version
@@ -235,8 +239,3 @@ The GUI interacts with backends exclusively through the `BackendProvider` and `V
 - Native x64 and ARM64 binaries
 - XDG-compliant paths
 - Support for bash, zsh, fish shells
-
-## Not Yet Implemented
-
-These features are planned but not yet built:
-- Window size/position persistence

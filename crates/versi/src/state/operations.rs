@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use versi_core::InstallProgress;
+use versi_backend::InstallProgress;
 
 #[derive(Debug, Clone)]
 pub enum Operation {

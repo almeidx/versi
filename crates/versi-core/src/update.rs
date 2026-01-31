@@ -1,8 +1,6 @@
 use serde::Deserialize;
-use versi_backend::BackendUpdate;
 
 const GITHUB_REPO: &str = "almeidx/versi";
-const FNM_GITHUB_REPO: &str = "Schniz/fnm";
 
 #[derive(Debug, Clone)]
 pub struct AppUpdate {
@@ -13,10 +11,10 @@ pub struct AppUpdate {
 }
 
 #[derive(Deserialize)]
-struct GitHubRelease {
-    tag_name: String,
-    html_url: String,
-    body: Option<String>,
+pub struct GitHubRelease {
+    pub tag_name: String,
+    pub html_url: String,
+    pub body: Option<String>,
 }
 
 pub async fn check_for_update(
@@ -62,49 +60,7 @@ pub async fn check_for_update(
     }
 }
 
-pub async fn check_for_fnm_update(
-    client: &reqwest::Client,
-    current_version: &str,
-) -> Result<Option<BackendUpdate>, String> {
-    let url = format!(
-        "https://api.github.com/repos/{}/releases/latest",
-        FNM_GITHUB_REPO
-    );
-
-    let response = client
-        .get(&url)
-        .header("User-Agent", "versi")
-        .send()
-        .await
-        .map_err(|e| format!("Failed to check for fnm update: {}", e))?;
-
-    if !response.status().is_success() {
-        return Ok(None);
-    }
-
-    let release: GitHubRelease = response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse fnm update response: {}", e))?;
-
-    let latest = release
-        .tag_name
-        .strip_prefix('v')
-        .unwrap_or(&release.tag_name);
-    let current = current_version.strip_prefix('v').unwrap_or(current_version);
-
-    if is_newer_version(latest, current) {
-        Ok(Some(BackendUpdate {
-            current_version: current.to_string(),
-            latest_version: latest.to_string(),
-            release_url: release.html_url,
-        }))
-    } else {
-        Ok(None)
-    }
-}
-
-fn is_newer_version(latest: &str, current: &str) -> bool {
+pub fn is_newer_version(latest: &str, current: &str) -> bool {
     let parse_version = |v: &str| -> Option<(u32, u32, u32)> {
         let parts: Vec<&str> = v.split('.').collect();
         if parts.len() >= 3 {

@@ -3,7 +3,8 @@ use std::collections::HashSet;
 use iced::widget::{Space, button, container, mouse_area, row, text};
 use iced::{Alignment, Element, Length};
 
-use versi_core::{ReleaseSchedule, RemoteVersion};
+use versi_backend::RemoteVersion;
+use versi_core::ReleaseSchedule;
 
 use crate::icon;
 use crate::message::Message;
