@@ -44,11 +44,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install cargo-audit
-        run: cargo install cargo-audit
-
-      - name: Run cargo-audit
-        run: cargo audit
+      - uses: rustsec/audit-check@v2.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   build-and-test:
     name: Build & Test (${{ matrix.os }})
