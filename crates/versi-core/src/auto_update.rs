@@ -133,20 +133,18 @@ fn extract_zip(zip_path: &Path, dest: &Path) -> Result<(), String> {
                 .map_err(|e| format!("Failed to extract {}: {e}", out_path.display()))?;
 
             #[cfg(unix)]
-            set_unix_permissions(&out_path, &entry);
+            {
+                use std::os::unix::fs::PermissionsExt;
+                if let Some(mode) = entry.unix_mode() {
+                    let _ =
+                        std::fs::set_permissions(&out_path, std::fs::Permissions::from_mode(mode));
+                }
+            }
         }
     }
 
     debug!("Extraction complete to {}", dest.display());
     Ok(())
-}
-
-#[cfg(unix)]
-fn set_unix_permissions(path: &Path, entry: &zip::read::ZipFile) {
-    use std::os::unix::fs::PermissionsExt;
-    if let Some(mode) = entry.unix_mode() {
-        let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode));
-    }
 }
 
 #[cfg(target_os = "macos")]
