@@ -135,28 +135,6 @@ impl VersionGroup {
     }
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct InstallProgress {
-    pub phase: InstallPhase,
-    pub percent: Option<f32>,
-    pub bytes_downloaded: Option<u64>,
-    pub total_bytes: Option<u64>,
-    pub speed: Option<String>,
-    pub eta: Option<String>,
-    pub error: Option<String>,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub enum InstallPhase {
-    #[default]
-    Starting,
-    Downloading,
-    Extracting,
-    Installing,
-    Complete,
-    Failed,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

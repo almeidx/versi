@@ -208,10 +208,6 @@ impl Versi {
                 )
             }
             Message::StartInstall(version) => self.handle_start_install(version),
-            Message::InstallProgress { version, progress } => {
-                self.handle_install_progress(version, progress);
-                Task::none()
-            }
             Message::InstallComplete {
                 version,
                 success,

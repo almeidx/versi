@@ -1,9 +1,8 @@
 use async_trait::async_trait;
 use std::path::PathBuf;
-use tokio::sync::mpsc;
 
 use crate::error::BackendError;
-use crate::types::{InstallProgress, InstalledVersion, NodeVersion, RemoteVersion};
+use crate::types::{InstalledVersion, NodeVersion, RemoteVersion};
 
 #[derive(Debug, Clone)]
 pub struct BackendDetection {
@@ -48,7 +47,6 @@ pub trait BackendProvider: Send + Sync {
 
 #[derive(Debug, Clone, Default)]
 pub struct ManagerCapabilities {
-    pub supports_progress: bool,
     pub supports_lts_filter: bool,
     pub supports_use_version: bool,
     pub supports_shell_integration: bool,
@@ -90,11 +88,6 @@ pub trait VersionManager: Send + Sync + VersionManagerClone {
     async fn default_version(&self) -> Result<Option<NodeVersion>, BackendError>;
 
     async fn install(&self, version: &str) -> Result<(), BackendError>;
-
-    async fn install_with_progress(
-        &self,
-        version: &str,
-    ) -> Result<mpsc::UnboundedReceiver<InstallProgress>, BackendError>;
 
     async fn uninstall(&self, version: &str) -> Result<(), BackendError>;
 

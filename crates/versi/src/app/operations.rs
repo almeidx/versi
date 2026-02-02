@@ -45,74 +45,23 @@ impl Versi {
             state.operation_queue.start_install(version.clone());
 
             let backend = state.backend.clone();
-            let version_clone = version.clone();
 
-            let install_stream = async_stream::stream! {
-                match backend.install_with_progress(&version_clone).await {
-                    Ok(mut rx) => {
-                        let mut final_success = false;
-                        let mut last_error: Option<String> = None;
-                        let deadline = tokio::time::Instant::now() + INSTALL_TIMEOUT;
-                        loop {
-                            match tokio::time::timeout_at(deadline, rx.recv()).await {
-                                Ok(Some(progress)) => {
-                                    let is_complete = progress.phase == versi_backend::InstallPhase::Complete;
-                                    let is_failed = progress.phase == versi_backend::InstallPhase::Failed;
-
-                                    if is_failed {
-                                        last_error = progress.error.clone();
-                                    }
-
-                                    yield Message::InstallProgress {
-                                        version: version_clone.clone(),
-                                        progress,
-                                    };
-
-                                    if is_complete {
-                                        final_success = true;
-                                        break;
-                                    }
-                                    if is_failed {
-                                        break;
-                                    }
-                                }
-                                Ok(None) => break,
-                                Err(_) => {
-                                    last_error = Some("Installation timed out".to_string());
-                                    break;
-                                }
-                            }
-                        }
-                        yield Message::InstallComplete {
-                            version: version_clone.clone(),
-                            success: final_success,
-                            error: if final_success { None } else { last_error.or_else(|| Some("Installation failed".to_string())) },
-                        };
+            return Task::perform(
+                async move {
+                    match tokio::time::timeout(INSTALL_TIMEOUT, backend.install(&version)).await {
+                        Ok(Ok(())) => (version, true, None),
+                        Ok(Err(e)) => (version, false, Some(e.to_string())),
+                        Err(_) => (version, false, Some("Installation timed out".to_string())),
                     }
-                    Err(e) => {
-                        yield Message::InstallComplete {
-                            version: version_clone.clone(),
-                            success: false,
-                            error: Some(e.to_string()),
-                        };
-                    }
-                }
-            };
-            return Task::run(install_stream, |msg| msg);
+                },
+                |(version, success, error)| Message::InstallComplete {
+                    version,
+                    success,
+                    error,
+                },
+            );
         }
         Task::none()
-    }
-
-    pub(super) fn handle_install_progress(
-        &mut self,
-        version: String,
-        progress: versi_backend::InstallProgress,
-    ) {
-        if let AppState::Main(state) = &mut self.state {
-            state
-                .operation_queue
-                .update_install_progress(&version, progress);
-        }
     }
 
     pub(super) fn handle_install_complete(

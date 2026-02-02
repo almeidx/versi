@@ -7,7 +7,4 @@ pub use traits::{
     BackendDetection, BackendInfo, BackendProvider, BackendUpdate, ManagerCapabilities,
     ShellInitOptions, VersionManager,
 };
-pub use types::{
-    InstallPhase, InstallProgress, InstalledVersion, NodeVersion, RemoteVersion, VersionGroup,
-    VersionParseError,
-};
+pub use types::{InstalledVersion, NodeVersion, RemoteVersion, VersionGroup, VersionParseError};

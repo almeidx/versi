@@ -13,7 +13,6 @@ pub use error::NvmError;
 pub use provider::NvmProvider;
 
 pub use versi_backend::{
-    BackendDetection, BackendError, BackendInfo, BackendProvider, BackendUpdate, InstallPhase,
-    InstallProgress, InstalledVersion, ManagerCapabilities, NodeVersion, RemoteVersion,
-    ShellInitOptions, VersionManager,
+    BackendDetection, BackendError, BackendInfo, BackendProvider, BackendUpdate, InstalledVersion,
+    ManagerCapabilities, NodeVersion, RemoteVersion, ShellInitOptions, VersionManager,
 };

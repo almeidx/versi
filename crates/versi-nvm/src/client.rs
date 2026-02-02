@@ -1,8 +1,7 @@
 use std::path::PathBuf;
 use tokio::process::Command;
-use tokio::sync::mpsc;
 
-use versi_backend::{InstallPhase, InstallProgress, InstalledVersion, NodeVersion, RemoteVersion};
+use versi_backend::{InstalledVersion, NodeVersion, RemoteVersion};
 
 use crate::error::NvmError;
 use crate::version::{
@@ -202,47 +201,6 @@ impl NvmClient {
     pub async fn install(&self, version: &str) -> Result<(), NvmError> {
         self.execute(&format!("nvm install {}", version)).await?;
         Ok(())
-    }
-
-    pub async fn install_with_progress(
-        &self,
-        version: &str,
-    ) -> Result<mpsc::UnboundedReceiver<InstallProgress>, NvmError> {
-        let (tx, rx) = mpsc::unbounded_channel();
-
-        let _ = tx.send(InstallProgress {
-            phase: InstallPhase::Starting,
-            ..Default::default()
-        });
-
-        let client = self.clone();
-        let version = version.to_string();
-
-        tokio::spawn(async move {
-            let _ = tx.send(InstallProgress {
-                phase: InstallPhase::Downloading,
-                ..Default::default()
-            });
-
-            match client.install(&version).await {
-                Ok(()) => {
-                    let _ = tx.send(InstallProgress {
-                        phase: InstallPhase::Complete,
-                        percent: Some(100.0),
-                        ..Default::default()
-                    });
-                }
-                Err(e) => {
-                    let _ = tx.send(InstallProgress {
-                        phase: InstallPhase::Failed,
-                        error: Some(e.to_string()),
-                        ..Default::default()
-                    });
-                }
-            }
-        });
-
-        Ok(rx)
     }
 
     pub async fn uninstall(&self, version: &str) -> Result<(), NvmError> {

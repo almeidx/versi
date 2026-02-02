@@ -1,19 +1,10 @@
 use std::collections::VecDeque;
 
-use versi_backend::InstallProgress;
-
 #[derive(Debug, Clone)]
 pub enum Operation {
-    Install {
-        version: String,
-        progress: InstallProgress,
-    },
-    Uninstall {
-        version: String,
-    },
-    SetDefault {
-        version: String,
-    },
+    Install { version: String },
+    Uninstall { version: String },
+    SetDefault { version: String },
 }
 
 #[derive(Debug, Clone)]
@@ -128,10 +119,7 @@ impl OperationQueue {
     }
 
     pub fn start_install(&mut self, version: String) {
-        self.active_installs.push(Operation::Install {
-            version,
-            progress: Default::default(),
-        });
+        self.active_installs.push(Operation::Install { version });
     }
 
     pub fn start_exclusive(&mut self, op: Operation) {
@@ -147,19 +135,6 @@ impl OperationQueue {
             Operation::Install { version: v, .. } => v != version,
             _ => true,
         });
-    }
-
-    pub fn update_install_progress(&mut self, version: &str, progress: InstallProgress) {
-        if let Some(Operation::Install {
-            progress: op_progress,
-            ..
-        }) = self
-            .active_installs
-            .iter_mut()
-            .find(|op| matches!(op, Operation::Install { version: v, .. } if v == version))
-        {
-            *op_progress = progress;
-        }
     }
 
     pub fn drain_next(&mut self) -> (Vec<String>, Option<OperationRequest>) {
@@ -216,14 +191,6 @@ pub enum Modal {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use versi_backend::{InstallPhase, InstallProgress};
-
-    fn progress_downloading() -> InstallProgress {
-        InstallProgress {
-            phase: InstallPhase::Downloading,
-            ..Default::default()
-        }
-    }
 
     #[test]
     fn new_queue_is_empty() {
@@ -421,12 +388,12 @@ mod tests {
     }
 
     #[test]
-    fn start_install_adds_with_default_progress() {
+    fn start_install_adds_to_active() {
         let mut q = OperationQueue::new();
         q.start_install("20.0.0".into());
         assert_eq!(q.active_installs.len(), 1);
         assert!(
-            matches!(&q.active_installs[0], Operation::Install { version, progress } if version == "20.0.0" && progress.phase == InstallPhase::Starting)
+            matches!(&q.active_installs[0], Operation::Install { version } if version == "20.0.0")
         );
     }
 
@@ -466,26 +433,6 @@ mod tests {
         q.start_install("20.0.0".into());
         q.remove_completed_install("18.0.0");
         assert_eq!(q.active_installs.len(), 1);
-    }
-
-    #[test]
-    fn update_install_progress_updates_matching() {
-        let mut q = OperationQueue::new();
-        q.start_install("20.0.0".into());
-        q.update_install_progress("20.0.0", progress_downloading());
-        assert!(
-            matches!(&q.active_installs[0], Operation::Install { progress, .. } if progress.phase == InstallPhase::Downloading)
-        );
-    }
-
-    #[test]
-    fn update_install_progress_no_op_when_missing() {
-        let mut q = OperationQueue::new();
-        q.start_install("20.0.0".into());
-        q.update_install_progress("18.0.0", progress_downloading());
-        assert!(
-            matches!(&q.active_installs[0], Operation::Install { progress, .. } if progress.phase == InstallPhase::Starting)
-        );
     }
 
     #[test]
@@ -629,7 +576,6 @@ mod tests {
         assert!(q.has_active_install("20.0.0"));
         assert!(q.is_busy_for_exclusive());
 
-        q.update_install_progress("20.0.0", progress_downloading());
         q.remove_completed_install("20.0.0");
         assert!(!q.has_active_install("20.0.0"));
 

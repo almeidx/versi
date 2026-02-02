@@ -1,11 +1,10 @@
 use async_trait::async_trait;
 use log::{debug, info};
 use std::path::PathBuf;
-use tokio::sync::mpsc;
 
 use versi_backend::{
-    BackendError, BackendInfo, InstallProgress, InstalledVersion, ManagerCapabilities, NodeVersion,
-    RemoteVersion, ShellInitOptions, VersionManager,
+    BackendError, BackendInfo, InstalledVersion, ManagerCapabilities, NodeVersion, RemoteVersion,
+    ShellInitOptions, VersionManager,
 };
 
 use crate::client::{NvmClient, NvmEnvironment};
@@ -59,7 +58,6 @@ impl VersionManager for NvmBackend {
     fn capabilities(&self) -> ManagerCapabilities {
         let supports_shell = !self.client.is_windows();
         ManagerCapabilities {
-            supports_progress: false,
             supports_lts_filter: true,
             supports_use_version: true,
             supports_shell_integration: supports_shell,
@@ -133,19 +131,6 @@ impl VersionManager for NvmBackend {
             })
     }
 
-    async fn install_with_progress(
-        &self,
-        version: &str,
-    ) -> Result<mpsc::UnboundedReceiver<InstallProgress>, BackendError> {
-        info!("nvm: installing version {} with progress", version);
-        self.client
-            .install_with_progress(version)
-            .await
-            .map_err(|e| BackendError::CommandFailed {
-                stderr: e.to_string(),
-            })
-    }
-
     async fn uninstall(&self, version: &str) -> Result<(), BackendError> {
         info!("nvm: uninstalling version {}", version);
         self.client
@@ -211,7 +196,6 @@ mod tests {
         assert!(caps.supports_shell_integration);
         assert!(caps.supports_lts_filter);
         assert!(caps.supports_use_version);
-        assert!(!caps.supports_progress);
         assert!(!caps.supports_auto_switch);
         assert!(!caps.supports_corepack);
         assert!(!caps.supports_resolve_engines);

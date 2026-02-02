@@ -1,19 +1,15 @@
 use async_trait::async_trait;
 use log::{debug, error, info, trace};
 use std::path::PathBuf;
-use std::process::Stdio;
-use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
-use tokio::sync::mpsc;
 
 use versi_core::HideWindow;
 
 use versi_backend::{
-    BackendError, BackendInfo, InstallPhase, InstallProgress, InstalledVersion,
-    ManagerCapabilities, NodeVersion, RemoteVersion, ShellInitOptions, VersionManager,
+    BackendError, BackendInfo, InstalledVersion, ManagerCapabilities, NodeVersion, RemoteVersion,
+    ShellInitOptions, VersionManager,
 };
 
-use crate::progress::parse_progress_line;
 use crate::version::{parse_installed_versions, parse_remote_versions};
 
 #[derive(Debug, Clone)]
@@ -146,7 +142,6 @@ impl VersionManager for FnmBackend {
 
     fn capabilities(&self) -> ManagerCapabilities {
         ManagerCapabilities {
-            supports_progress: true,
             supports_lts_filter: true,
             supports_use_version: true,
             supports_shell_integration: true,
@@ -200,131 +195,6 @@ impl VersionManager for FnmBackend {
     async fn install(&self, version: &str) -> Result<(), BackendError> {
         self.execute(&["install", version]).await?;
         Ok(())
-    }
-
-    async fn install_with_progress(
-        &self,
-        version: &str,
-    ) -> Result<mpsc::UnboundedReceiver<InstallProgress>, BackendError> {
-        info!(
-            "Starting install with progress tracking for version: {}",
-            version
-        );
-
-        let (tx, rx) = mpsc::unbounded_channel();
-
-        let mut cmd = self.build_command(&["install", version, "--progress", "never"]);
-        cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
-
-        debug!("Spawning fnm install process...");
-        let mut child = cmd.spawn()?;
-        debug!("fnm install process spawned successfully");
-
-        let stdout = child
-            .stdout
-            .take()
-            .ok_or_else(|| BackendError::IoError("Failed to capture stdout".to_string()))?;
-
-        let tx_stdout = tx.clone();
-        let version_for_stdout = version.to_string();
-        tokio::spawn(async move {
-            let mut reader = BufReader::new(stdout).lines();
-
-            while let Ok(Some(line)) = reader.next_line().await {
-                trace!("fnm install stdout [{}]: {}", version_for_stdout, line);
-                if let Some(progress) = parse_progress_line(&line) {
-                    debug!(
-                        "Progress update [{}]: phase={:?}, percent={:?}",
-                        version_for_stdout, progress.phase, progress.percent
-                    );
-                    let _ = tx_stdout.send(progress);
-                }
-            }
-        });
-
-        let stderr = child
-            .stderr
-            .take()
-            .ok_or_else(|| BackendError::IoError("Failed to capture stderr".to_string()))?;
-
-        let tx_stderr = tx.clone();
-        let (stderr_tx, mut stderr_rx) = mpsc::unbounded_channel::<String>();
-        let version_for_stderr = version.to_string();
-        tokio::spawn(async move {
-            let mut reader = BufReader::new(stderr).lines();
-
-            while let Ok(Some(line)) = reader.next_line().await {
-                trace!("fnm install stderr [{}]: {}", version_for_stderr, line);
-                let _ = stderr_tx.send(line.clone());
-                if let Some(progress) = parse_progress_line(&line) {
-                    debug!(
-                        "Progress from stderr [{}]: phase={:?}",
-                        version_for_stderr, progress.phase
-                    );
-                    let _ = tx_stderr.send(progress);
-                }
-            }
-        });
-
-        let tx_final = tx;
-        let version_for_final = version.to_string();
-        tokio::spawn(async move {
-            let status = child.wait().await;
-            debug!(
-                "fnm install process finished [{}]: {:?}",
-                version_for_final, status
-            );
-
-            let mut stderr_lines = Vec::new();
-            while let Ok(line) = stderr_rx.try_recv() {
-                stderr_lines.push(line);
-            }
-            let stderr_content = stderr_lines.join("\n");
-
-            match status {
-                Ok(s) if s.success() => {
-                    info!(
-                        "Installation completed successfully for version: {}",
-                        version_for_final
-                    );
-                    let _ = tx_final.send(InstallProgress {
-                        phase: InstallPhase::Complete,
-                        percent: Some(100.0),
-                        ..Default::default()
-                    });
-                }
-                Ok(s) => {
-                    error!(
-                        "Installation failed for version {}: exit code {:?}, stderr: {}",
-                        version_for_final,
-                        s.code(),
-                        stderr_content
-                    );
-                    let _ = tx_final.send(InstallProgress {
-                        phase: InstallPhase::Failed,
-                        error: if stderr_content.is_empty() {
-                            Some(format!("Process exited with code {:?}", s.code()))
-                        } else {
-                            Some(stderr_content)
-                        },
-                        ..Default::default()
-                    });
-                }
-                Err(e) => {
-                    error!(
-                        "Installation failed for version {} with error: {}",
-                        version_for_final, e
-                    );
-                    let _ = tx_final.send(InstallProgress {
-                        phase: InstallPhase::Failed,
-                        error: Some(e.to_string()),
-                        ..Default::default()
-                    });
-                }
-            }
-        });
-
-        Ok(rx)
     }
 
     async fn uninstall(&self, version: &str) -> Result<(), BackendError> {
