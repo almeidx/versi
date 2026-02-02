@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::time::Instant;
 
 use versi_backend::{BackendUpdate, RemoteVersion, VersionManager};
@@ -87,6 +88,73 @@ impl MainState {
 
     pub fn next_toast_id(&self) -> usize {
         self.toasts.iter().map(|t| t.id).max().unwrap_or(0) + 1
+    }
+
+    pub fn navigable_versions(&self) -> Vec<String> {
+        let env = self.active_environment();
+        let mut result = Vec::new();
+
+        if self.search_query.is_empty() {
+            for group in &env.version_groups {
+                if group.is_expanded {
+                    for v in &group.versions {
+                        result.push(v.version.to_string());
+                    }
+                }
+            }
+        } else {
+            let query = &self.search_query;
+            let query_lower = query.to_lowercase();
+
+            let mut filtered: Vec<&RemoteVersion> = self
+                .available_versions
+                .versions
+                .iter()
+                .filter(|v| {
+                    let version_str = v.version.to_string();
+                    if query_lower == "lts" {
+                        return v.lts_codename.is_some();
+                    }
+                    version_str.contains(query.as_str())
+                        || v.lts_codename
+                            .as_ref()
+                            .map(|c| c.to_lowercase().contains(&query_lower))
+                            .unwrap_or(false)
+                })
+                .collect();
+
+            filtered.sort_by(|a, b| b.version.cmp(&a.version));
+
+            let mut latest_by_minor: HashMap<(u32, u32), &RemoteVersion> = HashMap::new();
+            for v in &filtered {
+                let key = (v.version.major, v.version.minor);
+                latest_by_minor
+                    .entry(key)
+                    .and_modify(|existing| {
+                        if v.version.patch > existing.version.patch {
+                            *existing = v;
+                        }
+                    })
+                    .or_insert(v);
+            }
+
+            let mut available: Vec<&RemoteVersion> = latest_by_minor.into_values().collect();
+            available.sort_by(|a, b| b.version.cmp(&a.version));
+            available.truncate(20);
+
+            for v in available {
+                result.push(v.version.to_string());
+            }
+        }
+
+        result
+    }
+
+    pub fn is_version_installed(&self, version_str: &str) -> bool {
+        self.active_environment()
+            .installed_versions
+            .iter()
+            .any(|v| v.version.to_string() == version_str)
     }
 }
 

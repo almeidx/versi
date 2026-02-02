@@ -115,6 +115,60 @@ impl Versi {
                     crate::views::main_view::search::SEARCH_INPUT_ID,
                 ))
             }
+            Message::SelectPreviousVersion => {
+                if let AppState::Main(state) = &mut self.state
+                    && state.view == MainViewKind::Versions
+                    && state.modal.is_none()
+                {
+                    let versions = state.navigable_versions();
+                    if !versions.is_empty() {
+                        let new_idx = match &state.hovered_version {
+                            Some(current) => versions
+                                .iter()
+                                .position(|v| v == current)
+                                .map(|i| i.saturating_sub(1))
+                                .unwrap_or(0),
+                            None => versions.len() - 1,
+                        };
+                        state.hovered_version = Some(versions[new_idx].clone());
+                    }
+                }
+                Task::none()
+            }
+            Message::SelectNextVersion => {
+                if let AppState::Main(state) = &mut self.state
+                    && state.view == MainViewKind::Versions
+                    && state.modal.is_none()
+                {
+                    let versions = state.navigable_versions();
+                    if !versions.is_empty() {
+                        let new_idx = match &state.hovered_version {
+                            Some(current) => versions
+                                .iter()
+                                .position(|v| v == current)
+                                .map(|i| (i + 1).min(versions.len() - 1))
+                                .unwrap_or(0),
+                            None => 0,
+                        };
+                        state.hovered_version = Some(versions[new_idx].clone());
+                    }
+                }
+                Task::none()
+            }
+            Message::ActivateSelectedVersion => {
+                if let AppState::Main(state) = &self.state
+                    && state.view == MainViewKind::Versions
+                    && state.modal.is_none()
+                    && let Some(version) = state.hovered_version.clone()
+                {
+                    if state.is_version_installed(&version) {
+                        return self.update(Message::SetDefault(version));
+                    } else {
+                        return self.update(Message::StartInstall(version));
+                    }
+                }
+                Task::none()
+            }
             Message::VersionGroupToggled { major } => {
                 self.handle_version_group_toggled(major);
                 Task::none()
@@ -487,6 +541,21 @@ impl Versi {
                         "," => return Some(Message::NavigateToSettings),
                         "r" => return Some(Message::RefreshEnvironment),
                         "w" => return Some(Message::CloseWindow),
+                        _ => {}
+                    }
+                }
+
+                if let iced::keyboard::Key::Named(named) = &key {
+                    match named {
+                        iced::keyboard::key::Named::ArrowUp => {
+                            return Some(Message::SelectPreviousVersion);
+                        }
+                        iced::keyboard::key::Named::ArrowDown => {
+                            return Some(Message::SelectNextVersion);
+                        }
+                        iced::keyboard::key::Named::Enter => {
+                            return Some(Message::ActivateSelectedVersion);
+                        }
                         _ => {}
                     }
                 }

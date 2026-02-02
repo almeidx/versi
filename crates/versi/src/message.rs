@@ -20,6 +20,9 @@ pub enum Message {
     },
     RefreshEnvironment,
     FocusSearch,
+    SelectPreviousVersion,
+    SelectNextVersion,
+    ActivateSelectedVersion,
 
     VersionGroupToggled {
         major: u32,
