@@ -21,7 +21,7 @@ use versi_backend::BackendProvider;
 use crate::message::Message;
 use crate::settings::{AppSettings, ThemeSetting, TrayBehavior};
 use crate::state::{AppState, MainViewKind};
-use crate::theme::{dark_theme, get_system_theme, light_theme};
+use crate::theme::{dark_theme, light_theme};
 use crate::tray;
 use crate::views;
 
@@ -37,6 +37,7 @@ pub struct Versi {
     pub(crate) http_client: reqwest::Client,
     pub(crate) providers: HashMap<&'static str, Arc<dyn BackendProvider>>,
     pub(crate) provider: Arc<dyn BackendProvider>,
+    pub(crate) system_theme_mode: iced::theme::Mode,
 }
 
 impl Versi {
@@ -74,6 +75,7 @@ impl Versi {
             http_client,
             providers: providers.clone(),
             provider: active_provider,
+            system_theme_mode: iced::theme::Mode::None,
         };
 
         let all_providers: Vec<Arc<dyn BackendProvider>> = providers.values().cloned().collect();
@@ -82,8 +84,9 @@ impl Versi {
             init::initialize(all_providers, preferred_backend),
             Message::Initialized,
         );
+        let theme_task = iced::system::theme().map(Message::SystemThemeChanged);
 
-        (app, init_task)
+        (app, Task::batch([init_task, theme_task]))
     }
 
     pub fn title(&self) -> String {
@@ -462,6 +465,10 @@ impl Versi {
                 let _ = self.settings.save();
                 Task::none()
             }
+            Message::SystemThemeChanged(mode) => {
+                self.system_theme_mode = mode;
+                Task::none()
+            }
             _ => Task::none(),
         }
     }
@@ -491,6 +498,7 @@ impl Versi {
                         &self.settings,
                         state,
                         has_tabs,
+                        self.is_system_dark(),
                     ),
                     MainViewKind::About => views::about_view::view(state, has_tabs),
                 };
@@ -508,10 +516,20 @@ impl Versi {
 
     pub fn theme(&self) -> Theme {
         match self.settings.theme {
-            ThemeSetting::System => get_system_theme(),
+            ThemeSetting::System => {
+                if self.system_theme_mode == iced::theme::Mode::Dark {
+                    dark_theme()
+                } else {
+                    light_theme()
+                }
+            }
             ThemeSetting::Light => light_theme(),
             ThemeSetting::Dark => dark_theme(),
         }
+    }
+
+    pub fn is_system_dark(&self) -> bool {
+        self.system_theme_mode == iced::theme::Mode::Dark
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
@@ -584,6 +602,8 @@ impl Versi {
             Subscription::none()
         };
 
+        let theme_changes = iced::system::theme_changes().map(Message::SystemThemeChanged);
+
         Subscription::batch([
             tick,
             keyboard,
@@ -591,6 +611,7 @@ impl Versi {
             tray_sub,
             window_open_sub,
             animation_tick,
+            theme_changes,
         ])
     }
 

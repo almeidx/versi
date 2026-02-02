@@ -124,6 +124,8 @@ pub enum Message {
     FetchReleaseSchedule,
 
     OpenLink(String),
+
+    SystemThemeChanged(iced::theme::Mode),
 }
 
 #[derive(Debug, Clone)]

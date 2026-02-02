@@ -44,15 +44,3 @@ pub fn dark_theme() -> Theme {
         },
     )
 }
-
-pub fn get_system_theme() -> Theme {
-    if is_system_dark() {
-        dark_theme()
-    } else {
-        light_theme()
-    }
-}
-
-pub fn is_system_dark() -> bool {
-    matches!(dark_light::detect(), Ok(dark_light::Mode::Dark))
-}

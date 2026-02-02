@@ -5,7 +5,7 @@ use crate::icon;
 use crate::message::Message;
 use crate::settings::{AppSettings, ThemeSetting, TrayBehavior};
 use crate::state::{MainState, SettingsModalState, ShellVerificationStatus};
-use crate::theme::{is_system_dark, styles};
+use crate::theme::styles;
 use crate::widgets::helpers::nav_icons;
 
 pub fn view<'a>(
@@ -13,6 +13,7 @@ pub fn view<'a>(
     settings: &'a AppSettings,
     state: &'a MainState,
     has_tabs: bool,
+    is_system_dark: bool,
 ) -> Element<'a, Message> {
     let header = row![
         text("Settings").size(14),
@@ -29,7 +30,7 @@ pub fn view<'a>(
         Space::new().height(8),
         row![
             button(
-                text(if is_system_dark() {
+                text(if is_system_dark {
                     "System (Dark)"
                 } else {
                     "System (Light)"

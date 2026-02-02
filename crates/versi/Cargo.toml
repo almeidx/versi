@@ -20,7 +20,6 @@ iced = { version = "0.14.0", features = ["tokio", "image", "svg"] }
 
 tray-icon = "0.21.3"
 image = { version = "0.25.9", default-features = false, features = ["png"] }
-dark-light = "2.0"
 
 reqwest.workspace = true
 tokio.workspace = true
