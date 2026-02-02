@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use log::{debug, info, warn};
 use tokio::io::AsyncWriteExt;
@@ -133,20 +133,18 @@ fn extract_zip(zip_path: &Path, dest: &Path) -> Result<(), String> {
                 .map_err(|e| format!("Failed to extract {}: {e}", out_path.display()))?;
 
             #[cfg(unix)]
-            set_unix_permissions(&out_path, &entry);
+            {
+                use std::os::unix::fs::PermissionsExt;
+                if let Some(mode) = entry.unix_mode() {
+                    let _ =
+                        std::fs::set_permissions(&out_path, std::fs::Permissions::from_mode(mode));
+                }
+            }
         }
     }
 
     debug!("Extraction complete to {}", dest.display());
     Ok(())
-}
-
-#[cfg(unix)]
-fn set_unix_permissions(path: &Path, entry: &zip::read::ZipFile) {
-    use std::os::unix::fs::PermissionsExt;
-    if let Some(mode) = entry.unix_mode() {
-        let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode));
-    }
 }
 
 #[cfg(target_os = "macos")]
@@ -187,7 +185,7 @@ fn apply_update(extract_dir: &Path) -> Result<ApplyResult, String> {
 }
 
 #[cfg(target_os = "macos")]
-fn find_app_bundle(dir: &Path) -> Result<PathBuf, String> {
+fn find_app_bundle(dir: &Path) -> Result<std::path::PathBuf, String> {
     for entry in std::fs::read_dir(dir).map_err(|e| format!("Failed to read extract dir: {e}"))? {
         let entry = entry.map_err(|e| format!("Failed to read entry: {e}"))?;
         let path = entry.path();
@@ -199,7 +197,7 @@ fn find_app_bundle(dir: &Path) -> Result<PathBuf, String> {
 }
 
 #[cfg(target_os = "macos")]
-fn current_app_bundle() -> Result<PathBuf, String> {
+fn current_app_bundle() -> Result<std::path::PathBuf, String> {
     let exe = std::env::current_exe().map_err(|e| format!("Failed to get current exe: {e}"))?;
     let mut path = exe.as_path();
     loop {
