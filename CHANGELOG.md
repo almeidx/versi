@@ -3,6 +3,24 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.6.1] - 2026-02-02
+
+- feat: add keyboard navigation for version list
+- test: add unit tests for versi-nvm backend
+- test: add comprehensive unit tests for OperationQueue
+- revert: use std::thread::spawn for cache writes
+- refactor: split app/mod.rs by extracting window and bulk operation handlers
+- refactor: extract OperationQueue methods and split bulk operations
+- fix: add timeouts to all backend operations to prevent UI freezes
+- fix: use tokio::task::spawn_blocking for cache writes instead of std::thread::spawn
+- fix: validate saved window geometry before restoring position
+- fix: recover from poisoned Mutex in NvmProvider instead of panicking
+- fix: ignore tray events before app finishes initializing
+- fix(win): keep nav buttons stable when switching views with environment tabs
+- deps: Lock file maintenance (#47)
+- chore: update screenshot
+
+
 ## [0.6.0] - 2026-01-31
 
 - refactor: extract fnm backend from versi-core into versi-fnm

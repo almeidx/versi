@@ -5513,7 +5513,7 @@ checksum = "7ba6f5989077681266825251a52748b8c1d8a4ad098cc37e440103d0ea717fc0"
 
 [[package]]
 name = "versi"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "async-stream",
  "chrono",
@@ -5544,7 +5544,7 @@ dependencies = [
 
 [[package]]
 name = "versi-backend"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "async-trait",
  "chrono",
@@ -5556,7 +5556,7 @@ dependencies = [
 
 [[package]]
 name = "versi-core"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "chrono",
  "reqwest",
@@ -5566,7 +5566,7 @@ dependencies = [
 
 [[package]]
 name = "versi-fnm"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "async-trait",
  "dirs",
@@ -5583,7 +5583,7 @@ dependencies = [
 
 [[package]]
 name = "versi-nvm"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "async-trait",
  "dirs",
@@ -5599,7 +5599,7 @@ dependencies = [
 
 [[package]]
 name = "versi-platform"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "dirs",
  "log",
@@ -5610,7 +5610,7 @@ dependencies = [
 
 [[package]]
 name = "versi-shell"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "dirs",
  "log",
