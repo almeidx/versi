@@ -13,6 +13,10 @@ use super::platform;
 
 impl Versi {
     pub(super) fn handle_tray_event(&mut self, msg: TrayMessage) -> Task<Message> {
+        if !matches!(self.state, AppState::Main(_)) && !matches!(msg, TrayMessage::Quit) {
+            return Task::none();
+        }
+
         match msg {
             TrayMessage::ShowWindow => {
                 if let Some(id) = self.window_id {
