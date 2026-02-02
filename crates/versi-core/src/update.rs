@@ -8,6 +8,15 @@ pub struct AppUpdate {
     pub latest_version: String,
     pub release_url: String,
     pub release_notes: Option<String>,
+    pub download_url: Option<String>,
+    pub download_size: Option<u64>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct GitHubAsset {
+    pub name: String,
+    pub browser_download_url: String,
+    pub size: u64,
 }
 
 #[derive(Deserialize)]
@@ -15,6 +24,25 @@ pub struct GitHubRelease {
     pub tag_name: String,
     pub html_url: String,
     pub body: Option<String>,
+    #[serde(default)]
+    pub assets: Vec<GitHubAsset>,
+}
+
+pub fn asset_name(version: &str) -> Option<String> {
+    let name = if cfg!(target_os = "macos") && cfg!(target_arch = "aarch64") {
+        format!("versi-{version}-macos-arm64.zip")
+    } else if cfg!(target_os = "macos") && cfg!(target_arch = "x86_64") {
+        format!("versi-{version}-macos-x64.zip")
+    } else if cfg!(target_os = "linux") && cfg!(target_arch = "x86_64") {
+        format!("versi-{version}-linux-x64.zip")
+    } else if cfg!(target_os = "linux") && cfg!(target_arch = "aarch64") {
+        format!("versi-{version}-linux-arm64.zip")
+    } else if cfg!(target_os = "windows") && cfg!(target_arch = "x86_64") {
+        format!("versi-{version}-windows-x64.msi")
+    } else {
+        return None;
+    };
+    Some(name)
 }
 
 pub async fn check_for_update(
@@ -49,11 +77,23 @@ pub async fn check_for_update(
     let current = current_version.strip_prefix('v').unwrap_or(current_version);
 
     if is_newer_version(latest, current) {
+        let (download_url, download_size) = asset_name(latest)
+            .and_then(|expected| {
+                release
+                    .assets
+                    .iter()
+                    .find(|a| a.name == expected)
+                    .map(|a| (Some(a.browser_download_url.clone()), Some(a.size)))
+            })
+            .unwrap_or((None, None));
+
         Ok(Some(AppUpdate {
             current_version: current.to_string(),
             latest_version: latest.to_string(),
             release_url: release.html_url,
             release_notes: release.body,
+            download_url,
+            download_size,
         }))
     } else {
         Ok(None)

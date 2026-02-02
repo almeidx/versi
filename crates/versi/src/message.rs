@@ -118,6 +118,15 @@ pub enum Message {
 
     AppUpdateChecked(Result<Option<AppUpdate>, String>),
     OpenAppUpdate,
+    StartAppUpdate,
+    AppUpdateProgress {
+        downloaded: u64,
+        total: u64,
+    },
+    AppUpdateExtracting,
+    AppUpdateApplying,
+    AppUpdateComplete(Result<versi_core::auto_update::ApplyResult, String>),
+    RestartApp,
     BackendUpdateChecked(Result<Option<BackendUpdate>, String>),
     OpenBackendUpdate,
 

@@ -9,3 +9,11 @@ tokio.workspace = true
 serde.workspace = true
 chrono.workspace = true
 reqwest.workspace = true
+zip.workspace = true
+tempfile.workspace = true
+log.workspace = true
+futures-util.workspace = true
+versi-platform = { path = "../versi-platform" }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+self-replace.workspace = true

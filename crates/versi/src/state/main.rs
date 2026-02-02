@@ -16,6 +16,7 @@ pub struct MainState {
     pub search_query: String,
     pub backend: Box<dyn VersionManager>,
     pub app_update: Option<AppUpdate>,
+    pub app_update_state: AppUpdateState,
     pub backend_update: Option<BackendUpdate>,
     pub view: MainViewKind,
     pub settings_state: SettingsModalState,
@@ -23,6 +24,20 @@ pub struct MainState {
     pub backend_name: &'static str,
     pub detected_backends: Vec<&'static str>,
     pub refresh_rotation: f32,
+}
+
+#[derive(Debug, Clone, Default)]
+pub enum AppUpdateState {
+    #[default]
+    Idle,
+    Downloading {
+        downloaded: u64,
+        total: u64,
+    },
+    Extracting,
+    Applying,
+    RestartRequired,
+    Failed(String),
 }
 
 impl std::fmt::Debug for MainState {
@@ -60,6 +75,7 @@ impl MainState {
             search_query: String::new(),
             backend,
             app_update: None,
+            app_update_state: AppUpdateState::default(),
             backend_update: None,
             view: MainViewKind::default(),
             settings_state: SettingsModalState::new(),

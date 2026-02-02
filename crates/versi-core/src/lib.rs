@@ -1,3 +1,4 @@
+pub mod auto_update;
 pub mod commands;
 mod schedule;
 mod update;

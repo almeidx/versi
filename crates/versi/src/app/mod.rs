@@ -1,3 +1,4 @@
+mod auto_update;
 mod bulk_operations;
 mod environment;
 mod init;
@@ -432,6 +433,21 @@ impl Versi {
                 }
                 Task::none()
             }
+            Message::StartAppUpdate => self.handle_start_app_update(),
+            Message::AppUpdateProgress { downloaded, total } => {
+                self.handle_app_update_progress(downloaded, total);
+                Task::none()
+            }
+            Message::AppUpdateExtracting => {
+                self.handle_app_update_extracting();
+                Task::none()
+            }
+            Message::AppUpdateApplying => {
+                self.handle_app_update_applying();
+                Task::none()
+            }
+            Message::AppUpdateComplete(result) => self.handle_app_update_complete(result),
+            Message::RestartApp => self.handle_restart_app(),
             Message::BackendUpdateChecked(result) => {
                 self.handle_backend_update_checked(result);
                 Task::none()

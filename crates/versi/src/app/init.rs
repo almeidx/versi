@@ -19,6 +19,8 @@ use super::Versi;
 
 impl Versi {
     pub(super) fn handle_initialized(&mut self, result: InitResult) -> Task<Message> {
+        versi_core::auto_update::cleanup_old_app_bundle();
+
         info!(
             "Handling initialization result: backend_found={}, environments={}",
             result.backend_found,

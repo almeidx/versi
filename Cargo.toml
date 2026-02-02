@@ -24,8 +24,12 @@ thiserror = "2.0.18"
 chrono = { version = "0.4.43", features = ["serde"] }
 dirs = "6.0"
 which = "8.0.0"
-reqwest = { version = "0.13.1", features = ["json"] }
+reqwest = { version = "0.13.1", features = ["json", "stream"] }
 open = "5.3.3"
 async-trait = "0.1.89"
 log = "0.4.29"
 simplelog = "0.12.2"
+zip = { version = "2.4", default-features = false, features = ["deflate"] }
+tempfile = "3.19"
+self-replace = "1.5"
+futures-util = "0.3"
