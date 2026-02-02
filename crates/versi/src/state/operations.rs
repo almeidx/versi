@@ -117,6 +117,31 @@ impl OperationQueue {
         })
     }
 
+    pub fn has_active_install(&self, version: &str) -> bool {
+        self.active_installs
+            .iter()
+            .any(|op| matches!(op, Operation::Install { version: v, .. } if v == version))
+    }
+
+    pub fn enqueue(&mut self, request: OperationRequest) {
+        self.pending.push_back(QueuedOperation { request });
+    }
+
+    pub fn start_install(&mut self, version: String) {
+        self.active_installs.push(Operation::Install {
+            version,
+            progress: Default::default(),
+        });
+    }
+
+    pub fn start_exclusive(&mut self, op: Operation) {
+        self.exclusive_op = Some(op);
+    }
+
+    pub fn complete_exclusive(&mut self) {
+        self.exclusive_op = None;
+    }
+
     pub fn remove_completed_install(&mut self, version: &str) {
         self.active_installs.retain(|op| match op {
             Operation::Install { version: v, .. } => v != version,
@@ -135,6 +160,37 @@ impl OperationQueue {
         {
             *op_progress = progress;
         }
+    }
+
+    pub fn drain_next(&mut self) -> (Vec<String>, Option<OperationRequest>) {
+        let mut install_versions: Vec<String> = Vec::new();
+        let mut exclusive_request: Option<OperationRequest> = None;
+
+        if self.exclusive_op.is_some() {
+            return (install_versions, exclusive_request);
+        }
+
+        while let Some(next) = self.pending.front() {
+            match &next.request {
+                OperationRequest::Install { version } => {
+                    if !self.has_active_install(version) && !install_versions.contains(version) {
+                        install_versions.push(version.clone());
+                    }
+                    self.pending.pop_front();
+                }
+                _ => {
+                    if self.active_installs.is_empty()
+                        && install_versions.is_empty()
+                        && let Some(queued) = self.pending.pop_front()
+                    {
+                        exclusive_request = Some(queued.request);
+                    }
+                    break;
+                }
+            }
+        }
+
+        (install_versions, exclusive_request)
     }
 }
 

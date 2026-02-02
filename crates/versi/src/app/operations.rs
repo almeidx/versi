@@ -3,7 +3,7 @@ use std::time::Duration;
 use iced::Task;
 
 use crate::message::Message;
-use crate::state::{AppState, Modal, Operation, OperationRequest, QueuedOperation, Toast};
+use crate::state::{AppState, Operation, OperationRequest, Toast};
 
 use super::Versi;
 
@@ -22,22 +22,16 @@ impl Versi {
         if let AppState::Main(state) = &mut self.state {
             state.modal = None;
 
-            if state
-                .operation_queue
-                .active_installs
-                .iter()
-                .any(|op| matches!(op, Operation::Install { version: v, .. } if v == &version))
+            if state.operation_queue.has_active_install(&version)
                 || state.operation_queue.has_pending_for_version(&version)
             {
                 return Task::none();
             }
 
             if state.operation_queue.is_busy_for_install() {
-                state.operation_queue.pending.push_back(QueuedOperation {
-                    request: OperationRequest::Install {
-                        version: version.clone(),
-                    },
-                });
+                state
+                    .operation_queue
+                    .enqueue(OperationRequest::Install { version });
                 return Task::none();
             }
 
@@ -48,13 +42,7 @@ impl Versi {
 
     pub(super) fn start_install_internal(&mut self, version: String) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            state
-                .operation_queue
-                .active_installs
-                .push(Operation::Install {
-                    version: version.clone(),
-                    progress: Default::default(),
-                });
+            state.operation_queue.start_install(version.clone());
 
             let backend = state.backend.clone();
             let version_clone = version.clone();
@@ -157,11 +145,9 @@ impl Versi {
     pub(super) fn handle_uninstall(&mut self, version: String) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
             if state.operation_queue.is_busy_for_exclusive() {
-                state.operation_queue.pending.push_back(QueuedOperation {
-                    request: OperationRequest::Uninstall {
-                        version: version.clone(),
-                    },
-                });
+                state
+                    .operation_queue
+                    .enqueue(OperationRequest::Uninstall { version });
                 return Task::none();
             }
 
@@ -172,7 +158,7 @@ impl Versi {
 
     pub(super) fn start_uninstall_internal(&mut self, version: String) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            state.operation_queue.exclusive_op = Some(Operation::Uninstall {
+            state.operation_queue.start_exclusive(Operation::Uninstall {
                 version: version.clone(),
             });
 
@@ -210,7 +196,7 @@ impl Versi {
         error: Option<String>,
     ) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            state.operation_queue.exclusive_op = None;
+            state.operation_queue.complete_exclusive();
 
             if !success {
                 let toast_id = state.next_toast_id();
@@ -233,11 +219,9 @@ impl Versi {
     pub(super) fn handle_set_default(&mut self, version: String) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
             if state.operation_queue.is_busy_for_exclusive() {
-                state.operation_queue.pending.push_back(QueuedOperation {
-                    request: OperationRequest::SetDefault {
-                        version: version.clone(),
-                    },
-                });
+                state
+                    .operation_queue
+                    .enqueue(OperationRequest::SetDefault { version });
                 return Task::none();
             }
 
@@ -248,9 +232,11 @@ impl Versi {
 
     pub(super) fn start_set_default_internal(&mut self, version: String) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            state.operation_queue.exclusive_op = Some(Operation::SetDefault {
-                version: version.clone(),
-            });
+            state
+                .operation_queue
+                .start_exclusive(Operation::SetDefault {
+                    version: version.clone(),
+                });
 
             let backend = state.backend.clone();
 
@@ -276,7 +262,7 @@ impl Versi {
         error: Option<String>,
     ) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            state.operation_queue.exclusive_op = None;
+            state.operation_queue.complete_exclusive();
 
             if !success {
                 let toast_id = state.next_toast_id();
@@ -292,253 +278,9 @@ impl Versi {
         Task::batch([refresh_task, next_task])
     }
 
-    pub(super) fn handle_request_bulk_update_majors(&mut self) -> Task<Message> {
-        if let AppState::Main(state) = &mut self.state {
-            let env = state.active_environment();
-            let remote = &state.available_versions.versions;
-
-            let latest_remote_by_major: std::collections::HashMap<u32, versi_backend::NodeVersion> = {
-                let mut latest = std::collections::HashMap::new();
-                for v in remote {
-                    let major = v.version.major;
-                    latest
-                        .entry(major)
-                        .and_modify(|existing: &mut versi_backend::NodeVersion| {
-                            if v.version > *existing {
-                                *existing = v.version.clone();
-                            }
-                        })
-                        .or_insert_with(|| v.version.clone());
-                }
-                latest
-            };
-
-            let latest_installed_by_major: std::collections::HashMap<
-                u32,
-                versi_backend::NodeVersion,
-            > = {
-                let mut latest = std::collections::HashMap::new();
-                for v in &env.installed_versions {
-                    let major = v.version.major;
-                    latest
-                        .entry(major)
-                        .and_modify(|existing: &mut versi_backend::NodeVersion| {
-                            if v.version > *existing {
-                                *existing = v.version.clone();
-                            }
-                        })
-                        .or_insert_with(|| v.version.clone());
-                }
-                latest
-            };
-
-            let versions_to_update: Vec<(String, String)> = latest_installed_by_major
-                .iter()
-                .filter_map(|(major, installed)| {
-                    latest_remote_by_major.get(major).and_then(|latest| {
-                        if latest > installed {
-                            Some((installed.to_string(), latest.to_string()))
-                        } else {
-                            None
-                        }
-                    })
-                })
-                .collect();
-
-            if versions_to_update.is_empty() {
-                return Task::none();
-            }
-
-            state.modal = Some(Modal::ConfirmBulkUpdateMajors {
-                versions: versions_to_update,
-            });
-        }
-        Task::none()
-    }
-
-    pub(super) fn handle_request_bulk_uninstall_eol(&mut self) -> Task<Message> {
-        if let AppState::Main(state) = &mut self.state {
-            let env = state.active_environment();
-            let schedule = state.available_versions.schedule.as_ref();
-
-            let eol_versions: Vec<String> = env
-                .installed_versions
-                .iter()
-                .filter(|v| {
-                    schedule
-                        .map(|s| !s.is_active(v.version.major))
-                        .unwrap_or(false)
-                })
-                .map(|v| v.version.to_string())
-                .collect();
-
-            if eol_versions.is_empty() {
-                return Task::none();
-            }
-
-            state.modal = Some(Modal::ConfirmBulkUninstallEOL {
-                versions: eol_versions,
-            });
-        }
-        Task::none()
-    }
-
-    pub(super) fn handle_request_bulk_uninstall_major(&mut self, major: u32) -> Task<Message> {
-        if let AppState::Main(state) = &mut self.state {
-            let env = state.active_environment();
-
-            let versions: Vec<String> = env
-                .installed_versions
-                .iter()
-                .filter(|v| v.version.major == major)
-                .map(|v| v.version.to_string())
-                .collect();
-
-            if versions.is_empty() {
-                return Task::none();
-            }
-
-            state.modal = Some(Modal::ConfirmBulkUninstallMajor { major, versions });
-        }
-        Task::none()
-    }
-
-    pub(super) fn handle_confirm_bulk_update_majors(&mut self) -> Task<Message> {
-        if let AppState::Main(state) = &mut self.state
-            && let Some(Modal::ConfirmBulkUpdateMajors { versions }) = state.modal.take()
-        {
-            for (_from, to) in versions {
-                state.operation_queue.pending.push_back(QueuedOperation {
-                    request: OperationRequest::Install {
-                        version: to.clone(),
-                    },
-                });
-            }
-            return self.process_next_operation();
-        }
-        Task::none()
-    }
-
-    pub(super) fn handle_confirm_bulk_uninstall_eol(&mut self) -> Task<Message> {
-        if let AppState::Main(state) = &mut self.state
-            && let Some(Modal::ConfirmBulkUninstallEOL { versions }) = state.modal.take()
-        {
-            for version in versions {
-                state.operation_queue.pending.push_back(QueuedOperation {
-                    request: OperationRequest::Uninstall { version },
-                });
-            }
-            return self.process_next_operation();
-        }
-        Task::none()
-    }
-
-    pub(super) fn handle_confirm_bulk_uninstall_major(&mut self, major: u32) -> Task<Message> {
-        if let AppState::Main(state) = &mut self.state
-            && let Some(Modal::ConfirmBulkUninstallMajor { major: m, versions }) =
-                state.modal.take()
-            && m == major
-        {
-            for version in versions {
-                state.operation_queue.pending.push_back(QueuedOperation {
-                    request: OperationRequest::Uninstall { version },
-                });
-            }
-            return self.process_next_operation();
-        }
-        Task::none()
-    }
-
-    pub(super) fn handle_request_bulk_uninstall_major_except_latest(
-        &mut self,
-        major: u32,
-    ) -> Task<Message> {
-        if let AppState::Main(state) = &mut self.state {
-            let env = state.active_environment();
-
-            let mut versions_in_major: Vec<&versi_backend::InstalledVersion> = env
-                .installed_versions
-                .iter()
-                .filter(|v| v.version.major == major)
-                .collect();
-
-            versions_in_major.sort_by(|a, b| b.version.cmp(&a.version));
-
-            if versions_in_major.len() <= 1 {
-                return Task::none();
-            }
-
-            let Some(latest) = versions_in_major.first() else {
-                return Task::none();
-            };
-            let keeping = latest.version.to_string();
-
-            let versions: Vec<String> = versions_in_major
-                .iter()
-                .skip(1)
-                .map(|v| v.version.to_string())
-                .collect();
-
-            state.modal = Some(Modal::ConfirmBulkUninstallMajorExceptLatest {
-                major,
-                versions,
-                keeping,
-            });
-        }
-        Task::none()
-    }
-
-    pub(super) fn handle_confirm_bulk_uninstall_major_except_latest(
-        &mut self,
-        major: u32,
-    ) -> Task<Message> {
-        if let AppState::Main(state) = &mut self.state
-            && let Some(Modal::ConfirmBulkUninstallMajorExceptLatest {
-                major: m, versions, ..
-            }) = state.modal.take()
-            && m == major
-        {
-            for version in versions {
-                state.operation_queue.pending.push_back(QueuedOperation {
-                    request: OperationRequest::Uninstall { version },
-                });
-            }
-            return self.process_next_operation();
-        }
-        Task::none()
-    }
-
     pub(super) fn process_next_operation(&mut self) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            if state.operation_queue.exclusive_op.is_some() {
-                return Task::none();
-            }
-
-            let mut install_versions: Vec<String> = Vec::new();
-            let mut exclusive_request: Option<OperationRequest> = None;
-
-            while let Some(next) = state.operation_queue.pending.front() {
-                match &next.request {
-                    OperationRequest::Install { version } => {
-                        let already_active = state.operation_queue.active_installs.iter().any(
-                            |op| matches!(op, Operation::Install { version: v, .. } if v == version),
-                        );
-                        if !already_active && !install_versions.contains(version) {
-                            install_versions.push(version.clone());
-                        }
-                        state.operation_queue.pending.pop_front();
-                    }
-                    _ => {
-                        if state.operation_queue.active_installs.is_empty()
-                            && install_versions.is_empty()
-                            && let Some(queued) = state.operation_queue.pending.pop_front()
-                        {
-                            exclusive_request = Some(queued.request);
-                        }
-                        break;
-                    }
-                }
-            }
+            let (install_versions, exclusive_request) = state.operation_queue.drain_next();
 
             let mut tasks: Vec<Task<Message>> = Vec::new();
             for version in install_versions {

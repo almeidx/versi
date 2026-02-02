@@ -1,3 +1,4 @@
+mod bulk_operations;
 mod environment;
 mod init;
 mod onboarding;
