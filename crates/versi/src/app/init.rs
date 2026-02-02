@@ -153,7 +153,13 @@ impl Versi {
 
             load_tasks.push(Task::perform(
                 async move {
-                    let versions = backend.list_installed().await.unwrap_or_default();
+                    let versions = tokio::time::timeout(
+                        std::time::Duration::from_secs(30),
+                        backend.list_installed(),
+                    )
+                    .await
+                    .unwrap_or(Ok(Vec::new()))
+                    .unwrap_or_default();
                     (env_id, versions)
                 },
                 move |(env_id, versions)| Message::EnvironmentLoaded { env_id, versions },

@@ -1,9 +1,15 @@
+use std::time::Duration;
+
 use iced::Task;
 
 use crate::message::Message;
 use crate::state::{AppState, Modal, Operation, OperationRequest, QueuedOperation, Toast};
 
 use super::Versi;
+
+const INSTALL_TIMEOUT: Duration = Duration::from_secs(600);
+const UNINSTALL_TIMEOUT: Duration = Duration::from_secs(60);
+const SET_DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 
 impl Versi {
     pub(super) fn handle_close_modal(&mut self) {
@@ -58,25 +64,35 @@ impl Versi {
                     Ok(mut rx) => {
                         let mut final_success = false;
                         let mut last_error: Option<String> = None;
-                        while let Some(progress) = rx.recv().await {
-                            let is_complete = progress.phase == versi_backend::InstallPhase::Complete;
-                            let is_failed = progress.phase == versi_backend::InstallPhase::Failed;
+                        let deadline = tokio::time::Instant::now() + INSTALL_TIMEOUT;
+                        loop {
+                            match tokio::time::timeout_at(deadline, rx.recv()).await {
+                                Ok(Some(progress)) => {
+                                    let is_complete = progress.phase == versi_backend::InstallPhase::Complete;
+                                    let is_failed = progress.phase == versi_backend::InstallPhase::Failed;
 
-                            if is_failed {
-                                last_error = progress.error.clone();
-                            }
+                                    if is_failed {
+                                        last_error = progress.error.clone();
+                                    }
 
-                            yield Message::InstallProgress {
-                                version: version_clone.clone(),
-                                progress,
-                            };
+                                    yield Message::InstallProgress {
+                                        version: version_clone.clone(),
+                                        progress,
+                                    };
 
-                            if is_complete {
-                                final_success = true;
-                                break;
-                            }
-                            if is_failed {
-                                break;
+                                    if is_complete {
+                                        final_success = true;
+                                        break;
+                                    }
+                                    if is_failed {
+                                        break;
+                                    }
+                                }
+                                Ok(None) => break,
+                                Err(_) => {
+                                    last_error = Some("Installation timed out".to_string());
+                                    break;
+                                }
                             }
                         }
                         yield Message::InstallComplete {
@@ -165,9 +181,16 @@ impl Versi {
 
             return Task::perform(
                 async move {
-                    match backend.uninstall(&version_clone).await {
-                        Ok(()) => (version_clone, true, None),
-                        Err(e) => (version_clone, false, Some(e.to_string())),
+                    match tokio::time::timeout(UNINSTALL_TIMEOUT, backend.uninstall(&version_clone))
+                        .await
+                    {
+                        Ok(Ok(())) => (version_clone, true, None),
+                        Ok(Err(e)) => (version_clone, false, Some(e.to_string())),
+                        Err(_) => (
+                            version_clone,
+                            false,
+                            Some("Uninstall timed out".to_string()),
+                        ),
                     }
                 },
                 |(version, success, error)| Message::UninstallComplete {
@@ -233,9 +256,12 @@ impl Versi {
 
             return Task::perform(
                 async move {
-                    match backend.set_default(&version).await {
-                        Ok(()) => (true, None),
-                        Err(e) => (false, Some(e.to_string())),
+                    match tokio::time::timeout(SET_DEFAULT_TIMEOUT, backend.set_default(&version))
+                        .await
+                    {
+                        Ok(Ok(())) => (true, None),
+                        Ok(Err(e)) => (false, Some(e.to_string())),
+                        Err(_) => (false, Some("Set default timed out".to_string())),
                     }
                 },
                 |(success, error)| Message::DefaultChanged { success, error },

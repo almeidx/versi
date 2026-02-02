@@ -1,5 +1,6 @@
+use std::time::{Duration, Instant};
+
 use log::debug;
-use std::time::Instant;
 
 use iced::Task;
 
@@ -7,6 +8,8 @@ use versi_core::{check_for_update, fetch_release_schedule};
 
 use crate::message::Message;
 use crate::state::AppState;
+
+const LIST_REMOTE_TIMEOUT: Duration = Duration::from_secs(30);
 
 use super::Versi;
 
@@ -28,9 +31,14 @@ impl Versi {
                         if delay > 0 {
                             tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
                         }
-                        match backend.list_remote().await {
-                            Ok(versions) => return Ok(versions),
-                            Err(e) => {
+                        match tokio::time::timeout(LIST_REMOTE_TIMEOUT, backend.list_remote()).await
+                        {
+                            Err(_) => {
+                                last_err = "Request timed out".to_string();
+                                debug!("Remote versions fetch attempt {} timed out", attempt + 1,);
+                            }
+                            Ok(Ok(versions)) => return Ok(versions),
+                            Ok(Err(e)) => {
                                 last_err = e.to_string();
                                 debug!(
                                     "Remote versions fetch attempt {} failed: {}",

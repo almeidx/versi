@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use log::{debug, info, trace};
 
 use iced::Task;
@@ -9,6 +11,8 @@ use crate::state::AppState;
 
 use super::Versi;
 use super::init::create_backend_for_environment;
+
+const LIST_TIMEOUT: Duration = Duration::from_secs(30);
 
 impl Versi {
     pub(super) fn handle_environment_loaded(
@@ -96,7 +100,10 @@ impl Versi {
                 Task::perform(
                     async move {
                         debug!("Fetching installed versions for {:?}...", env_id);
-                        let versions = backend.list_installed().await.unwrap_or_default();
+                        let versions = tokio::time::timeout(LIST_TIMEOUT, backend.list_installed())
+                            .await
+                            .unwrap_or(Ok(Vec::new()))
+                            .unwrap_or_default();
                         debug!(
                             "Environment {:?} loaded: {} versions",
                             env_id,
@@ -128,7 +135,10 @@ impl Versi {
 
             return Task::perform(
                 async move {
-                    let versions = backend.list_installed().await.unwrap_or_default();
+                    let versions = tokio::time::timeout(LIST_TIMEOUT, backend.list_installed())
+                        .await
+                        .unwrap_or(Ok(Vec::new()))
+                        .unwrap_or_default();
                     (env_id, versions)
                 },
                 |(env_id, versions)| Message::EnvironmentLoaded { env_id, versions },
