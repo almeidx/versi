@@ -29,7 +29,7 @@ open = "5.3.3"
 async-trait = "0.1.89"
 log = "0.4.29"
 simplelog = "0.12.2"
-zip = { version = "2.4", default-features = false, features = ["deflate"] }
+zip = { version = "7.2.0", default-features = false, features = ["deflate"] }
 tempfile = "3.19"
 self-replace = "1.5"
 futures-util = "0.3"
