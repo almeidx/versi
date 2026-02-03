@@ -30,6 +30,6 @@ async-trait = "0.1.89"
 log = "0.4.29"
 simplelog = "0.12.2"
 zip = { version = "7.2.0", default-features = false, features = ["deflate"] }
-tempfile = "3.19"
+tempfile = "3.24.0"
 self-replace = "1.5"
 futures-util = "0.3"
