@@ -3,6 +3,23 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.8.0] - 2026-02-04
+
+- ci: remove security audit job
+- deps: update bytes 1.11.0 -> 1.11.1 (RUSTSEC-2026-0007)
+- feat: add "Show in Folder" button for settings config file
+- feat: make hardcoded values configurable via settings file
+- refactor: make shell options per-backend instead of global
+- feat: add version alias resolution (latest, lts/*, lts/<codename>)
+- perf: cache latest_by_major and installed_set to avoid per-frame recomputation
+- feat: add keyboard shortcuts help modal (? key)
+- feat: show cache age in offline mode banner
+- feat: add settings export/import
+- fix: handle missing system tray on Linux (Bazzite)
+- deps: Update Rust crate tempfile to 3.24.0 (#51)
+- fix: prevent tray interaction from bricking app during loading/onboarding
+
+
 ## [0.7.0] - 2026-02-02
 
 - feat: add in-app auto-update with download, extract, and apply
