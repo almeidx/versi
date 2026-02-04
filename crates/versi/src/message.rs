@@ -14,6 +14,8 @@ pub enum Message {
     Initialized(InitResult),
 
     EnvironmentSelected(usize),
+    SelectNextEnvironment,
+    SelectPreviousEnvironment,
     EnvironmentLoaded {
         env_id: EnvironmentId,
         versions: Vec<InstalledVersion>,

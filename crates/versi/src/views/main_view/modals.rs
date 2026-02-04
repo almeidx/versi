@@ -295,6 +295,8 @@ fn keyboard_shortcuts_view() -> Element<'static, Message> {
         (format!("{}R", mod_key), "Refresh"),
         (format!("{},", mod_key), "Settings"),
         (format!("{}W", mod_key), "Close window"),
+        (format!("{}Tab", mod_key), "Next environment"),
+        (format!("{}Shift+Tab", mod_key), "Previous environment"),
         ("\u{2191}/\u{2193}".to_string(), "Navigate versions"),
         ("Enter".to_string(), "Install / set default"),
         ("Esc".to_string(), "Close modal"),

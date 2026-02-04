@@ -575,6 +575,28 @@ impl Versi {
                 |_| Message::NoOp,
             ),
             Message::EnvironmentSelected(idx) => self.handle_environment_selected(idx),
+            Message::SelectNextEnvironment => {
+                if let AppState::Main(state) = &self.state
+                    && state.environments.len() > 1
+                {
+                    let next = (state.active_environment_idx + 1) % state.environments.len();
+                    return self.handle_environment_selected(next);
+                }
+                Task::none()
+            }
+            Message::SelectPreviousEnvironment => {
+                if let AppState::Main(state) = &self.state
+                    && state.environments.len() > 1
+                {
+                    let prev = if state.active_environment_idx == 0 {
+                        state.environments.len() - 1
+                    } else {
+                        state.active_environment_idx - 1
+                    };
+                    return self.handle_environment_selected(prev);
+                }
+                Task::none()
+            }
             Message::TrayEvent(tray_msg) => self.handle_tray_event(tray_msg),
             Message::TrayBehaviorChanged(behavior) => self.handle_tray_behavior_changed(behavior),
             Message::StartMinimizedToggled(value) => {
@@ -693,6 +715,12 @@ impl Versi {
                         }
                         iced::keyboard::key::Named::Enter => {
                             return Some(Message::ActivateSelectedVersion);
+                        }
+                        iced::keyboard::key::Named::Tab if cmd && modifiers.shift() => {
+                            return Some(Message::SelectPreviousEnvironment);
+                        }
+                        iced::keyboard::key::Named::Tab if cmd => {
+                            return Some(Message::SelectNextEnvironment);
                         }
                         _ => {}
                     }
