@@ -9,7 +9,6 @@ use crate::theme::styles;
 pub(super) fn contextual_banners<'a>(state: &'a MainState) -> Option<Element<'a, Message>> {
     let env = state.active_environment();
     let schedule = state.available_versions.schedule.as_ref();
-    let remote = &state.available_versions.versions;
 
     let mut banners: Vec<Element<Message>> = Vec::new();
 
@@ -79,30 +78,18 @@ pub(super) fn contextual_banners<'a>(state: &'a MainState) -> Option<Element<'a,
         );
     }
 
-    let update_count = {
-        let mut latest_by_major: std::collections::HashMap<u32, &versi_backend::NodeVersion> =
-            std::collections::HashMap::new();
-        for v in remote {
-            latest_by_major
-                .entry(v.version.major)
-                .and_modify(|existing| {
-                    if &v.version > *existing {
-                        *existing = &v.version;
-                    }
-                })
-                .or_insert(&v.version);
-        }
+    let latest_by_major = &state.available_versions.latest_by_major;
 
-        env.version_groups
-            .iter()
-            .filter(|group| {
-                let installed_latest = group.versions.iter().map(|v| &v.version).max();
-                latest_by_major.get(&group.major).is_some_and(|latest| {
-                    installed_latest.is_some_and(|installed| *latest > installed)
-                })
-            })
-            .count()
-    };
+    let update_count = env
+        .version_groups
+        .iter()
+        .filter(|group| {
+            let installed_latest = group.versions.iter().map(|v| &v.version).max();
+            latest_by_major
+                .get(&group.major)
+                .is_some_and(|latest| installed_latest.is_some_and(|installed| latest > installed))
+        })
+        .count();
 
     if update_count > 0 {
         banners.push(

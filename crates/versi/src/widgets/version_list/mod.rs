@@ -3,19 +3,19 @@ mod filters;
 mod group;
 mod item;
 
-use std::collections::HashSet;
+use std::collections::HashMap;
 
 use iced::widget::{Space, button, column, container, scrollable, text};
 use iced::{Alignment, Element, Length};
 
-use versi_backend::{InstalledVersion, RemoteVersion, VersionGroup};
+use versi_backend::{InstalledVersion, NodeVersion, RemoteVersion, VersionGroup};
 use versi_core::ReleaseSchedule;
 
 use crate::message::Message;
 use crate::state::{EnvironmentState, OperationQueue};
 use crate::theme::styles;
 
-use filters::{compute_latest_by_major, filter_available_versions};
+use filters::filter_available_versions;
 
 fn filter_group(group: &VersionGroup, query: &str) -> bool {
     if query.is_empty() {
@@ -62,12 +62,11 @@ pub fn view<'a>(
     env: &'a EnvironmentState,
     search_query: &'a str,
     remote_versions: &'a [RemoteVersion],
+    latest_by_major: &'a HashMap<u32, NodeVersion>,
     schedule: Option<&'a ReleaseSchedule>,
     operation_queue: &'a OperationQueue,
     hovered_version: &'a Option<String>,
 ) -> Element<'a, Message> {
-    let latest_by_major = compute_latest_by_major(remote_versions);
-
     if env.loading && env.installed_versions.is_empty() {
         return container(
             column![text("Loading versions...").size(16),]
@@ -99,12 +98,6 @@ pub fn view<'a>(
         .height(Length::Fill)
         .into();
     }
-
-    let installed_set: HashSet<String> = env
-        .installed_versions
-        .iter()
-        .map(|v| v.version.to_string())
-        .collect();
 
     let filtered_groups: Vec<&VersionGroup> = env
         .version_groups
@@ -151,7 +144,7 @@ pub fn view<'a>(
                         v,
                         schedule,
                         operation_queue,
-                        &installed_set,
+                        &env.installed_set,
                         hovered_version,
                     )
                 })

@@ -28,6 +28,7 @@ pub fn view<'a>(
         state.active_environment(),
         &state.search_query,
         &state.available_versions.versions,
+        &state.available_versions.latest_by_major,
         state.available_versions.schedule.as_ref(),
         &state.operation_queue,
         hovered,

@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use versi_backend::{InstalledVersion, NodeVersion, VersionGroup};
 use versi_platform::EnvironmentId;
 
@@ -6,6 +8,7 @@ pub struct EnvironmentState {
     pub id: EnvironmentId,
     pub name: String,
     pub installed_versions: Vec<InstalledVersion>,
+    pub installed_set: HashSet<String>,
     pub version_groups: Vec<VersionGroup>,
     pub default_version: Option<NodeVersion>,
     pub backend_name: &'static str,
@@ -26,6 +29,7 @@ impl EnvironmentState {
             id,
             name,
             installed_versions: Vec::new(),
+            installed_set: HashSet::new(),
             version_groups: Vec::new(),
             default_version: None,
             backend_name,
@@ -42,6 +46,7 @@ impl EnvironmentState {
             id,
             name,
             installed_versions: Vec::new(),
+            installed_set: HashSet::new(),
             version_groups: Vec::new(),
             default_version: None,
             backend_name,
@@ -57,6 +62,7 @@ impl EnvironmentState {
             .iter()
             .find(|v| v.is_default)
             .map(|v| v.version.clone());
+        self.installed_set = versions.iter().map(|v| v.version.to_string()).collect();
         self.version_groups = VersionGroup::from_versions(versions.clone());
         self.installed_versions = versions;
         self.loading = false;

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::time::Instant;
 
 use chrono::{DateTime, Utc};
-use versi_backend::{BackendUpdate, RemoteVersion, VersionManager};
+use versi_backend::{BackendUpdate, NodeVersion, RemoteVersion, VersionManager};
 use versi_core::{AppUpdate, ReleaseSchedule};
 
 use super::{EnvironmentState, MainViewKind, Modal, OperationQueue, SettingsModalState, Toast};
@@ -178,6 +178,7 @@ impl MainState {
 #[derive(Debug)]
 pub struct VersionCache {
     pub versions: Vec<RemoteVersion>,
+    pub latest_by_major: HashMap<u32, NodeVersion>,
     pub fetched_at: Option<Instant>,
     pub loading: bool,
     pub error: Option<String>,
@@ -191,6 +192,7 @@ impl VersionCache {
     pub fn new() -> Self {
         Self {
             versions: Vec::new(),
+            latest_by_major: HashMap::new(),
             fetched_at: None,
             loading: false,
             error: None,
@@ -198,6 +200,25 @@ impl VersionCache {
             schedule_error: None,
             loaded_from_disk: false,
             disk_cached_at: None,
+        }
+    }
+
+    pub fn set_versions(&mut self, versions: Vec<RemoteVersion>) {
+        self.recompute_latest_by_major(&versions);
+        self.versions = versions;
+    }
+
+    fn recompute_latest_by_major(&mut self, versions: &[RemoteVersion]) {
+        self.latest_by_major.clear();
+        for v in versions {
+            self.latest_by_major
+                .entry(v.version.major)
+                .and_modify(|existing| {
+                    if v.version > *existing {
+                        *existing = v.version.clone();
+                    }
+                })
+                .or_insert_with(|| v.version.clone());
         }
     }
 

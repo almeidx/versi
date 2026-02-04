@@ -64,7 +64,7 @@ impl Versi {
             state.available_versions.loading = false;
             match result {
                 Ok(versions) => {
-                    state.available_versions.versions = versions.clone();
+                    state.available_versions.set_versions(versions.clone());
                     state.available_versions.fetched_at = Some(Instant::now());
                     state.available_versions.error = None;
                     state.available_versions.loaded_from_disk = false;

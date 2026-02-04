@@ -1,26 +1,6 @@
 use std::collections::HashMap;
 
-use versi_backend::{NodeVersion, RemoteVersion};
-
-pub(super) fn compute_latest_by_major(
-    remote_versions: &[RemoteVersion],
-) -> HashMap<u32, NodeVersion> {
-    let mut latest: HashMap<u32, NodeVersion> = HashMap::new();
-
-    for v in remote_versions {
-        let major = v.version.major;
-        latest
-            .entry(major)
-            .and_modify(|existing| {
-                if v.version > *existing {
-                    *existing = v.version.clone();
-                }
-            })
-            .or_insert_with(|| v.version.clone());
-    }
-
-    latest
-}
+use versi_backend::RemoteVersion;
 
 pub(super) fn filter_available_versions<'a>(
     versions: &'a [RemoteVersion],

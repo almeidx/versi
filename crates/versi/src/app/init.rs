@@ -121,7 +121,9 @@ impl Versi {
             );
             main_state.available_versions.disk_cached_at = Some(disk_cache.cached_at);
             if !disk_cache.remote_versions.is_empty() {
-                main_state.available_versions.versions = disk_cache.remote_versions;
+                main_state
+                    .available_versions
+                    .set_versions(disk_cache.remote_versions);
                 main_state.available_versions.loaded_from_disk = true;
             }
             if let Some(schedule) = disk_cache.release_schedule {
