@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use iced::widget::{Space, button, column, row, text};
 use iced::{Alignment, Element, Length};
 
@@ -31,10 +32,19 @@ pub(super) fn contextual_banners<'a>(state: &'a MainState) -> Option<Element<'a,
             );
         }
         NetworkStatus::Stale => {
+            let age_text = state
+                .available_versions
+                .disk_cached_at
+                .map(|t| format!(" (cached {})", format_relative_time(t)))
+                .unwrap_or_default();
             banners.push(
                 button(
                     row![
-                        text("Using cached data \u{2014} could not refresh from network").size(13),
+                        text(format!(
+                            "Using cached data{} \u{2014} could not refresh from network",
+                            age_text
+                        ))
+                        .size(13),
                         Space::new().width(Length::Fill),
                         text("Retry").size(13),
                     ]
@@ -162,5 +172,23 @@ pub(super) fn contextual_banners<'a>(state: &'a MainState) -> Option<Element<'a,
         None
     } else {
         Some(column(banners).spacing(8).into())
+    }
+}
+
+fn format_relative_time(timestamp: DateTime<Utc>) -> String {
+    let delta = Utc::now().signed_duration_since(timestamp);
+    let minutes = delta.num_minutes();
+    if minutes < 1 {
+        "just now".to_string()
+    } else if minutes < 60 {
+        format!("{}m ago", minutes)
+    } else {
+        let hours = delta.num_hours();
+        if hours < 24 {
+            format!("{}h ago", hours)
+        } else {
+            let days = delta.num_days();
+            format!("{}d ago", days)
+        }
     }
 }

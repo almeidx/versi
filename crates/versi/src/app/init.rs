@@ -119,6 +119,7 @@ impl Versi {
                 disk_cache.remote_versions.len(),
                 disk_cache.release_schedule.is_some()
             );
+            main_state.available_versions.disk_cached_at = Some(disk_cache.cached_at);
             if !disk_cache.remote_versions.is_empty() {
                 main_state.available_versions.versions = disk_cache.remote_versions;
                 main_state.available_versions.loaded_from_disk = true;
