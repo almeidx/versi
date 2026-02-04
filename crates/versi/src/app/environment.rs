@@ -12,8 +12,6 @@ use crate::state::AppState;
 use super::Versi;
 use super::init::create_backend_for_environment;
 
-const LIST_TIMEOUT: Duration = Duration::from_secs(30);
-
 impl Versi {
     pub(super) fn handle_environment_loaded(
         &mut self,
@@ -97,14 +95,16 @@ impl Versi {
                 env.loading = true;
 
                 let backend = state.backend.clone();
+                let fetch_timeout = Duration::from_secs(self.settings.fetch_timeout_secs);
 
                 Task::perform(
                     async move {
                         debug!("Fetching installed versions for {:?}...", env_id);
-                        let versions = tokio::time::timeout(LIST_TIMEOUT, backend.list_installed())
-                            .await
-                            .unwrap_or(Ok(Vec::new()))
-                            .unwrap_or_default();
+                        let versions =
+                            tokio::time::timeout(fetch_timeout, backend.list_installed())
+                                .await
+                                .unwrap_or(Ok(Vec::new()))
+                                .unwrap_or_default();
                         debug!(
                             "Environment {:?} loaded: {} versions",
                             env_id,
@@ -133,10 +133,11 @@ impl Versi {
 
             state.refresh_rotation = std::f32::consts::TAU / 40.0;
             let backend = state.backend.clone();
+            let fetch_timeout = Duration::from_secs(self.settings.fetch_timeout_secs);
 
             return Task::perform(
                 async move {
-                    let versions = tokio::time::timeout(LIST_TIMEOUT, backend.list_installed())
+                    let versions = tokio::time::timeout(fetch_timeout, backend.list_installed())
                         .await
                         .unwrap_or(Ok(Vec::new()))
                         .unwrap_or_default();

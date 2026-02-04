@@ -60,14 +60,13 @@ impl Write for ResilientFileWriter {
     }
 }
 
-pub fn init_logging(debug_enabled: bool) {
+pub fn init_logging(debug_enabled: bool, max_log_size: u64) {
     let paths = AppPaths::new();
     let _ = paths.ensure_dirs();
     let log_path = paths.log_file();
 
-    const MAX_LOG_SIZE: u64 = 5 * 1024 * 1024;
     if let Ok(metadata) = std::fs::metadata(&log_path)
-        && metadata.len() > MAX_LOG_SIZE
+        && metadata.len() > max_log_size
         && let Ok(contents) = std::fs::read(&log_path)
     {
         let half = contents.len() / 2;

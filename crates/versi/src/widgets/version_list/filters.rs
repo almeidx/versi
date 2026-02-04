@@ -32,6 +32,7 @@ pub(super) fn resolve_alias<'a>(
 pub(super) fn filter_available_versions<'a>(
     versions: &'a [RemoteVersion],
     query: &str,
+    limit: usize,
 ) -> Vec<&'a RemoteVersion> {
     let query_lower = query.to_lowercase();
 
@@ -60,7 +61,7 @@ pub(super) fn filter_available_versions<'a>(
 
         let mut result: Vec<&RemoteVersion> = latest_by_major.into_values().collect();
         result.sort_by(|a, b| b.version.cmp(&a.version));
-        result.truncate(20);
+        result.truncate(limit);
         return result;
     }
 

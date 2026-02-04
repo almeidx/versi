@@ -25,7 +25,7 @@ fn main() -> iced::Result {
     };
 
     let settings = settings::AppSettings::load();
-    logging::init_logging(settings.debug_logging);
+    logging::init_logging(settings.debug_logging, settings.max_log_size_bytes);
 
     log::info!("Versi {} starting", env!("CARGO_PKG_VERSION"));
 

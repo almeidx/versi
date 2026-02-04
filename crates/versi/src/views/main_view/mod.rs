@@ -32,6 +32,7 @@ pub fn view<'a>(
         state.available_versions.schedule.as_ref(),
         &state.operation_queue,
         hovered,
+        settings.search_results_limit,
     );
 
     let right_inset = iced::Padding::new(0.0).right(24.0);
@@ -64,5 +65,5 @@ pub fn view<'a>(
         main_column.into()
     };
 
-    toast_container::view(with_modal, &state.toasts)
+    toast_container::view(with_modal, &state.toasts, settings.max_visible_toasts)
 }

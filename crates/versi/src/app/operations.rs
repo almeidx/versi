@@ -7,10 +7,6 @@ use crate::state::{AppState, Operation, OperationRequest, Toast};
 
 use super::Versi;
 
-const INSTALL_TIMEOUT: Duration = Duration::from_secs(600);
-const UNINSTALL_TIMEOUT: Duration = Duration::from_secs(60);
-const SET_DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
-
 impl Versi {
     pub(super) fn handle_close_modal(&mut self) {
         if let AppState::Main(state) = &mut self.state {
@@ -45,10 +41,11 @@ impl Versi {
             state.operation_queue.start_install(version.clone());
 
             let backend = state.backend.clone();
+            let timeout = Duration::from_secs(self.settings.install_timeout_secs);
 
             return Task::perform(
                 async move {
-                    match tokio::time::timeout(INSTALL_TIMEOUT, backend.install(&version)).await {
+                    match tokio::time::timeout(timeout, backend.install(&version)).await {
                         Ok(Ok(())) => (version, true, None),
                         Ok(Err(e)) => (version, false, Some(e.to_string())),
                         Err(_) => (version, false, Some("Installation timed out".to_string())),
@@ -113,12 +110,11 @@ impl Versi {
 
             let backend = state.backend.clone();
             let version_clone = version.clone();
+            let timeout = Duration::from_secs(self.settings.uninstall_timeout_secs);
 
             return Task::perform(
                 async move {
-                    match tokio::time::timeout(UNINSTALL_TIMEOUT, backend.uninstall(&version_clone))
-                        .await
-                    {
+                    match tokio::time::timeout(timeout, backend.uninstall(&version_clone)).await {
                         Ok(Ok(())) => (version_clone, true, None),
                         Ok(Err(e)) => (version_clone, false, Some(e.to_string())),
                         Err(_) => (
@@ -188,12 +184,11 @@ impl Versi {
                 });
 
             let backend = state.backend.clone();
+            let timeout = Duration::from_secs(self.settings.set_default_timeout_secs);
 
             return Task::perform(
                 async move {
-                    match tokio::time::timeout(SET_DEFAULT_TIMEOUT, backend.set_default(&version))
-                        .await
-                    {
+                    match tokio::time::timeout(timeout, backend.set_default(&version)).await {
                         Ok(Ok(())) => (true, None),
                         Ok(Err(e)) => (false, Some(e.to_string())),
                         Err(_) => (false, Some("Set default timed out".to_string())),

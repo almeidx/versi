@@ -156,15 +156,13 @@ impl Versi {
             let backend =
                 create_backend_for_environment(&env_id, &backend_path, &backend_dir, &provider);
 
+            let fetch_timeout = std::time::Duration::from_secs(self.settings.fetch_timeout_secs);
             load_tasks.push(Task::perform(
                 async move {
-                    let versions = tokio::time::timeout(
-                        std::time::Duration::from_secs(30),
-                        backend.list_installed(),
-                    )
-                    .await
-                    .unwrap_or(Ok(Vec::new()))
-                    .unwrap_or_default();
+                    let versions = tokio::time::timeout(fetch_timeout, backend.list_installed())
+                        .await
+                        .unwrap_or(Ok(Vec::new()))
+                        .unwrap_or_default();
                     (env_id, versions)
                 },
                 move |(env_id, versions)| Message::EnvironmentLoaded { env_id, versions },

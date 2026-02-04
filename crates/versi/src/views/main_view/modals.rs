@@ -10,19 +10,29 @@ pub(super) fn modal_overlay<'a>(
     content: Element<'a, Message>,
     modal: &'a Modal,
     _state: &'a MainState,
-    _settings: &'a AppSettings,
+    settings: &'a AppSettings,
 ) -> Element<'a, Message> {
+    let preview_limit = settings.modal_preview_limit;
     let modal_content: Element<Message> = match modal {
-        Modal::ConfirmBulkUpdateMajors { versions } => confirm_bulk_update_view(versions),
-        Modal::ConfirmBulkUninstallEOL { versions } => confirm_bulk_uninstall_eol_view(versions),
+        Modal::ConfirmBulkUpdateMajors { versions } => {
+            confirm_bulk_update_view(versions, preview_limit)
+        }
+        Modal::ConfirmBulkUninstallEOL { versions } => {
+            confirm_bulk_uninstall_eol_view(versions, preview_limit)
+        }
         Modal::ConfirmBulkUninstallMajor { major, versions } => {
-            confirm_bulk_uninstall_major_view(*major, versions)
+            confirm_bulk_uninstall_major_view(*major, versions, preview_limit)
         }
         Modal::ConfirmBulkUninstallMajorExceptLatest {
             major,
             versions,
             keeping,
-        } => confirm_bulk_uninstall_major_except_latest_view(*major, versions, keeping),
+        } => confirm_bulk_uninstall_major_except_latest_view(
+            *major,
+            versions,
+            keeping,
+            preview_limit,
+        ),
         Modal::KeyboardShortcuts => keyboard_shortcuts_view(),
     };
 
@@ -59,10 +69,13 @@ pub(super) fn modal_overlay<'a>(
     iced::widget::stack![content, backdrop, modal_layer].into()
 }
 
-fn confirm_bulk_update_view(versions: &[(String, String)]) -> Element<'_, Message> {
+fn confirm_bulk_update_view(
+    versions: &[(String, String)],
+    preview_limit: usize,
+) -> Element<'_, Message> {
     let mut version_list = column![].spacing(4);
 
-    for (from, to) in versions.iter().take(10) {
+    for (from, to) in versions.iter().take(preview_limit) {
         version_list = version_list.push(
             text(format!("{} → {}", from, to))
                 .size(12)
@@ -70,9 +83,9 @@ fn confirm_bulk_update_view(versions: &[(String, String)]) -> Element<'_, Messag
         );
     }
 
-    if versions.len() > 10 {
+    if versions.len() > preview_limit {
         version_list = version_list.push(
-            text(format!("...and {} more", versions.len() - 10))
+            text(format!("...and {} more", versions.len() - preview_limit))
                 .size(11)
                 .color(iced::Color::from_rgb8(142, 142, 147)),
         );
@@ -107,10 +120,13 @@ fn confirm_bulk_update_view(versions: &[(String, String)]) -> Element<'_, Messag
     .into()
 }
 
-fn confirm_bulk_uninstall_eol_view(versions: &[String]) -> Element<'_, Message> {
+fn confirm_bulk_uninstall_eol_view(
+    versions: &[String],
+    preview_limit: usize,
+) -> Element<'_, Message> {
     let mut version_list = column![].spacing(4);
 
-    for version in versions.iter().take(10) {
+    for version in versions.iter().take(preview_limit) {
         version_list = version_list.push(
             text(format!("Node {}", version))
                 .size(12)
@@ -118,9 +134,9 @@ fn confirm_bulk_uninstall_eol_view(versions: &[String]) -> Element<'_, Message> 
         );
     }
 
-    if versions.len() > 10 {
+    if versions.len() > preview_limit {
         version_list = version_list.push(
-            text(format!("...and {} more", versions.len() - 10))
+            text(format!("...and {} more", versions.len() - preview_limit))
                 .size(11)
                 .color(iced::Color::from_rgb8(142, 142, 147)),
         );
@@ -159,10 +175,14 @@ fn confirm_bulk_uninstall_eol_view(versions: &[String]) -> Element<'_, Message> 
     .into()
 }
 
-fn confirm_bulk_uninstall_major_view(major: u32, versions: &[String]) -> Element<'_, Message> {
+fn confirm_bulk_uninstall_major_view(
+    major: u32,
+    versions: &[String],
+    preview_limit: usize,
+) -> Element<'_, Message> {
     let mut version_list = column![].spacing(4);
 
-    for version in versions.iter().take(10) {
+    for version in versions.iter().take(preview_limit) {
         version_list = version_list.push(
             text(format!("Node {}", version))
                 .size(12)
@@ -170,9 +190,9 @@ fn confirm_bulk_uninstall_major_view(major: u32, versions: &[String]) -> Element
         );
     }
 
-    if versions.len() > 10 {
+    if versions.len() > preview_limit {
         version_list = version_list.push(
-            text(format!("...and {} more", versions.len() - 10))
+            text(format!("...and {} more", versions.len() - preview_limit))
                 .size(11)
                 .color(iced::Color::from_rgb8(142, 142, 147)),
         );
@@ -211,10 +231,11 @@ fn confirm_bulk_uninstall_major_except_latest_view<'a>(
     major: u32,
     versions: &'a [String],
     keeping: &'a str,
+    preview_limit: usize,
 ) -> Element<'a, Message> {
     let mut version_list = column![].spacing(4);
 
-    for version in versions.iter().take(10) {
+    for version in versions.iter().take(preview_limit) {
         version_list = version_list.push(
             text(format!("Node {}", version))
                 .size(12)
@@ -222,9 +243,9 @@ fn confirm_bulk_uninstall_major_except_latest_view<'a>(
         );
     }
 
-    if versions.len() > 10 {
+    if versions.len() > preview_limit {
         version_list = version_list.push(
-            text(format!("...and {} more", versions.len() - 10))
+            text(format!("...and {} more", versions.len() - preview_limit))
                 .size(11)
                 .color(iced::Color::from_rgb8(142, 142, 147)),
         );

@@ -37,6 +37,39 @@ pub struct AppSettings {
 
     #[serde(default)]
     pub window_geometry: Option<WindowGeometry>,
+
+    #[serde(default = "default_install_timeout")]
+    pub install_timeout_secs: u64,
+
+    #[serde(default = "default_operation_timeout")]
+    pub uninstall_timeout_secs: u64,
+
+    #[serde(default = "default_operation_timeout")]
+    pub set_default_timeout_secs: u64,
+
+    #[serde(default = "default_fetch_timeout")]
+    pub fetch_timeout_secs: u64,
+
+    #[serde(default = "default_http_timeout")]
+    pub http_timeout_secs: u64,
+
+    #[serde(default = "default_toast_timeout")]
+    pub toast_timeout_secs: u64,
+
+    #[serde(default = "default_max_visible_toasts")]
+    pub max_visible_toasts: usize,
+
+    #[serde(default = "default_search_results_limit")]
+    pub search_results_limit: usize,
+
+    #[serde(default = "default_modal_preview_limit")]
+    pub modal_preview_limit: usize,
+
+    #[serde(default = "default_max_log_size_bytes")]
+    pub max_log_size_bytes: u64,
+
+    #[serde(default = "default_retry_delays")]
+    pub retry_delays_secs: Vec<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -69,6 +102,46 @@ fn default_cache_ttl() -> u64 {
     1
 }
 
+fn default_install_timeout() -> u64 {
+    600
+}
+
+fn default_operation_timeout() -> u64 {
+    60
+}
+
+fn default_fetch_timeout() -> u64 {
+    30
+}
+
+fn default_http_timeout() -> u64 {
+    10
+}
+
+fn default_toast_timeout() -> u64 {
+    5
+}
+
+fn default_max_visible_toasts() -> usize {
+    3
+}
+
+fn default_search_results_limit() -> usize {
+    20
+}
+
+fn default_modal_preview_limit() -> usize {
+    10
+}
+
+fn default_max_log_size_bytes() -> u64 {
+    5 * 1024 * 1024
+}
+
+fn default_retry_delays() -> Vec<u64> {
+    vec![0, 2, 5, 15]
+}
+
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
@@ -83,6 +156,17 @@ impl Default for AppSettings {
             shell_options: None,
             debug_logging: false,
             window_geometry: None,
+            install_timeout_secs: default_install_timeout(),
+            uninstall_timeout_secs: default_operation_timeout(),
+            set_default_timeout_secs: default_operation_timeout(),
+            fetch_timeout_secs: default_fetch_timeout(),
+            http_timeout_secs: default_http_timeout(),
+            toast_timeout_secs: default_toast_timeout(),
+            max_visible_toasts: default_max_visible_toasts(),
+            search_results_limit: default_search_results_limit(),
+            modal_preview_limit: default_modal_preview_limit(),
+            max_log_size_bytes: default_max_log_size_bytes(),
+            retry_delays_secs: default_retry_delays(),
         }
     }
 }

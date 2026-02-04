@@ -58,6 +58,7 @@ fn filter_version(version: &InstalledVersion, query: &str) -> bool {
             .unwrap_or(false)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn view<'a>(
     env: &'a EnvironmentState,
     search_query: &'a str,
@@ -66,6 +67,7 @@ pub fn view<'a>(
     schedule: Option<&'a ReleaseSchedule>,
     operation_queue: &'a OperationQueue,
     hovered_version: &'a Option<String>,
+    search_results_limit: usize,
 ) -> Element<'a, Message> {
     if env.loading && env.installed_versions.is_empty() {
         return container(
@@ -135,7 +137,8 @@ pub fn view<'a>(
 
     if !search_query.is_empty() {
         let alias_resolved = resolve_alias(remote_versions, search_query);
-        let available_list = filter_available_versions(remote_versions, search_query);
+        let available_list =
+            filter_available_versions(remote_versions, search_query, search_results_limit);
 
         if !available_list.is_empty() {
             let mut card_items: Vec<Element<Message>> = Vec::new();

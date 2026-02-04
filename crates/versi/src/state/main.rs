@@ -107,7 +107,7 @@ impl MainState {
         self.toasts.iter().map(|t| t.id).max().unwrap_or(0) + 1
     }
 
-    pub fn navigable_versions(&self) -> Vec<String> {
+    pub fn navigable_versions(&self, search_results_limit: usize) -> Vec<String> {
         let env = self.active_environment();
         let mut result = Vec::new();
 
@@ -161,7 +161,7 @@ impl MainState {
 
             let mut available: Vec<&RemoteVersion> = latest_by_minor.into_values().collect();
             available.sort_by(|a, b| b.version.cmp(&a.version));
-            available.truncate(20);
+            available.truncate(search_results_limit);
 
             for v in available {
                 result.push(v.version.to_string());

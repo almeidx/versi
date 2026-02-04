@@ -16,8 +16,8 @@ impl Toast {
         }
     }
 
-    pub fn is_expired(&self) -> bool {
-        self.created_at.elapsed().as_secs() > 5
+    pub fn is_expired(&self, timeout_secs: u64) -> bool {
+        self.created_at.elapsed().as_secs() > timeout_secs
     }
 }
 

@@ -5,13 +5,17 @@ use crate::icon;
 use crate::message::Message;
 use crate::state::Toast;
 
-pub fn view<'a>(content: Element<'a, Message>, toasts: &'a [Toast]) -> Element<'a, Message> {
+pub fn view<'a>(
+    content: Element<'a, Message>,
+    toasts: &'a [Toast],
+    max_visible: usize,
+) -> Element<'a, Message> {
     if toasts.is_empty() {
         return content;
     }
 
-    let visible_toasts = if toasts.len() > 3 {
-        &toasts[toasts.len() - 3..]
+    let visible_toasts = if toasts.len() > max_visible {
+        &toasts[toasts.len() - max_visible..]
     } else {
         toasts
     };

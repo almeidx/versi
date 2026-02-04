@@ -9,8 +9,6 @@ use versi_core::{check_for_update, fetch_release_schedule};
 use crate::message::Message;
 use crate::state::AppState;
 
-const LIST_REMOTE_TIMEOUT: Duration = Duration::from_secs(30);
-
 use super::Versi;
 
 impl Versi {
@@ -22,17 +20,17 @@ impl Versi {
             state.available_versions.loading = true;
 
             let backend = state.backend.clone();
+            let fetch_timeout = Duration::from_secs(self.settings.fetch_timeout_secs);
+            let retry_delays = self.settings.retry_delays_secs.clone();
 
             return Task::perform(
                 async move {
-                    let delays = [0, 2, 5, 15];
                     let mut last_err = String::new();
-                    for (attempt, &delay) in delays.iter().enumerate() {
+                    for (attempt, &delay) in retry_delays.iter().enumerate() {
                         if delay > 0 {
                             tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
                         }
-                        match tokio::time::timeout(LIST_REMOTE_TIMEOUT, backend.list_remote()).await
-                        {
+                        match tokio::time::timeout(fetch_timeout, backend.list_remote()).await {
                             Err(_) => {
                                 last_err = "Request timed out".to_string();
                                 debug!("Remote versions fetch attempt {} timed out", attempt + 1,);
@@ -90,12 +88,12 @@ impl Versi {
     pub(super) fn handle_fetch_release_schedule(&mut self) -> Task<Message> {
         if let AppState::Main(_) = &self.state {
             let client = self.http_client.clone();
+            let retry_delays = self.settings.retry_delays_secs.clone();
 
             return Task::perform(
                 async move {
-                    let delays = [0, 2, 5, 15];
                     let mut last_err = String::new();
-                    for (attempt, &delay) in delays.iter().enumerate() {
+                    for (attempt, &delay) in retry_delays.iter().enumerate() {
                         if delay > 0 {
                             tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
                         }

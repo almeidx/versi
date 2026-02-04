@@ -51,7 +51,7 @@ impl Versi {
             && tray::is_tray_active();
 
         let http_client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(10))
+            .timeout(std::time::Duration::from_secs(settings.http_timeout_secs))
             .user_agent(format!("versi/{}", env!("CARGO_PKG_VERSION")))
             .build()
             .unwrap_or_default();
@@ -127,7 +127,7 @@ impl Versi {
                     && state.view == MainViewKind::Versions
                     && state.modal.is_none()
                 {
-                    let versions = state.navigable_versions();
+                    let versions = state.navigable_versions(self.settings.search_results_limit);
                     if !versions.is_empty() {
                         let new_idx = match &state.hovered_version {
                             Some(current) => versions
@@ -147,7 +147,7 @@ impl Versi {
                     && state.view == MainViewKind::Versions
                     && state.modal.is_none()
                 {
-                    let versions = state.navigable_versions();
+                    let versions = state.navigable_versions(self.settings.search_results_limit);
                     if !versions.is_empty() {
                         let new_idx = match &state.hovered_version {
                             Some(current) => versions
@@ -480,7 +480,8 @@ impl Versi {
             }
             Message::Tick => {
                 if let AppState::Main(state) = &mut self.state {
-                    state.toasts.retain(|t| !t.is_expired());
+                    let timeout = self.settings.toast_timeout_secs;
+                    state.toasts.retain(|t| !t.is_expired(timeout));
                 }
                 Task::none()
             }
