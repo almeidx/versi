@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.8.1] - 2026-02-04
+
+- fix: hide unloaded/unavailable environments from system tray menu
+- fix: reload shell setup list when switching environments in settings
+- feat: add Ctrl+Tab / Ctrl+Shift+Tab for environment switching
+- feat: show "Updating..." on bulk update banner while operations run
+- fix: correct Windows explorer /select arg for "Show in Folder"
+
+
 ## [0.8.0] - 2026-02-04
 
 - ci: remove security audit job
