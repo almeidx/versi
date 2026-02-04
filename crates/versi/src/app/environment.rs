@@ -7,7 +7,7 @@ use iced::Task;
 use versi_platform::EnvironmentId;
 
 use crate::message::Message;
-use crate::state::AppState;
+use crate::state::{AppState, MainViewKind};
 
 use super::Versi;
 use super::init::create_backend_for_environment;
@@ -89,6 +89,11 @@ impl Versi {
 
             state.backend_update = None;
 
+            let in_settings = state.view == MainViewKind::Settings;
+            if in_settings {
+                state.settings_state.checking_shells = true;
+            }
+
             let load_task = if needs_load {
                 info!("Loading versions for environment: {:?}", env_id);
                 let env = state.active_environment_mut();
@@ -119,7 +124,13 @@ impl Versi {
             };
 
             let backend_update_task = self.handle_check_for_backend_update();
-            return Task::batch([load_task, backend_update_task]);
+            let shell_task = if in_settings {
+                self.handle_check_shell_setup()
+            } else {
+                Task::none()
+            };
+
+            return Task::batch([load_task, backend_update_task, shell_task]);
         }
         Task::none()
     }
