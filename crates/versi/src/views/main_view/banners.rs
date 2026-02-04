@@ -92,30 +92,42 @@ pub(super) fn contextual_banners<'a>(state: &'a MainState) -> Option<Element<'a,
         .count();
 
     if update_count > 0 {
-        banners.push(
-            button(
-                row![
-                    text(format!(
-                        "{} major {} with updates available",
-                        update_count,
-                        if update_count == 1 {
-                            "version"
-                        } else {
-                            "versions"
-                        }
-                    ))
-                    .size(13),
-                    Space::new().width(Length::Fill),
-                    text("Update All").size(13),
-                ]
-                .align_y(Alignment::Center),
-            )
-            .on_press(Message::RequestBulkUpdateMajors)
-            .style(styles::banner_button_info)
-            .padding([12, 16])
-            .width(Length::Fill)
-            .into(),
-        );
+        let has_active_ops = !state.operation_queue.active_installs.is_empty()
+            || !state.operation_queue.pending.is_empty();
+
+        let btn = button(
+            row![
+                text(format!(
+                    "{} major {} with updates available",
+                    update_count,
+                    if update_count == 1 {
+                        "version"
+                    } else {
+                        "versions"
+                    }
+                ))
+                .size(13),
+                Space::new().width(Length::Fill),
+                text(if has_active_ops {
+                    "Updating..."
+                } else {
+                    "Update All"
+                })
+                .size(13),
+            ]
+            .align_y(Alignment::Center),
+        )
+        .style(styles::banner_button_info)
+        .padding([12, 16])
+        .width(Length::Fill);
+
+        let btn = if has_active_ops {
+            btn
+        } else {
+            btn.on_press(Message::RequestBulkUpdateMajors)
+        };
+
+        banners.push(btn.into());
     }
 
     let eol_count = schedule
