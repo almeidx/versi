@@ -122,16 +122,20 @@ impl MainState {
         } else {
             let query = &self.search_query;
             let query_lower = query.to_lowercase();
+            let versions = &self.available_versions.versions;
 
-            let mut filtered: Vec<&RemoteVersion> = self
-                .available_versions
-                .versions
+            if let Some(resolved) = resolve_alias_query(versions, &query_lower) {
+                result.push(resolved.version.to_string());
+                return result;
+            }
+
+            let mut filtered: Vec<&RemoteVersion> = versions
                 .iter()
                 .filter(|v| {
-                    let version_str = v.version.to_string();
                     if query_lower == "lts" {
                         return v.lts_codename.is_some();
                     }
+                    let version_str = v.version.to_string();
                     version_str.contains(query.as_str())
                         || v.lts_codename
                             .as_ref()
@@ -241,4 +245,29 @@ pub enum NetworkStatus {
     Fetching,
     Offline,
     Stale,
+}
+
+fn resolve_alias_query<'a>(
+    versions: &'a [RemoteVersion],
+    query_lower: &str,
+) -> Option<&'a RemoteVersion> {
+    match query_lower {
+        "latest" | "stable" | "current" => versions.iter().max_by_key(|v| &v.version),
+        "lts/*" => versions
+            .iter()
+            .filter(|v| v.lts_codename.is_some())
+            .max_by_key(|v| &v.version),
+        q if q.starts_with("lts/") => {
+            let codename = &q[4..];
+            versions
+                .iter()
+                .filter(|v| {
+                    v.lts_codename
+                        .as_ref()
+                        .is_some_and(|c| c.to_lowercase() == codename)
+                })
+                .max_by_key(|v| &v.version)
+        }
+        _ => None,
+    }
 }

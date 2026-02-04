@@ -15,7 +15,7 @@ use crate::message::Message;
 use crate::state::{EnvironmentState, OperationQueue};
 use crate::theme::styles;
 
-use filters::filter_available_versions;
+use filters::{filter_available_versions, resolve_alias};
 
 fn filter_group(group: &VersionGroup, query: &str) -> bool {
     if query.is_empty() {
@@ -134,24 +134,34 @@ pub fn view<'a>(
     }
 
     if !search_query.is_empty() {
+        let alias_resolved = resolve_alias(remote_versions, search_query);
         let available_list = filter_available_versions(remote_versions, search_query);
 
         if !available_list.is_empty() {
-            let available_rows: Vec<Element<Message>> = available_list
-                .iter()
-                .map(|v| {
-                    available::available_version_row(
-                        v,
-                        schedule,
-                        operation_queue,
-                        &env.installed_set,
-                        hovered_version,
-                    )
-                })
-                .collect();
+            let mut card_items: Vec<Element<Message>> = Vec::new();
+
+            if alias_resolved.is_some() {
+                card_items.push(
+                    text(format!("\"{}\" resolves to:", search_query))
+                        .size(12)
+                        .color(iced::Color::from_rgb8(142, 142, 147))
+                        .into(),
+                );
+                card_items.push(Space::new().height(4).into());
+            }
+
+            for v in &available_list {
+                card_items.push(available::available_version_row(
+                    v,
+                    schedule,
+                    operation_queue,
+                    &env.installed_set,
+                    hovered_version,
+                ));
+            }
 
             content_items.push(
-                container(column(available_rows).spacing(4))
+                container(column(card_items).spacing(4))
                     .style(styles::card_container)
                     .padding(12)
                     .into(),

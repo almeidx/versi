@@ -11,7 +11,7 @@ pub const SEARCH_INPUT_ID: &str = "search-input";
 
 pub(super) fn search_bar_view<'a>(state: &'a MainState) -> Element<'a, Message> {
     let input = text_input(
-        "Search or install versions (e.g., '22', 'lts')...",
+        "Search versions (e.g., '22', 'lts', 'lts/iron', 'latest')...",
         &state.search_query,
     )
     .id(SEARCH_INPUT_ID)
