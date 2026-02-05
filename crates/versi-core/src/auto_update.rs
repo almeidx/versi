@@ -266,7 +266,7 @@ fn apply_update(extract_dir: &Path) -> Result<ApplyResult, String> {
 }
 
 #[cfg(target_os = "windows")]
-fn apply_update(extract_dir: &Path) -> Result<ApplyResult, String> {
+fn apply_update(_extract_dir: &Path) -> Result<ApplyResult, String> {
     unreachable!("Windows uses MSI path, not extract+apply")
 }
 
