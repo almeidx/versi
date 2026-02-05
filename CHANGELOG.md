@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.8.2] - 2026-02-05
+
+- chore(deps): bump time in the cargo group across 1 directory (#55)
+- fix: process GTK events for tray icon on Linux (Bazzite)
+
+
 ## [0.8.1] - 2026-02-04
 
 - fix: hide unloaded/unavailable environments from system tray menu
