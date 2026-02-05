@@ -41,6 +41,7 @@ pub async fn download_and_apply(
 
     if is_msi {
         let _ = progress.send(UpdateProgress::Applying).await;
+        let _ = temp_dir.keep();
         return apply_msi(&download_path);
     }
 
@@ -294,6 +295,17 @@ pub fn cleanup_old_app_bundle() {
             if old.exists() {
                 info!("Cleaning up old app bundle: {}", old.display());
                 let _ = std::fs::remove_dir_all(&old);
+            }
+        }
+    }
+
+    let cache_dir = versi_platform::AppPaths::new().cache_dir;
+    if let Ok(entries) = std::fs::read_dir(&cache_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() && entry.file_name().to_string_lossy().starts_with(".tmp") {
+                debug!("Cleaning up update temp dir: {}", path.display());
+                let _ = std::fs::remove_dir_all(&path);
             }
         }
     }
