@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.8.4] - 2026-02-07
+
+- fix: only use minimize fallback on Wayland, use Mode::Hidden on X11
+- fix: use pkexec for Linux self-update when binary is in system path
+- deps: Update Rust crate zip to 7.4.0 (#59)
+
+
 ## [0.8.3] - 2026-02-06
 
 - deps: Update Rust crate zip to 7.3.0 (#57)
