@@ -254,15 +254,50 @@ fn apply_update(extract_dir: &Path) -> Result<ApplyResult, String> {
         return Err("No 'versi' binary found in extracted archive".to_string());
     }
 
-    info!("Replacing binary via self-replace");
-    self_replace::self_replace(&new_binary)
-        .map_err(|e| format!("Failed to replace binary: {e}"))?;
-
-    use std::os::unix::fs::PermissionsExt;
     let exe = std::env::current_exe().map_err(|e| format!("Failed to get current exe: {e}"))?;
-    let _ = std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755));
 
-    info!("Linux update applied successfully");
+    info!("Replacing binary via self-replace");
+    match self_replace::self_replace(&new_binary) {
+        Ok(()) => {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755));
+            info!("Linux update applied successfully");
+            Ok(ApplyResult::RestartRequired)
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+            info!("Permission denied, trying pkexec for elevated replacement");
+            apply_update_with_pkexec(&new_binary, &exe)
+        }
+        Err(e) => Err(format!("Failed to replace binary: {e}")),
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn apply_update_with_pkexec(new_binary: &Path, target: &Path) -> Result<ApplyResult, String> {
+    let status = std::process::Command::new("pkexec")
+        .args([
+            "cp",
+            "--",
+            &new_binary.to_string_lossy(),
+            &target.to_string_lossy(),
+        ])
+        .status()
+        .map_err(|e| format!("Failed to run pkexec: {e}"))?;
+
+    if !status.success() {
+        return Err(format!(
+            "Elevated update failed. Binary is installed in a system location.\n\
+             To update manually, run:\n  sudo cp {} {}",
+            new_binary.display(),
+            target.display()
+        ));
+    }
+
+    let _ = std::process::Command::new("pkexec")
+        .args(["chmod", "755", &target.to_string_lossy()])
+        .status();
+
+    info!("Linux update applied via pkexec");
     Ok(ApplyResult::RestartRequired)
 }
 
