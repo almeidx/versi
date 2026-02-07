@@ -125,7 +125,9 @@ impl Versi {
     pub(super) fn handle_tray_behavior_changed(&mut self, behavior: TrayBehavior) -> Task<Message> {
         let old_behavior = self.settings.tray_behavior.clone();
         self.settings.tray_behavior = behavior.clone();
-        let _ = self.settings.save();
+        if let Err(e) = self.settings.save() {
+            log::error!("Failed to save settings: {e}");
+        }
 
         if old_behavior == TrayBehavior::Disabled && behavior != TrayBehavior::Disabled {
             if let Err(e) = tray::init_tray(&behavior) {

@@ -74,7 +74,9 @@ impl Versi {
                 x: pos.x as i32,
                 y: pos.y as i32,
             });
-            let _ = self.settings.save();
+            if let Err(e) = self.settings.save() {
+                log::error!("Failed to save settings: {e}");
+            }
         }
     }
 }

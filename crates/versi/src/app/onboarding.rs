@@ -46,7 +46,9 @@ impl Versi {
             state.selected_backend = Some(name.clone());
         }
         self.settings.preferred_backend = Some(name.clone());
-        let _ = self.settings.save();
+        if let Err(e) = self.settings.save() {
+            log::error!("Failed to save settings: {e}");
+        }
 
         if let Some(provider) = self.providers.get(name.as_str()) {
             self.provider = provider.clone();

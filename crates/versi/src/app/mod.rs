@@ -297,33 +297,43 @@ impl Versi {
             }
             Message::ThemeChanged(theme) => {
                 self.settings.theme = theme;
-                let _ = self.settings.save();
+                if let Err(e) = self.settings.save() {
+                    log::error!("Failed to save settings: {e}");
+                }
                 Task::none()
             }
             Message::ShellOptionUseOnCdToggled(value) => {
                 self.settings
                     .shell_options_for_mut(self.provider.name())
                     .use_on_cd = value;
-                let _ = self.settings.save();
+                if let Err(e) = self.settings.save() {
+                    log::error!("Failed to save settings: {e}");
+                }
                 self.update_shell_flags()
             }
             Message::ShellOptionResolveEnginesToggled(value) => {
                 self.settings
                     .shell_options_for_mut(self.provider.name())
                     .resolve_engines = value;
-                let _ = self.settings.save();
+                if let Err(e) = self.settings.save() {
+                    log::error!("Failed to save settings: {e}");
+                }
                 self.update_shell_flags()
             }
             Message::ShellOptionCorepackEnabledToggled(value) => {
                 self.settings
                     .shell_options_for_mut(self.provider.name())
                     .corepack_enabled = value;
-                let _ = self.settings.save();
+                if let Err(e) = self.settings.save() {
+                    log::error!("Failed to save settings: {e}");
+                }
                 self.update_shell_flags()
             }
             Message::DebugLoggingToggled(value) => {
                 self.settings.debug_logging = value;
-                let _ = self.settings.save();
+                if let Err(e) = self.settings.save() {
+                    log::error!("Failed to save settings: {e}");
+                }
                 crate::logging::set_logging_enabled(value);
                 if value {
                     info!("Debug logging enabled");
@@ -356,7 +366,9 @@ impl Versi {
                 )
             }
             Message::RevealSettingsFile => {
-                let _ = self.settings.save();
+                if let Err(e) = self.settings.save() {
+                    log::error!("Failed to save settings: {e}");
+                }
                 let settings_path = versi_platform::AppPaths::new().settings_file();
                 Task::perform(
                     async move { platform::reveal_in_file_manager(&settings_path) },
@@ -611,7 +623,9 @@ impl Versi {
             Message::TrayBehaviorChanged(behavior) => self.handle_tray_behavior_changed(behavior),
             Message::StartMinimizedToggled(value) => {
                 self.settings.start_minimized = value;
-                let _ = self.settings.save();
+                if let Err(e) = self.settings.save() {
+                    log::error!("Failed to save settings: {e}");
+                }
                 Task::none()
             }
             Message::SystemThemeChanged(mode) => {
@@ -799,7 +813,9 @@ impl Versi {
 
     fn handle_preferred_backend_changed(&mut self, name: String) -> Task<Message> {
         self.settings.preferred_backend = Some(name.clone());
-        let _ = self.settings.save();
+        if let Err(e) = self.settings.save() {
+            log::error!("Failed to save settings: {e}");
+        }
 
         if let AppState::Main(state) = &mut self.state {
             let is_detected = state.detected_backends.contains(&name.as_str());
