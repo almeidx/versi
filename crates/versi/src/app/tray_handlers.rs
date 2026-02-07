@@ -112,12 +112,9 @@ impl Versi {
 
         if let Some(id) = self.window_id {
             platform::set_dock_visible(false);
-            #[cfg(target_os = "linux")]
-            {
+            if platform::is_wayland() {
                 iced::window::minimize(id, true)
-            }
-            #[cfg(not(target_os = "linux"))]
-            {
+            } else {
                 iced::window::set_mode(id, iced::window::Mode::Hidden)
             }
         } else {

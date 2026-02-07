@@ -18,17 +18,15 @@ impl Versi {
         );
         self.save_window_geometry();
         if self.settings.tray_behavior == TrayBehavior::AlwaysRunning && tray::is_tray_active() {
-            info!("Hiding window to tray");
             self.window_visible = false;
             self.update_tray_menu();
             if let Some(id) = self.window_id {
                 platform::set_dock_visible(false);
-                #[cfg(target_os = "linux")]
-                {
+                if platform::is_wayland() {
+                    info!("Minimizing window (Wayland fallback)");
                     iced::window::minimize(id, true)
-                }
-                #[cfg(not(target_os = "linux"))]
-                {
+                } else {
+                    info!("Hiding window to tray");
                     iced::window::set_mode(id, iced::window::Mode::Hidden)
                 }
             } else {
@@ -57,10 +55,11 @@ impl Versi {
             self.pending_minimize = false;
             self.window_visible = false;
             self.update_tray_menu();
-            #[cfg(target_os = "linux")]
-            let hide_task = iced::window::minimize(id, true);
-            #[cfg(not(target_os = "linux"))]
-            let hide_task = iced::window::set_mode(id, iced::window::Mode::Hidden);
+            let hide_task = if platform::is_wayland() {
+                iced::window::minimize(id, true)
+            } else {
+                iced::window::set_mode(id, iced::window::Mode::Hidden)
+            };
             Task::batch([Task::done(Message::HideDockIcon), hide_task])
         } else {
             Task::none()

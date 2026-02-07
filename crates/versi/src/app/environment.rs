@@ -42,10 +42,11 @@ impl Versi {
             && let Some(id) = self.window_id
         {
             self.pending_minimize = false;
-            #[cfg(target_os = "linux")]
-            let hide_task = iced::window::minimize(id, true);
-            #[cfg(not(target_os = "linux"))]
-            let hide_task = iced::window::set_mode(id, iced::window::Mode::Hidden);
+            let hide_task = if super::platform::is_wayland() {
+                iced::window::minimize(id, true)
+            } else {
+                iced::window::set_mode(id, iced::window::Mode::Hidden)
+            };
             return Task::batch([Task::done(Message::HideDockIcon), hide_task]);
         }
 
