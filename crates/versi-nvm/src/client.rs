@@ -2,31 +2,13 @@ use std::path::PathBuf;
 use tokio::process::Command;
 
 use versi_backend::{InstalledVersion, NodeVersion, RemoteVersion};
+use versi_platform::HideWindow;
 
 use crate::error::NvmError;
 use crate::version::{
     clean_output, parse_unix_installed, parse_unix_remote, parse_windows_installed,
     parse_windows_remote,
 };
-
-#[cfg(windows)]
-const CREATE_NO_WINDOW: u32 = 0x08000000;
-
-trait HideWindow {
-    fn hide_window(&mut self) -> &mut Self;
-}
-
-impl HideWindow for Command {
-    #[cfg(windows)]
-    fn hide_window(&mut self) -> &mut Self {
-        self.creation_flags(CREATE_NO_WINDOW)
-    }
-
-    #[cfg(not(windows))]
-    fn hide_window(&mut self) -> &mut Self {
-        self
-    }
-}
 
 #[derive(Debug, Clone)]
 pub enum NvmEnvironment {

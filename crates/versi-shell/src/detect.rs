@@ -155,9 +155,7 @@ pub fn detect_native_shells() -> Vec<ShellInfo> {
 pub fn detect_wsl_shells(distro: &str) -> Vec<ShellInfo> {
     use log::{debug, warn};
     use std::process::Command;
-
-    const CREATE_NO_WINDOW: u32 = 0x08000000;
-    use std::os::windows::process::CommandExt;
+    use versi_platform::HideWindow;
 
     let mut shells = Vec::new();
 
@@ -173,7 +171,7 @@ pub fn detect_wsl_shells(distro: &str) -> Vec<ShellInfo> {
 
     let output = Command::new("wsl.exe")
         .args(["-d", distro, "--", "sh", "-c", check_shells_script])
-        .creation_flags(CREATE_NO_WINDOW)
+        .hide_window()
         .output();
 
     match output {

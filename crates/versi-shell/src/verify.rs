@@ -3,25 +3,7 @@ use crate::detect::ShellType;
 use std::path::PathBuf;
 use tokio::process::Command;
 use versi_backend::ShellInitOptions;
-
-#[cfg(windows)]
-const CREATE_NO_WINDOW: u32 = 0x08000000;
-
-trait HideWindow {
-    fn hide_window(&mut self) -> &mut Self;
-}
-
-impl HideWindow for Command {
-    #[cfg(windows)]
-    fn hide_window(&mut self) -> &mut Self {
-        self.creation_flags(CREATE_NO_WINDOW)
-    }
-
-    #[cfg(not(windows))]
-    fn hide_window(&mut self) -> &mut Self {
-        self
-    }
-}
+use versi_platform::HideWindow;
 
 #[derive(Debug, Clone)]
 pub enum VerificationResult {
@@ -137,7 +119,7 @@ pub async fn verify_wsl_shell_config(
 
     let output = Command::new("wsl.exe")
         .args(["-d", distro, "--", "cat", config_path])
-        .creation_flags(CREATE_NO_WINDOW)
+        .hide_window()
         .output()
         .await;
 
@@ -204,7 +186,7 @@ async fn wsl_functional_test(shell_type: &ShellType, distro: &str, backend_binar
 
     Command::new("wsl.exe")
         .args(&cmd_args)
-        .creation_flags(CREATE_NO_WINDOW)
+        .hide_window()
         .output()
         .await
         .map(|o| {

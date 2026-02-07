@@ -1,26 +1,9 @@
 use std::path::PathBuf;
 use tokio::process::Command;
 
+use versi_platform::HideWindow;
+
 use crate::client::{NvmClient, NvmEnvironment};
-
-#[cfg(windows)]
-const CREATE_NO_WINDOW: u32 = 0x08000000;
-
-trait HideWindow {
-    fn hide_window(&mut self) -> &mut Self;
-}
-
-impl HideWindow for Command {
-    #[cfg(windows)]
-    fn hide_window(&mut self) -> &mut Self {
-        self.creation_flags(CREATE_NO_WINDOW)
-    }
-
-    #[cfg(not(windows))]
-    fn hide_window(&mut self) -> &mut Self {
-        self
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct NvmDetection {

@@ -5460,6 +5460,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "versi-backend",
+ "versi-platform",
  "which",
 ]
 
@@ -5484,6 +5485,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "versi-backend",
+ "versi-platform",
  "which",
 ]
 

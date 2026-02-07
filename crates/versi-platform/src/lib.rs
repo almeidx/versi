@@ -1,9 +1,11 @@
+mod commands;
 mod environment;
 mod paths;
 
 #[cfg(target_os = "windows")]
 mod wsl;
 
+pub use commands::HideWindow;
 pub use environment::{Environment, EnvironmentId};
 pub use paths::AppPaths;
 

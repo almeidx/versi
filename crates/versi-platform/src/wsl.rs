@@ -2,39 +2,7 @@ use log::{debug, error, info, trace, warn};
 use std::process::Command;
 use thiserror::Error;
 
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
-
-#[cfg(windows)]
-const CREATE_NO_WINDOW: u32 = 0x08000000;
-
-trait HideWindow {
-    fn hide_window(&mut self) -> &mut Self;
-}
-
-impl HideWindow for Command {
-    #[cfg(windows)]
-    fn hide_window(&mut self) -> &mut Self {
-        self.creation_flags(CREATE_NO_WINDOW)
-    }
-
-    #[cfg(not(windows))]
-    fn hide_window(&mut self) -> &mut Self {
-        self
-    }
-}
-
-impl HideWindow for tokio::process::Command {
-    #[cfg(windows)]
-    fn hide_window(&mut self) -> &mut Self {
-        self.creation_flags(CREATE_NO_WINDOW)
-    }
-
-    #[cfg(not(windows))]
-    fn hide_window(&mut self) -> &mut Self {
-        self
-    }
-}
+use crate::HideWindow;
 
 #[derive(Debug, Clone)]
 pub struct WslDistro {
