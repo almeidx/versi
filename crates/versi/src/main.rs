@@ -24,6 +24,11 @@ fn main() -> iced::Result {
         }
     };
 
+    if let Err(e) = versi_platform::AppPaths::new() {
+        eprintln!("Error: {e}. Versi cannot determine where to store its data. Please ensure your system environment is configured correctly.");
+        std::process::exit(1);
+    }
+
     let settings = settings::AppSettings::load();
     logging::init_logging(settings.debug_logging, settings.max_log_size_bytes);
 

@@ -61,7 +61,9 @@ impl Write for ResilientFileWriter {
 }
 
 pub fn init_logging(debug_enabled: bool, max_log_size: u64) {
-    let paths = AppPaths::new();
+    let Ok(paths) = AppPaths::new() else {
+        return;
+    };
     let _ = paths.ensure_dirs();
     let log_path = paths.log_file();
 

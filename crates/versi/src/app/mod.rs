@@ -272,7 +272,7 @@ impl Versi {
                 let shell_task = self.handle_check_shell_setup();
                 let log_stats_task = Task::perform(
                     async {
-                        let log_path = versi_platform::AppPaths::new().log_file();
+                        let log_path = versi_platform::AppPaths::new().ok()?.log_file();
                         std::fs::metadata(&log_path).ok().map(|m| m.len())
                     },
                     Message::LogFileStatsLoaded,
@@ -342,7 +342,12 @@ impl Versi {
             }
             Message::CopyToClipboard(text) => iced::clipboard::write(text),
             Message::ClearLogFile => {
-                let log_path = versi_platform::AppPaths::new().log_file();
+                let Some(log_path) = versi_platform::AppPaths::new()
+                    .ok()
+                    .map(|p| p.log_file())
+                else {
+                    return Task::none();
+                };
                 Task::perform(
                     async move {
                         if log_path.exists() {
@@ -359,7 +364,12 @@ impl Versi {
                 Task::none()
             }
             Message::RevealLogFile => {
-                let log_path = versi_platform::AppPaths::new().log_file();
+                let Some(log_path) = versi_platform::AppPaths::new()
+                    .ok()
+                    .map(|p| p.log_file())
+                else {
+                    return Task::none();
+                };
                 Task::perform(
                     async move { platform::reveal_in_file_manager(&log_path) },
                     |_| Message::NoOp,
@@ -369,7 +379,12 @@ impl Versi {
                 if let Err(e) = self.settings.save() {
                     log::error!("Failed to save settings: {e}");
                 }
-                let settings_path = versi_platform::AppPaths::new().settings_file();
+                let Some(settings_path) = versi_platform::AppPaths::new()
+                    .ok()
+                    .map(|p| p.settings_file())
+                else {
+                    return Task::none();
+                };
                 Task::perform(
                     async move { platform::reveal_in_file_manager(&settings_path) },
                     |_| Message::NoOp,

@@ -173,7 +173,9 @@ impl Default for AppSettings {
 
 impl AppSettings {
     pub fn load() -> Self {
-        let paths = AppPaths::new();
+        let Ok(paths) = AppPaths::new() else {
+            return Self::default();
+        };
         let settings_path = paths.settings_file();
 
         let mut settings: Self = if settings_path.exists() {
@@ -197,7 +199,7 @@ impl AppSettings {
     }
 
     pub fn save(&self) -> Result<(), std::io::Error> {
-        let paths = AppPaths::new();
+        let paths = AppPaths::new().map_err(std::io::Error::other)?;
         paths.ensure_dirs()?;
 
         let content = serde_json::to_string_pretty(self)?;

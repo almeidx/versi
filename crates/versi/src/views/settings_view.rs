@@ -294,10 +294,9 @@ pub fn view<'a>(
         .spacing(8)
         .align_y(Alignment::Center),
     );
-    let log_path = {
-        let paths = versi_platform::AppPaths::new();
-        paths.log_file().to_string_lossy().to_string()
-    };
+    let log_path = versi_platform::AppPaths::new()
+        .map(|p| p.log_file().to_string_lossy().to_string())
+        .unwrap_or_default();
     let log_size_text = match settings_state.log_file_size {
         Some(0) => "empty".to_string(),
         Some(size) if size < 1024 => format!("{} B", size),

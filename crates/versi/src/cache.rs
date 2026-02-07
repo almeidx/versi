@@ -13,14 +13,16 @@ pub struct DiskCache {
 
 impl DiskCache {
     pub fn load() -> Option<Self> {
-        let paths = AppPaths::new();
+        let paths = AppPaths::new().ok()?;
         let path = paths.version_cache_file();
         let data = std::fs::read_to_string(path).ok()?;
         serde_json::from_str(&data).ok()
     }
 
     pub fn save(&self) {
-        let paths = AppPaths::new();
+        let Ok(paths) = AppPaths::new() else {
+            return;
+        };
         let _ = paths.ensure_dirs();
         let path = paths.version_cache_file();
         if let Ok(data) = serde_json::to_string(self) {

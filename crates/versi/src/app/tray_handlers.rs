@@ -36,7 +36,12 @@ impl Versi {
                 let shell_task = self.handle_check_shell_setup();
                 let log_stats_task = Task::perform(
                     async {
-                        let log_path = versi_platform::AppPaths::new().log_file();
+                        let Some(log_path) = versi_platform::AppPaths::new()
+                            .ok()
+                            .map(|p| p.log_file())
+                        else {
+                            return Task::none();
+                        };
                         std::fs::metadata(&log_path).ok().map(|m| m.len())
                     },
                     Message::LogFileStatsLoaded,

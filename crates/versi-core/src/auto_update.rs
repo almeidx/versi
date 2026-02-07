@@ -24,7 +24,7 @@ pub async fn download_and_apply(
     download_url: &str,
     progress: mpsc::Sender<UpdateProgress>,
 ) -> Result<ApplyResult, String> {
-    let cache_dir = versi_platform::AppPaths::new().cache_dir;
+    let cache_dir = versi_platform::AppPaths::new()?.cache_dir;
     std::fs::create_dir_all(&cache_dir)
         .map_err(|e| format!("Failed to create cache directory: {e}"))?;
 
@@ -334,7 +334,10 @@ pub fn cleanup_old_app_bundle() {
         }
     }
 
-    let cache_dir = versi_platform::AppPaths::new().cache_dir;
+    let Ok(paths) = versi_platform::AppPaths::new() else {
+        return;
+    };
+    let cache_dir = paths.cache_dir;
     if let Ok(entries) = std::fs::read_dir(&cache_dir) {
         for entry in entries.flatten() {
             let path = entry.path();
