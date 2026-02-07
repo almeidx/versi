@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.8.5] - 2026-02-07
+
+- fix: set application_id on Linux for GNOME/Wayland icon matching
+- deps: Update Rust crate reqwest to 0.13.2 (#61)
+- feat: add confirmation modal before uninstalling default version
+- docs: add module-level documentation to app handler files
+- refactor: remove duplicate HideWindow trait implementations
+- fix: replace expect() panics with graceful error handling in AppPaths
+- fix: log settings save failures instead of silently ignoring
+- fix: handle deleted inode path in Linux restart after self-replace
+
+
 ## [0.8.4] - 2026-02-07
 
 - fix: only use minimize fallback on Wayland, use Mode::Hidden on X11
