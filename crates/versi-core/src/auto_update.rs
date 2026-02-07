@@ -359,6 +359,23 @@ pub fn restart_app() -> Result<(), String> {
 #[cfg(not(target_os = "macos"))]
 pub fn restart_app() -> Result<(), String> {
     let exe = std::env::current_exe().map_err(|e| format!("Failed to get current exe: {e}"))?;
+
+    // On Linux, after self_replace, /proc/self/exe points to the old deleted inode
+    // and current_exe() returns a path with " (deleted)" appended.
+    // Strip it to get the actual path where the new binary was placed.
+    #[cfg(target_os = "linux")]
+    let exe = {
+        let path_str = exe.to_string_lossy();
+        if path_str.ends_with(" (deleted)") {
+            let fixed = std::path::PathBuf::from(path_str.trim_end_matches(" (deleted)"));
+            info!("Adjusted exe path from deleted inode: {}", fixed.display());
+            fixed
+        } else {
+            exe
+        }
+    };
+
+    info!("Restarting from: {}", exe.display());
     std::process::Command::new(&exe)
         .spawn()
         .map_err(|e| format!("Failed to restart app: {e}"))?;
