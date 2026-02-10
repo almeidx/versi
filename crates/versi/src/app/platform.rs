@@ -61,16 +61,22 @@ pub(super) fn set_update_badge(visible: bool) {
     };
     use windows::Win32::UI::Shell::ITaskbarList3;
     use windows::Win32::UI::WindowsAndMessaging::{
-        CreateIconIndirect, DestroyIcon, FindWindowA, ICONINFO,
+        CreateIconIndirect, DestroyIcon, FindWindowA, HICON, ICONINFO,
     };
-    use windows::core::{PCSTR, s};
+    use windows::core::{s, w, PCSTR, PCWSTR};
 
     unsafe {
-        let hwnd = FindWindowA(PCSTR::null(), s!("Versi"));
-        if hwnd.is_invalid() {
-            debug!("Could not find Versi window for badge");
-            return;
-        }
+        let hwnd = match FindWindowA(PCSTR::null(), s!("Versi")) {
+            Ok(h) if h.is_invalid() => {
+                debug!("Could not find Versi window for badge");
+                return;
+            }
+            Ok(h) => h,
+            Err(_) => {
+                debug!("Could not find Versi window for badge");
+                return;
+            }
+        };
 
         let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
 
@@ -82,7 +88,7 @@ pub(super) fn set_update_badge(visible: bool) {
             )?;
 
             if !visible {
-                taskbar.SetOverlayIcon(hwnd, None, PCSTR::null())?;
+                taskbar.SetOverlayIcon(hwnd, HICON::default(), PCWSTR::null())?;
                 return Ok(());
             }
 
@@ -125,7 +131,7 @@ pub(super) fn set_update_badge(visible: bool) {
 
             let dc = CreateCompatibleDC(None);
             let mut bits_ptr: *mut std::ffi::c_void = ptr::null_mut();
-            let color_bitmap = CreateDIBSection(dc, &bmi, DIB_RGB_COLORS, &mut bits_ptr, None, 0)?;
+            let color_bitmap = CreateDIBSection(Some(dc), &bmi, DIB_RGB_COLORS, &mut bits_ptr, None, 0)?;
 
             ptr::copy_nonoverlapping(pixels.as_ptr(), bits_ptr as *mut u8, pixels.len());
 
@@ -144,7 +150,7 @@ pub(super) fn set_update_badge(visible: bool) {
             };
             let mut mask_bits_ptr: *mut std::ffi::c_void = ptr::null_mut();
             let mask_bitmap =
-                CreateDIBSection(dc, &mask_bmi, DIB_RGB_COLORS, &mut mask_bits_ptr, None, 0)?;
+                CreateDIBSection(Some(dc), &mask_bmi, DIB_RGB_COLORS, &mut mask_bits_ptr, None, 0)?;
 
             ptr::write_bytes(mask_bits_ptr as *mut u8, 0, pixels.len());
 
@@ -157,11 +163,11 @@ pub(super) fn set_update_badge(visible: bool) {
             };
 
             let icon = CreateIconIndirect(&icon_info)?;
-            let result = taskbar.SetOverlayIcon(hwnd, Some(icon), s!("Update available"));
+            let result = taskbar.SetOverlayIcon(hwnd, icon, w!("Update available"));
 
             let _ = DestroyIcon(icon);
-            let _ = DeleteObject(color_bitmap);
-            let _ = DeleteObject(mask_bitmap);
+            let _ = DeleteObject(color_bitmap.into());
+            let _ = DeleteObject(mask_bitmap.into());
             let _ = DeleteDC(dc);
 
             result?;
