@@ -33,7 +33,27 @@ impl Versi {
                 self.move_version_selection(true);
                 Ok(Task::none())
             }
+            Message::SelectPreviousVersionFromInput => {
+                self.move_version_selection(false);
+                Ok(iced::widget::operation::focus_next())
+            }
+            Message::SelectNextVersionFromInput => {
+                self.move_version_selection(true);
+                Ok(iced::widget::operation::focus_next())
+            }
+            Message::InstallHoveredVersionFromInput => {
+                Ok(self.install_hovered_version_from_input())
+            }
+            Message::SetDefaultHoveredVersionFromInput => {
+                Ok(self.set_default_hovered_version_from_input())
+            }
+            Message::UninstallHoveredVersionFromInput => {
+                Ok(self.uninstall_hovered_version_from_input())
+            }
             Message::ActivateSelectedVersion => Ok(self.activate_hovered_version()),
+            Message::InstallHoveredVersion => Ok(self.install_hovered_version()),
+            Message::SetDefaultHoveredVersion => Ok(self.set_default_hovered_version()),
+            Message::UninstallHoveredVersion => Ok(self.uninstall_hovered_version()),
             Message::VersionGroupToggled { major } => {
                 self.handle_version_group_toggled(major);
                 Ok(Task::none())
@@ -99,6 +119,7 @@ impl Versi {
     fn focus_search(&mut self) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
             state.view = MainViewKind::Versions;
+            state.keyboard_list_mode = false;
         }
         iced::widget::operation::focus(iced::widget::Id::new(
             crate::views::main_view::search::SEARCH_INPUT_ID,
@@ -132,21 +153,87 @@ impl Versi {
                 }
             };
             state.hovered_version = Some(versions[new_idx].clone());
+            state.keyboard_list_mode = true;
         }
     }
 
     fn activate_hovered_version(&mut self) -> Task<Message> {
-        if let AppState::Main(state) = &self.state
-            && state.view == MainViewKind::Versions
-            && state.modal.is_none()
-            && let Some(version) = state.hovered_version.clone()
-        {
-            if state.is_version_installed(&version) {
+        if let Some((version, is_installed)) = self.hovered_version_for_action() {
+            if is_installed {
                 return self.update(Message::SetDefault(version));
             }
             return self.update(Message::StartInstall(version));
         }
         Task::none()
+    }
+
+    fn install_hovered_version(&mut self) -> Task<Message> {
+        if let Some((version, is_installed)) = self.hovered_version_for_action()
+            && !is_installed
+        {
+            return self.update(Message::StartInstall(version));
+        }
+        Task::none()
+    }
+
+    fn install_hovered_version_from_input(&mut self) -> Task<Message> {
+        if !self.keyboard_list_mode_active() {
+            return Task::none();
+        }
+        self.install_hovered_version()
+    }
+
+    fn set_default_hovered_version(&mut self) -> Task<Message> {
+        if let Some((version, is_installed)) = self.hovered_version_for_action()
+            && is_installed
+        {
+            return self.update(Message::SetDefault(version));
+        }
+        Task::none()
+    }
+
+    fn set_default_hovered_version_from_input(&mut self) -> Task<Message> {
+        if !self.keyboard_list_mode_active() {
+            return Task::none();
+        }
+        self.set_default_hovered_version()
+    }
+
+    fn uninstall_hovered_version(&mut self) -> Task<Message> {
+        if let Some((version, is_installed)) = self.hovered_version_for_action()
+            && is_installed
+        {
+            return self.update(Message::RequestUninstall(version));
+        }
+        Task::none()
+    }
+
+    fn uninstall_hovered_version_from_input(&mut self) -> Task<Message> {
+        if !self.keyboard_list_mode_active() {
+            return Task::none();
+        }
+        self.uninstall_hovered_version()
+    }
+
+    fn keyboard_list_mode_active(&self) -> bool {
+        if let AppState::Main(state) = &self.state {
+            state.keyboard_list_mode
+        } else {
+            false
+        }
+    }
+
+    fn hovered_version_for_action(&self) -> Option<(String, bool)> {
+        if let AppState::Main(state) = &self.state
+            && state.view == MainViewKind::Versions
+            && state.modal.is_none()
+            && let Some(version) = state.hovered_version.clone()
+        {
+            let is_installed = state.is_version_installed(&version);
+            Some((version, is_installed))
+        } else {
+            None
+        }
     }
 
     fn select_environment_by_step(&mut self, next: bool) -> Task<Message> {
@@ -183,7 +270,7 @@ mod tests {
 
     use super::super::super::test_app_with_two_environments;
     use super::*;
-    use crate::state::{MainViewKind, Modal};
+    use crate::state::{MainViewKind, Modal, Operation};
 
     fn installed(version: &str, is_default: bool) -> InstalledVersion {
         InstalledVersion {
@@ -300,6 +387,153 @@ mod tests {
 
         let state = app.main_state();
         assert_eq!(state.hovered_version.as_deref(), Some("v24.1.0"));
+    }
+
+    #[test]
+    fn install_hovered_version_starts_install_for_not_installed_version() {
+        let mut app = test_app_with_two_environments();
+        let state = app.main_state_mut();
+        state.view = MainViewKind::Versions;
+        state.modal = None;
+        state.hovered_version = Some("v24.1.0".to_string());
+
+        let _ = app.dispatch_navigation(Message::InstallHoveredVersion);
+
+        let state = app.main_state();
+        assert!(state.operation_queue.has_active_install("v24.1.0"));
+    }
+
+    #[test]
+    fn install_hovered_version_from_input_requires_keyboard_list_mode() {
+        let mut app = test_app_with_two_environments();
+        let state = app.main_state_mut();
+        state.view = MainViewKind::Versions;
+        state.modal = None;
+        state.hovered_version = Some("v24.1.0".to_string());
+        state.keyboard_list_mode = false;
+
+        let _ = app.dispatch_navigation(Message::InstallHoveredVersionFromInput);
+
+        let state = app.main_state();
+        assert!(!state.operation_queue.has_active_install("v24.1.0"));
+    }
+
+    #[test]
+    fn install_hovered_version_from_input_starts_when_keyboard_list_mode_active() {
+        let mut app = test_app_with_two_environments();
+        let state = app.main_state_mut();
+        state.view = MainViewKind::Versions;
+        state.modal = None;
+        state.hovered_version = Some("v24.1.0".to_string());
+        state.keyboard_list_mode = true;
+
+        let _ = app.dispatch_navigation(Message::InstallHoveredVersionFromInput);
+
+        let state = app.main_state();
+        assert!(state.operation_queue.has_active_install("v24.1.0"));
+    }
+
+    #[test]
+    fn install_hovered_version_is_noop_for_installed_version() {
+        let mut app = test_app_with_two_environments();
+        let state = app.main_state_mut();
+        state
+            .active_environment_mut()
+            .update_versions(vec![installed("v24.1.0", false)]);
+        state.view = MainViewKind::Versions;
+        state.modal = None;
+        state.hovered_version = Some("v24.1.0".to_string());
+
+        let _ = app.dispatch_navigation(Message::InstallHoveredVersion);
+
+        let state = app.main_state();
+        assert!(!state.operation_queue.has_active_install("v24.1.0"));
+        assert!(state.operation_queue.exclusive_op.is_none());
+    }
+
+    #[test]
+    fn set_default_hovered_version_starts_for_installed_version() {
+        let mut app = test_app_with_two_environments();
+        let state = app.main_state_mut();
+        state
+            .active_environment_mut()
+            .update_versions(vec![installed("v24.1.0", false)]);
+        state.view = MainViewKind::Versions;
+        state.modal = None;
+        state.hovered_version = Some("v24.1.0".to_string());
+
+        let _ = app.dispatch_navigation(Message::SetDefaultHoveredVersion);
+
+        let state = app.main_state();
+        assert!(matches!(
+            state.operation_queue.exclusive_op,
+            Some(Operation::SetDefault { ref version }) if version == "v24.1.0"
+        ));
+    }
+
+    #[test]
+    fn set_default_hovered_version_is_noop_for_not_installed_version() {
+        let mut app = test_app_with_two_environments();
+        let state = app.main_state_mut();
+        state.view = MainViewKind::Versions;
+        state.modal = None;
+        state.hovered_version = Some("v24.1.0".to_string());
+
+        let _ = app.dispatch_navigation(Message::SetDefaultHoveredVersion);
+
+        let state = app.main_state();
+        assert!(state.operation_queue.exclusive_op.is_none());
+    }
+
+    #[test]
+    fn uninstall_hovered_version_starts_for_installed_version() {
+        let mut app = test_app_with_two_environments();
+        let state = app.main_state_mut();
+        state
+            .active_environment_mut()
+            .update_versions(vec![installed("v24.1.0", false)]);
+        state.view = MainViewKind::Versions;
+        state.modal = None;
+        state.hovered_version = Some("v24.1.0".to_string());
+
+        let _ = app.dispatch_navigation(Message::UninstallHoveredVersion);
+
+        let state = app.main_state();
+        assert!(matches!(
+            state.operation_queue.exclusive_op,
+            Some(Operation::Uninstall { ref version }) if version == "v24.1.0"
+        ));
+    }
+
+    #[test]
+    fn uninstall_hovered_version_is_noop_for_not_installed_version() {
+        let mut app = test_app_with_two_environments();
+        let state = app.main_state_mut();
+        state.view = MainViewKind::Versions;
+        state.modal = None;
+        state.hovered_version = Some("v24.1.0".to_string());
+
+        let _ = app.dispatch_navigation(Message::UninstallHoveredVersion);
+
+        let state = app.main_state();
+        assert!(state.operation_queue.exclusive_op.is_none());
+    }
+
+    #[test]
+    fn hovered_action_shortcuts_are_noop_when_state_is_not_actionable() {
+        let mut app = test_app_with_two_environments();
+        let state = app.main_state_mut();
+        state.view = MainViewKind::Settings;
+        state.modal = Some(Modal::KeyboardShortcuts);
+        state.hovered_version = Some("v24.1.0".to_string());
+
+        let _ = app.dispatch_navigation(Message::InstallHoveredVersion);
+        let _ = app.dispatch_navigation(Message::SetDefaultHoveredVersion);
+        let _ = app.dispatch_navigation(Message::UninstallHoveredVersion);
+
+        let state = app.main_state();
+        assert!(state.operation_queue.active_installs.is_empty());
+        assert!(state.operation_queue.exclusive_op.is_none());
     }
 
     #[test]

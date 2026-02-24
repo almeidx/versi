@@ -32,7 +32,15 @@ pub enum Message {
     FocusSearch,
     SelectPreviousVersion,
     SelectNextVersion,
+    SelectPreviousVersionFromInput,
+    SelectNextVersionFromInput,
+    InstallHoveredVersionFromInput,
+    SetDefaultHoveredVersionFromInput,
+    UninstallHoveredVersionFromInput,
     ActivateSelectedVersion,
+    InstallHoveredVersion,
+    SetDefaultHoveredVersion,
+    UninstallHoveredVersion,
 
     VersionGroupToggled {
         major: u32,

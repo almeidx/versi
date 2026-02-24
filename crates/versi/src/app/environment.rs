@@ -377,6 +377,16 @@ impl Versi {
 
     pub(super) fn handle_search_changed(&mut self, query: String) {
         if let AppState::Main(state) = &mut self.state {
+            if state.keyboard_list_mode
+                && is_keyboard_action_input_noise(&state.search_query, &query)
+            {
+                return;
+            }
+
+            if state.keyboard_list_mode {
+                state.keyboard_list_mode = false;
+            }
+
             if query.is_empty() {
                 state.active_filters.clear();
             }
@@ -408,6 +418,22 @@ impl Versi {
             }
         }
     }
+}
+
+fn is_keyboard_action_input_noise(previous: &str, next: &str) -> bool {
+    if !next.starts_with(previous) {
+        return false;
+    }
+
+    let suffix = &next[previous.len()..];
+    if suffix.chars().count() != 1 {
+        return false;
+    }
+
+    matches!(
+        suffix.chars().next(),
+        Some('i' | 'I' | 'd' | 'D' | 'u' | 'U')
+    )
 }
 
 #[cfg(test)]
@@ -445,6 +471,34 @@ mod tests {
         let state = app.main_state();
         assert!(state.active_filters.is_empty());
         assert_eq!(state.search_query, "");
+    }
+
+    #[test]
+    fn search_changed_ignores_action_key_noise_while_keyboard_list_mode_active() {
+        let mut app = test_app_with_two_environments();
+        let state = app.main_state_mut();
+        state.keyboard_list_mode = true;
+        state.search_query = "24".to_string();
+
+        app.handle_search_changed("24i".to_string());
+
+        let state = app.main_state();
+        assert_eq!(state.search_query, "24");
+        assert!(state.keyboard_list_mode);
+    }
+
+    #[test]
+    fn search_changed_exits_keyboard_list_mode_for_normal_input() {
+        let mut app = test_app_with_two_environments();
+        let state = app.main_state_mut();
+        state.keyboard_list_mode = true;
+        state.search_query = "24".to_string();
+
+        app.handle_search_changed("241".to_string());
+
+        let state = app.main_state();
+        assert_eq!(state.search_query, "241");
+        assert!(!state.keyboard_list_mode);
     }
 
     #[test]

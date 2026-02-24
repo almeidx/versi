@@ -51,6 +51,17 @@ fn should_confirm_default_uninstall(state: &MainState, version: &str) -> bool {
         .is_some_and(|dv| dv == &version)
 }
 
+fn is_already_default_version(state: &MainState, version: &str) -> bool {
+    let Ok(version) = version.parse::<NodeVersion>() else {
+        return false;
+    };
+    state
+        .active_environment()
+        .default_version
+        .as_ref()
+        .is_some_and(|dv| dv == &version)
+}
+
 fn error_text(error: Option<AppError>) -> String {
     error.map_or_else(|| "unknown error".to_string(), |e| e.to_string())
 }
@@ -378,6 +389,10 @@ impl Versi {
 
     pub(super) fn handle_set_default(&mut self, version: String) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
+            if is_already_default_version(state, &version) {
+                return Task::none();
+            }
+
             if enqueue_exclusive_if_busy(
                 state,
                 Operation::SetDefault {
@@ -585,6 +600,23 @@ mod tests {
             state.operation_queue.pending.front(),
             Some(Operation::SetDefault { version }) if version == "v22.0.0"
         ));
+    }
+
+    #[test]
+    fn set_default_is_noop_when_version_is_already_default() {
+        let mut app = test_app_with_two_environments();
+        let state = app.main_state_mut();
+        state.active_environment_mut().default_version = Some(
+            "v22.0.0"
+                .parse()
+                .expect("test default version should parse"),
+        );
+
+        let _ = app.handle_set_default("v22.0.0".to_string());
+
+        let state = app.main_state();
+        assert!(state.operation_queue.exclusive_op.is_none());
+        assert!(state.operation_queue.pending.is_empty());
     }
 
     #[test]

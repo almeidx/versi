@@ -69,6 +69,7 @@ fn cmd_pressed(modifiers: iced::keyboard::Modifiers) -> bool {
 fn map_key_press_to_message(
     key: &iced::keyboard::Key,
     modifiers: iced::keyboard::Modifiers,
+    status: iced::event::Status,
 ) -> Option<Message> {
     use iced::keyboard::Key;
     use iced::keyboard::key::Named;
@@ -80,12 +81,16 @@ fn map_key_press_to_message(
     let cmd = cmd_pressed(modifiers);
 
     if cmd && let Key::Character(character) = key {
-        match character.as_str() {
+        let lower = character.to_ascii_lowercase();
+        match lower.as_str() {
             "k" => return Some(Message::FocusSearch),
-            "," => return Some(Message::NavigateToSettings),
             "r" => return Some(Message::RefreshEnvironment),
             "w" => return Some(Message::CloseWindow),
             _ => {}
+        }
+
+        if character.as_str() == "," {
+            return Some(Message::NavigateToSettings);
         }
     }
 
@@ -94,6 +99,34 @@ fn map_key_press_to_message(
         && character.as_str() == "?"
     {
         return Some(Message::ShowKeyboardShortcuts);
+    }
+
+    if status == iced::event::Status::Captured
+        && !cmd
+        && !modifiers.alt()
+        && let Key::Character(character) = key
+    {
+        let lower = character.to_ascii_lowercase();
+        match lower.as_str() {
+            "i" => return Some(Message::InstallHoveredVersionFromInput),
+            "d" => return Some(Message::SetDefaultHoveredVersionFromInput),
+            "u" => return Some(Message::UninstallHoveredVersionFromInput),
+            _ => {}
+        }
+    }
+
+    if status == iced::event::Status::Ignored
+        && !cmd
+        && !modifiers.alt()
+        && let Key::Character(character) = key
+    {
+        let lower = character.to_ascii_lowercase();
+        match lower.as_str() {
+            "i" => return Some(Message::InstallHoveredVersion),
+            "d" => return Some(Message::SetDefaultHoveredVersion),
+            "u" => return Some(Message::UninstallHoveredVersion),
+            _ => {}
+        }
     }
 
     if *key == Key::Named(Named::Tab) {
@@ -110,6 +143,12 @@ fn map_key_press_to_message(
     }
 
     match key {
+        Key::Named(Named::ArrowUp) if status == iced::event::Status::Captured => {
+            Some(Message::SelectPreviousVersionFromInput)
+        }
+        Key::Named(Named::ArrowDown) if status == iced::event::Status::Captured => {
+            Some(Message::SelectNextVersionFromInput)
+        }
         Key::Named(Named::ArrowUp) => Some(Message::SelectPreviousVersion),
         Key::Named(Named::ArrowDown) => Some(Message::SelectNextVersion),
         Key::Named(Named::Enter) => Some(Message::ActivateSelectedVersion),
@@ -118,11 +157,11 @@ fn map_key_press_to_message(
 }
 
 fn keyboard_subscription() -> Subscription<Message> {
-    iced::event::listen_with(|event, _status, _id| {
+    iced::event::listen_with(|event, status, _id| {
         if let iced::Event::Keyboard(iced::keyboard::Event::KeyPressed { key, modifiers, .. }) =
             event
         {
-            map_key_press_to_message(&key, modifiers)
+            map_key_press_to_message(&key, modifiers, status)
         } else {
             None
         }
@@ -503,29 +542,155 @@ mod tests {
 
     #[test]
     fn tab_shortcuts_navigate_versions() {
+        use iced::event::Status;
         use iced::keyboard::Key;
         use iced::keyboard::Modifiers;
         use iced::keyboard::key::Named;
 
-        let message = map_key_press_to_message(&Key::Named(Named::Tab), Modifiers::empty());
+        let message =
+            map_key_press_to_message(&Key::Named(Named::Tab), Modifiers::empty(), Status::Ignored);
         assert!(matches!(message, Some(Message::SelectNextVersion)));
 
         let mut modifiers = Modifiers::empty();
         modifiers.insert(Modifiers::SHIFT);
-        let shifted = map_key_press_to_message(&Key::Named(Named::Tab), modifiers);
+        let shifted = map_key_press_to_message(&Key::Named(Named::Tab), modifiers, Status::Ignored);
         assert!(matches!(shifted, Some(Message::SelectPreviousVersion)));
     }
 
     #[test]
     fn arrow_shortcuts_navigate_versions() {
+        use iced::event::Status;
         use iced::keyboard::Key;
         use iced::keyboard::Modifiers;
         use iced::keyboard::key::Named;
 
-        let next = map_key_press_to_message(&Key::Named(Named::ArrowDown), Modifiers::empty());
-        let previous = map_key_press_to_message(&Key::Named(Named::ArrowUp), Modifiers::empty());
+        let next = map_key_press_to_message(
+            &Key::Named(Named::ArrowDown),
+            Modifiers::empty(),
+            Status::Ignored,
+        );
+        let previous = map_key_press_to_message(
+            &Key::Named(Named::ArrowUp),
+            Modifiers::empty(),
+            Status::Ignored,
+        );
         assert!(matches!(next, Some(Message::SelectNextVersion)));
         assert!(matches!(previous, Some(Message::SelectPreviousVersion)));
+    }
+
+    #[test]
+    fn hovered_actions_map_when_status_ignored() {
+        use iced::event::Status;
+        use iced::keyboard::Key;
+        use iced::keyboard::Modifiers;
+
+        let install = map_key_press_to_message(
+            &Key::Character("i".into()),
+            Modifiers::empty(),
+            Status::Ignored,
+        );
+        let set_default = map_key_press_to_message(
+            &Key::Character("D".into()),
+            Modifiers::empty(),
+            Status::Ignored,
+        );
+        let uninstall = map_key_press_to_message(
+            &Key::Character("u".into()),
+            Modifiers::empty(),
+            Status::Ignored,
+        );
+
+        assert!(matches!(install, Some(Message::InstallHoveredVersion)));
+        assert!(matches!(
+            set_default,
+            Some(Message::SetDefaultHoveredVersion)
+        ));
+        assert!(matches!(uninstall, Some(Message::UninstallHoveredVersion)));
+    }
+
+    #[test]
+    fn hovered_actions_from_input_map_when_event_is_captured() {
+        use iced::event::Status;
+        use iced::keyboard::Key;
+        use iced::keyboard::Modifiers;
+
+        let install = map_key_press_to_message(
+            &Key::Character("i".into()),
+            Modifiers::empty(),
+            Status::Captured,
+        );
+        let set_default = map_key_press_to_message(
+            &Key::Character("d".into()),
+            Modifiers::empty(),
+            Status::Captured,
+        );
+        let uninstall = map_key_press_to_message(
+            &Key::Character("u".into()),
+            Modifiers::empty(),
+            Status::Captured,
+        );
+
+        assert!(matches!(
+            install,
+            Some(Message::InstallHoveredVersionFromInput)
+        ));
+        assert!(matches!(
+            set_default,
+            Some(Message::SetDefaultHoveredVersionFromInput)
+        ));
+        assert!(matches!(
+            uninstall,
+            Some(Message::UninstallHoveredVersionFromInput)
+        ));
+    }
+
+    #[test]
+    fn command_hovered_actions_do_not_shadow_other_shortcuts() {
+        use iced::event::Status;
+        use iced::keyboard::Key;
+        use iced::keyboard::Modifiers;
+
+        let mut modifiers = Modifiers::empty();
+        #[cfg(target_os = "macos")]
+        modifiers.insert(Modifiers::LOGO);
+        #[cfg(not(target_os = "macos"))]
+        modifiers.insert(Modifiers::CTRL);
+
+        let install =
+            map_key_press_to_message(&Key::Character("i".into()), modifiers, Status::Captured);
+        let set_default =
+            map_key_press_to_message(&Key::Character("d".into()), modifiers, Status::Captured);
+        let uninstall =
+            map_key_press_to_message(&Key::Character("u".into()), modifiers, Status::Captured);
+
+        assert!(install.is_none());
+        assert!(set_default.is_none());
+        assert!(uninstall.is_none());
+    }
+
+    #[test]
+    fn arrow_shortcuts_from_captured_state_blur_search_path() {
+        use iced::event::Status;
+        use iced::keyboard::Key;
+        use iced::keyboard::Modifiers;
+        use iced::keyboard::key::Named;
+
+        let next = map_key_press_to_message(
+            &Key::Named(Named::ArrowDown),
+            Modifiers::empty(),
+            Status::Captured,
+        );
+        let previous = map_key_press_to_message(
+            &Key::Named(Named::ArrowUp),
+            Modifiers::empty(),
+            Status::Captured,
+        );
+
+        assert!(matches!(next, Some(Message::SelectNextVersionFromInput)));
+        assert!(matches!(
+            previous,
+            Some(Message::SelectPreviousVersionFromInput)
+        ));
     }
 
     #[test]
