@@ -401,6 +401,7 @@ fn keyboard_shortcuts_view() -> Element<'static, Message> {
         (format!("{mod_key}Tab"), "Next environment"),
         (format!("{mod_key}Shift+Tab"), "Previous environment"),
         ("\u{2191}/\u{2193}".to_string(), "Navigate versions"),
+        ("Tab/Shift+Tab".to_string(), "Navigate versions"),
         ("Enter".to_string(), "Install / set default"),
         ("Esc".to_string(), "Close modal"),
         ("?".to_string(), "This help"),

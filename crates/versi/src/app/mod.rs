@@ -56,6 +56,89 @@ fn should_dismiss_context_menu(message: &Message) -> bool {
     )
 }
 
+#[cfg(target_os = "macos")]
+fn cmd_pressed(modifiers: iced::keyboard::Modifiers) -> bool {
+    modifiers.command()
+}
+
+#[cfg(not(target_os = "macos"))]
+fn cmd_pressed(modifiers: iced::keyboard::Modifiers) -> bool {
+    modifiers.control()
+}
+
+fn map_key_press_to_message(
+    key: &iced::keyboard::Key,
+    modifiers: iced::keyboard::Modifiers,
+) -> Option<Message> {
+    use iced::keyboard::Key;
+    use iced::keyboard::key::Named;
+
+    if *key == Key::Named(Named::Escape) {
+        return Some(Message::CloseModal);
+    }
+
+    let cmd = cmd_pressed(modifiers);
+
+    if cmd && let Key::Character(character) = key {
+        match character.as_str() {
+            "k" => return Some(Message::FocusSearch),
+            "," => return Some(Message::NavigateToSettings),
+            "r" => return Some(Message::RefreshEnvironment),
+            "w" => return Some(Message::CloseWindow),
+            _ => {}
+        }
+    }
+
+    if !cmd
+        && let Key::Character(character) = key
+        && character.as_str() == "?"
+    {
+        return Some(Message::ShowKeyboardShortcuts);
+    }
+
+    if *key == Key::Named(Named::Tab) {
+        if cmd && modifiers.shift() {
+            return Some(Message::SelectPreviousEnvironment);
+        }
+        if cmd {
+            return Some(Message::SelectNextEnvironment);
+        }
+        if modifiers.shift() {
+            return Some(Message::SelectPreviousVersion);
+        }
+        return Some(Message::SelectNextVersion);
+    }
+
+    match key {
+        Key::Named(Named::ArrowUp) => Some(Message::SelectPreviousVersion),
+        Key::Named(Named::ArrowDown) => Some(Message::SelectNextVersion),
+        Key::Named(Named::Enter) => Some(Message::ActivateSelectedVersion),
+        _ => None,
+    }
+}
+
+fn keyboard_subscription() -> Subscription<Message> {
+    iced::event::listen_with(|event, _status, _id| {
+        if let iced::Event::Keyboard(iced::keyboard::Event::KeyPressed { key, modifiers, .. }) =
+            event
+        {
+            map_key_press_to_message(&key, modifiers)
+        } else {
+            None
+        }
+    })
+}
+
+fn window_events_subscription() -> Subscription<Message> {
+    iced::event::listen_with(|event, _status, _id| {
+        if let iced::Event::Window(window_event) = event {
+            Some(Message::WindowEvent(window_event))
+        } else {
+            None
+        }
+    })
+}
+
 pub struct Versi {
     pub(crate) state: AppState,
     pub(crate) settings: AppSettings,
@@ -226,71 +309,8 @@ impl Versi {
         let tick =
             iced::time::every(std::time::Duration::from_millis(tick_ms)).map(|_| Message::Tick);
 
-        let keyboard = iced::event::listen_with(|event, _status, _id| {
-            if let iced::Event::Keyboard(iced::keyboard::Event::KeyPressed {
-                key, modifiers, ..
-            }) = event
-            {
-                if key == iced::keyboard::Key::Named(iced::keyboard::key::Named::Escape) {
-                    return Some(Message::CloseModal);
-                }
-
-                #[cfg(target_os = "macos")]
-                let cmd = modifiers.command();
-                #[cfg(not(target_os = "macos"))]
-                let cmd = modifiers.control();
-
-                if cmd && let iced::keyboard::Key::Character(c) = &key {
-                    match c.as_str() {
-                        "k" => return Some(Message::FocusSearch),
-                        "," => return Some(Message::NavigateToSettings),
-                        "r" => return Some(Message::RefreshEnvironment),
-                        "w" => return Some(Message::CloseWindow),
-                        _ => {}
-                    }
-                }
-
-                if !cmd
-                    && let iced::keyboard::Key::Character(c) = &key
-                    && c.as_str() == "?"
-                {
-                    return Some(Message::ShowKeyboardShortcuts);
-                }
-
-                if let iced::keyboard::Key::Named(named) = &key {
-                    match named {
-                        iced::keyboard::key::Named::ArrowUp => {
-                            return Some(Message::SelectPreviousVersion);
-                        }
-                        iced::keyboard::key::Named::ArrowDown => {
-                            return Some(Message::SelectNextVersion);
-                        }
-                        iced::keyboard::key::Named::Enter => {
-                            return Some(Message::ActivateSelectedVersion);
-                        }
-                        iced::keyboard::key::Named::Tab if cmd && modifiers.shift() => {
-                            return Some(Message::SelectPreviousEnvironment);
-                        }
-                        iced::keyboard::key::Named::Tab if cmd => {
-                            return Some(Message::SelectNextEnvironment);
-                        }
-                        _ => {}
-                    }
-                }
-
-                None
-            } else {
-                None
-            }
-        });
-
-        let window_events = iced::event::listen_with(|event, _status, _id| {
-            if let iced::Event::Window(window_event) = event {
-                Some(Message::WindowEvent(window_event))
-            } else {
-                None
-            }
-        });
+        let keyboard = keyboard_subscription();
+        let window_events = window_events_subscription();
 
         let tray_sub =
             if self.settings.tray_behavior != TrayBehavior::Disabled && tray::is_tray_active() {
@@ -454,7 +474,9 @@ mod tests {
     use versi_backend::{InstalledVersion, NodeVersion, RemoteVersion};
     use versi_platform::EnvironmentId;
 
-    use super::{should_dismiss_context_menu, test_app_with_two_environments};
+    use super::{
+        map_key_press_to_message, should_dismiss_context_menu, test_app_with_two_environments,
+    };
     use crate::backend_kind::BackendKind;
     use crate::error::AppError;
     use crate::message::Message;
@@ -477,6 +499,33 @@ mod tests {
             is_installed: true,
             is_default: false,
         }));
+    }
+
+    #[test]
+    fn tab_shortcuts_navigate_versions() {
+        use iced::keyboard::Key;
+        use iced::keyboard::Modifiers;
+        use iced::keyboard::key::Named;
+
+        let message = map_key_press_to_message(&Key::Named(Named::Tab), Modifiers::empty());
+        assert!(matches!(message, Some(Message::SelectNextVersion)));
+
+        let mut modifiers = Modifiers::empty();
+        modifiers.insert(Modifiers::SHIFT);
+        let shifted = map_key_press_to_message(&Key::Named(Named::Tab), modifiers);
+        assert!(matches!(shifted, Some(Message::SelectPreviousVersion)));
+    }
+
+    #[test]
+    fn arrow_shortcuts_navigate_versions() {
+        use iced::keyboard::Key;
+        use iced::keyboard::Modifiers;
+        use iced::keyboard::key::Named;
+
+        let next = map_key_press_to_message(&Key::Named(Named::ArrowDown), Modifiers::empty());
+        let previous = map_key_press_to_message(&Key::Named(Named::ArrowUp), Modifiers::empty());
+        assert!(matches!(next, Some(Message::SelectNextVersion)));
+        assert!(matches!(previous, Some(Message::SelectPreviousVersion)));
     }
 
     #[test]

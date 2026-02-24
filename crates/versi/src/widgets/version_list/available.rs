@@ -134,25 +134,15 @@ fn action_button<'a>(
             .style(styles::primary_button)
             .padding([6, 12])
             .into(),
-        VersionRowAction::Installed => {
-            let button = button(text("Installed").size(12))
-                .style(styles::secondary_button)
-                .padding([6, 12]);
-            mouse_area(button)
-                .on_enter(Message::VersionRowHovered(Some(version.to_string())))
-                .on_exit(Message::VersionRowHovered(None))
-                .into()
-        }
-        VersionRowAction::Uninstall => {
-            let button = button(text("Uninstall").size(12))
-                .on_press(Message::RequestUninstall(version.to_string()))
-                .style(styles::danger_button)
-                .padding([6, 12]);
-            mouse_area(button)
-                .on_enter(Message::VersionRowHovered(Some(version.to_string())))
-                .on_exit(Message::VersionRowHovered(None))
-                .into()
-        }
+        VersionRowAction::Installed => button(text("Installed").size(12))
+            .style(styles::secondary_button)
+            .padding([6, 12])
+            .into(),
+        VersionRowAction::Uninstall => button(text("Uninstall").size(12))
+            .on_press(Message::RequestUninstall(version.to_string()))
+            .style(styles::danger_button)
+            .padding([6, 12])
+            .into(),
     }
 }
 
@@ -203,7 +193,7 @@ pub(super) fn available_version_row<'a>(
 
     let is_active = ctx.operation_queue.is_current_version(&version_label);
     let is_pending = ctx.operation_queue.has_pending_for_version(&version_label);
-    let is_button_hovered = ctx
+    let is_row_hovered = ctx
         .hovered_version
         .as_ref()
         .is_some_and(|h| h == &version_label);
@@ -220,7 +210,7 @@ pub(super) fn available_version_row<'a>(
     } else {
         InstallState::NotInstalled
     };
-    let hover_state = if is_button_hovered {
+    let hover_state = if is_row_hovered {
         HoverState::Hovered
     } else {
         HoverState::NotHovered
@@ -253,8 +243,18 @@ pub(super) fn available_version_row<'a>(
     .align_y(Alignment::Center)
     .padding([4, 8]);
 
-    mouse_area(container(row_content).width(Length::Fill))
+    let row_style = if is_row_hovered {
+        styles::version_row_hovered
+    } else {
+        |_: &_| iced::widget::container::Style::default()
+    };
+
+    let row_container = container(row_content).style(row_style).width(Length::Fill);
+
+    mouse_area(row_container)
         .on_press(Message::ShowVersionDetail(version_label.clone()))
+        .on_enter(Message::VersionRowHovered(Some(version_label.clone())))
+        .on_exit(Message::VersionRowHovered(None))
         .on_right_press(Message::ShowContextMenu {
             version: version_label,
             is_installed,

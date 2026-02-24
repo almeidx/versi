@@ -178,7 +178,7 @@ impl Versi {
 
 #[cfg(test)]
 mod tests {
-    use versi_backend::InstalledVersion;
+    use versi_backend::{InstalledVersion, NodeVersion, RemoteVersion};
     use versi_platform::EnvironmentId;
 
     use super::super::super::test_app_with_two_environments;
@@ -274,6 +274,32 @@ mod tests {
 
         let state = app.main_state();
         assert_eq!(state.hovered_version.as_deref(), Some("v20.10.0"));
+    }
+
+    #[test]
+    fn move_version_selection_navigates_search_results() {
+        let mut app = test_app_with_two_environments();
+        let state = app.main_state_mut();
+        state.view = MainViewKind::Versions;
+        state.modal = None;
+        state.search_query = "24.1.0".to_string();
+        state.available_versions.set_versions(vec![
+            RemoteVersion {
+                version: NodeVersion::new(24, 1, 0),
+                lts_codename: None,
+                is_latest: true,
+            },
+            RemoteVersion {
+                version: NodeVersion::new(22, 11, 0),
+                lts_codename: Some("Jod".to_string()),
+                is_latest: false,
+            },
+        ]);
+
+        app.move_version_selection(true);
+
+        let state = app.main_state();
+        assert_eq!(state.hovered_version.as_deref(), Some("v24.1.0"));
     }
 
     #[test]
