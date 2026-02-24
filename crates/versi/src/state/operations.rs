@@ -1,5 +1,183 @@
 use std::collections::{HashSet, VecDeque};
 
+use crate::error::AppError;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BulkRunKind {
+    UpdateMajors,
+    UninstallEol,
+    UninstallMajor,
+    UninstallMajorExceptLatest,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BulkRunAction {
+    Install,
+    Uninstall,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BulkItemStatus {
+    Pending,
+    Running,
+    Completed,
+    Failed(AppError),
+    Canceled,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BulkRunItem {
+    pub version: String,
+    pub action: BulkRunAction,
+    pub status: BulkItemStatus,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BulkRunState {
+    pub kind: BulkRunKind,
+    pub items: Vec<BulkRunItem>,
+}
+
+impl BulkRunState {
+    #[must_use]
+    pub fn new(kind: BulkRunKind, items: Vec<BulkRunItem>) -> Self {
+        Self { kind, items }
+    }
+
+    #[must_use]
+    pub fn total_count(&self) -> usize {
+        self.items.len()
+    }
+
+    #[must_use]
+    pub fn pending_count(&self) -> usize {
+        self.items
+            .iter()
+            .filter(|item| matches!(item.status, BulkItemStatus::Pending))
+            .count()
+    }
+
+    #[must_use]
+    pub fn running_count(&self) -> usize {
+        self.items
+            .iter()
+            .filter(|item| matches!(item.status, BulkItemStatus::Running))
+            .count()
+    }
+
+    #[must_use]
+    pub fn completed_count(&self) -> usize {
+        self.items
+            .iter()
+            .filter(|item| matches!(item.status, BulkItemStatus::Completed))
+            .count()
+    }
+
+    #[must_use]
+    pub fn failed_count(&self) -> usize {
+        self.items
+            .iter()
+            .filter(|item| matches!(item.status, BulkItemStatus::Failed(_)))
+            .count()
+    }
+
+    #[must_use]
+    pub fn canceled_count(&self) -> usize {
+        self.items
+            .iter()
+            .filter(|item| matches!(item.status, BulkItemStatus::Canceled))
+            .count()
+    }
+
+    #[must_use]
+    pub fn is_active(&self) -> bool {
+        self.pending_count() > 0 || self.running_count() > 0
+    }
+
+    #[must_use]
+    pub fn pending_versions(&self) -> Vec<String> {
+        self.items
+            .iter()
+            .filter(|item| matches!(item.status, BulkItemStatus::Pending))
+            .map(|item| item.version.clone())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn completed_versions(&self) -> Vec<String> {
+        self.items
+            .iter()
+            .filter(|item| matches!(item.status, BulkItemStatus::Completed))
+            .map(|item| item.version.clone())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn failed_versions(&self) -> Vec<String> {
+        self.items
+            .iter()
+            .filter(|item| matches!(item.status, BulkItemStatus::Failed(_)))
+            .map(|item| item.version.clone())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn canceled_versions(&self) -> Vec<String> {
+        self.items
+            .iter()
+            .filter(|item| matches!(item.status, BulkItemStatus::Canceled))
+            .map(|item| item.version.clone())
+            .collect()
+    }
+
+    fn find_item_mut(&mut self, version: &str, action: BulkRunAction) -> Option<&mut BulkRunItem> {
+        self.items
+            .iter_mut()
+            .find(|item| item.version == version && item.action == action)
+    }
+
+    pub fn mark_running(&mut self, version: &str, action: BulkRunAction) {
+        if let Some(item) = self.find_item_mut(version, action)
+            && matches!(item.status, BulkItemStatus::Pending)
+        {
+            item.status = BulkItemStatus::Running;
+        }
+    }
+
+    pub fn mark_finished(
+        &mut self,
+        version: &str,
+        action: BulkRunAction,
+        success: bool,
+        error: Option<AppError>,
+    ) {
+        if let Some(item) = self.find_item_mut(version, action) {
+            if matches!(item.status, BulkItemStatus::Canceled) {
+                return;
+            }
+
+            item.status = if success {
+                BulkItemStatus::Completed
+            } else {
+                BulkItemStatus::Failed(error.unwrap_or_else(|| {
+                    AppError::operation_failed("Bulk operation", "unknown error")
+                }))
+            };
+        }
+    }
+
+    pub fn cancel_pending(&mut self) -> Vec<(String, BulkRunAction)> {
+        let mut canceled = Vec::new();
+        for item in &mut self.items {
+            if matches!(item.status, BulkItemStatus::Pending) {
+                item.status = BulkItemStatus::Canceled;
+                canceled.push((item.version.clone(), item.action));
+            }
+        }
+        canceled
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Operation {
     Install { version: String },
@@ -92,6 +270,25 @@ impl OperationQueue {
         self.pending.push_back(op);
     }
 
+    pub fn remove_pending_matching(
+        &mut self,
+        mut predicate: impl FnMut(&Operation) -> bool,
+    ) -> Vec<Operation> {
+        let mut removed = Vec::new();
+        let mut kept = VecDeque::with_capacity(self.pending.len());
+
+        while let Some(op) = self.pending.pop_front() {
+            if predicate(&op) {
+                removed.push(op);
+            } else {
+                kept.push_back(op);
+            }
+        }
+
+        self.pending = kept;
+        removed
+    }
+
     pub fn start_install(&mut self, version: String) {
         self.active_installs.push(Operation::Install { version });
     }
@@ -109,9 +306,17 @@ impl OperationQueue {
     }
 
     pub fn drain_next(&mut self) -> (Vec<String>, Option<Operation>) {
+        self.drain_next_with_limit(None)
+    }
+
+    pub fn drain_next_with_limit(
+        &mut self,
+        max_install_starts: Option<usize>,
+    ) -> (Vec<String>, Option<Operation>) {
         let mut install_versions: Vec<String> = Vec::new();
         let mut queued_installs: HashSet<String> = HashSet::new();
         let mut exclusive_op: Option<Operation> = None;
+        let install_limit = max_install_starts.unwrap_or(usize::MAX);
 
         if self.exclusive_op.is_some() {
             return (install_versions, exclusive_op);
@@ -119,6 +324,10 @@ impl OperationQueue {
 
         while let Some(next) = self.pending.front() {
             if let Operation::Install { version } = next {
+                if install_versions.len() >= install_limit {
+                    break;
+                }
+
                 if !self.has_active_install(version) && queued_installs.insert(version.clone()) {
                     install_versions.push(version.clone());
                 }
@@ -393,6 +602,35 @@ mod tests {
     }
 
     #[test]
+    fn remove_pending_matching_removes_only_selected_operations() {
+        let mut q = OperationQueue::new();
+        q.enqueue(Operation::Install {
+            version: "20.0.0".into(),
+        });
+        q.enqueue(Operation::Uninstall {
+            version: "18.0.0".into(),
+        });
+        q.enqueue(Operation::Install {
+            version: "22.0.0".into(),
+        });
+
+        let removed = q.remove_pending_matching(
+            |op| matches!(op, Operation::Install { version } if version == "20.0.0"),
+        );
+
+        assert_eq!(removed.len(), 1);
+        assert!(matches!(
+            removed.first(),
+            Some(Operation::Install { version }) if version == "20.0.0"
+        ));
+        assert_eq!(q.pending.len(), 2);
+        assert!(matches!(
+            q.pending.front(),
+            Some(Operation::Uninstall { version }) if version == "18.0.0"
+        ));
+    }
+
+    #[test]
     fn start_install_adds_to_active() {
         let mut q = OperationQueue::new();
         q.start_install("20.0.0".into());
@@ -489,6 +727,30 @@ mod tests {
         });
         let (installs, _) = q.drain_next();
         assert_eq!(installs, vec!["20.0.0"]);
+    }
+
+    #[test]
+    fn drain_next_with_limit_starts_only_limited_installs() {
+        let mut q = OperationQueue::new();
+        q.enqueue(Operation::Install {
+            version: "20.0.0".into(),
+        });
+        q.enqueue(Operation::Install {
+            version: "18.0.0".into(),
+        });
+        q.enqueue(Operation::Install {
+            version: "22.0.0".into(),
+        });
+
+        let (installs, exclusive) = q.drain_next_with_limit(Some(1));
+
+        assert_eq!(installs, vec!["20.0.0"]);
+        assert!(exclusive.is_none());
+        assert_eq!(q.pending.len(), 2);
+        assert!(matches!(
+            q.pending.front(),
+            Some(Operation::Install { version }) if version == "18.0.0"
+        ));
     }
 
     #[test]
@@ -629,6 +891,58 @@ mod tests {
         q.remove_completed_install("22.0.0");
         assert!(q.active_installs.is_empty());
         assert!(!q.is_busy_for_exclusive());
+    }
+
+    #[test]
+    fn bulk_run_state_tracks_status_transitions() {
+        let mut run = BulkRunState::new(
+            BulkRunKind::UpdateMajors,
+            vec![
+                BulkRunItem {
+                    version: "v22.1.0".to_string(),
+                    action: BulkRunAction::Install,
+                    status: BulkItemStatus::Pending,
+                },
+                BulkRunItem {
+                    version: "v20.11.1".to_string(),
+                    action: BulkRunAction::Install,
+                    status: BulkItemStatus::Pending,
+                },
+                BulkRunItem {
+                    version: "v18.20.0".to_string(),
+                    action: BulkRunAction::Install,
+                    status: BulkItemStatus::Pending,
+                },
+            ],
+        );
+
+        run.mark_running("v22.1.0", BulkRunAction::Install);
+        run.mark_finished("v22.1.0", BulkRunAction::Install, true, None);
+
+        run.mark_running("v20.11.1", BulkRunAction::Install);
+        run.mark_finished(
+            "v20.11.1",
+            BulkRunAction::Install,
+            false,
+            Some(AppError::operation_failed("Install", "boom")),
+        );
+
+        let canceled = run.cancel_pending();
+
+        assert_eq!(run.total_count(), 3);
+        assert_eq!(run.pending_count(), 0);
+        assert_eq!(run.running_count(), 0);
+        assert_eq!(run.completed_count(), 1);
+        assert_eq!(run.failed_count(), 1);
+        assert_eq!(run.canceled_count(), 1);
+        assert!(!run.is_active());
+        assert_eq!(
+            canceled,
+            vec![("v18.20.0".to_string(), BulkRunAction::Install)]
+        );
+        assert_eq!(run.completed_versions(), vec!["v22.1.0".to_string()]);
+        assert_eq!(run.failed_versions(), vec!["v20.11.1".to_string()]);
+        assert_eq!(run.canceled_versions(), vec!["v18.20.0".to_string()]);
     }
 
     #[test]

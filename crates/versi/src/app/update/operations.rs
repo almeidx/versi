@@ -45,6 +45,7 @@ impl Versi {
                 self.handle_close_modal();
                 Ok(Task::none())
             }
+            Message::CancelBulkRun => Ok(self.handle_cancel_bulk_run()),
             Message::SetDefault(version) => Ok(self.handle_set_default(version)),
             Message::DefaultChanged { success, error } => {
                 Ok(self.handle_default_changed(success, error))

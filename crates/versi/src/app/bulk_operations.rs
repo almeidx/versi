@@ -2,9 +2,66 @@ use iced::Task;
 use versi_backend::{InstalledVersion, NodeVersion, RemoteVersion};
 
 use crate::message::Message;
-use crate::state::{AppState, Modal, Operation};
+use crate::state::{
+    AppState, BulkItemStatus, BulkRunAction, BulkRunItem, BulkRunKind, BulkRunState, MainState,
+    Modal, Operation,
+};
 
 use super::Versi;
+
+fn unique_versions_in_order(versions: impl IntoIterator<Item = String>) -> Vec<String> {
+    let mut seen = std::collections::HashSet::new();
+    let mut deduped = Vec::new();
+
+    for version in versions {
+        if seen.insert(version.clone()) {
+            deduped.push(version);
+        }
+    }
+
+    deduped
+}
+
+fn bulk_run_items(versions: &[String], action: BulkRunAction) -> Vec<BulkRunItem> {
+    versions
+        .iter()
+        .map(|version| BulkRunItem {
+            version: version.clone(),
+            action,
+            status: BulkItemStatus::Pending,
+        })
+        .collect()
+}
+
+fn enqueue_bulk_operations(state: &mut MainState, versions: Vec<String>, action: BulkRunAction) {
+    for version in versions {
+        let operation = match action {
+            BulkRunAction::Install => Operation::Install { version },
+            BulkRunAction::Uninstall => Operation::Uninstall { version },
+        };
+        state.operation_queue.enqueue(operation);
+    }
+}
+
+fn start_bulk_run(
+    state: &mut MainState,
+    kind: BulkRunKind,
+    action: BulkRunAction,
+    versions: Vec<String>,
+) -> bool {
+    if state.bulk_run.is_some() {
+        return false;
+    }
+
+    let targets = unique_versions_in_order(versions);
+    if targets.is_empty() {
+        return false;
+    }
+
+    state.bulk_run = Some(BulkRunState::new(kind, bulk_run_items(&targets, action)));
+    enqueue_bulk_operations(state, targets, action);
+    true
+}
 
 fn latest_by_major<T>(
     items: &[T],
@@ -80,6 +137,10 @@ fn versions_to_uninstall_except_latest(
 impl Versi {
     pub(super) fn handle_request_bulk_update_majors(&mut self) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
+            if state.bulk_run.is_some() {
+                return Task::none();
+            }
+
             let env = state.active_environment();
             let remote = &state.available_versions.versions;
             let versions_to_update = compute_major_updates(&env.installed_versions, remote);
@@ -97,6 +158,10 @@ impl Versi {
 
     pub(super) fn handle_request_bulk_uninstall_eol(&mut self) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
+            if state.bulk_run.is_some() {
+                return Task::none();
+            }
+
             let env = state.active_environment();
             let schedule = state.available_versions.schedule.as_ref();
 
@@ -120,6 +185,10 @@ impl Versi {
 
     pub(super) fn handle_request_bulk_uninstall_major(&mut self, major: u32) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
+            if state.bulk_run.is_some() {
+                return Task::none();
+            }
+
             let env = state.active_environment();
             let versions = versions_for_major(&env.installed_versions, major);
 
@@ -136,12 +205,15 @@ impl Versi {
         if let AppState::Main(state) = &mut self.state
             && let Some(Modal::ConfirmBulkUpdateMajors { versions }) = state.modal.take()
         {
-            for (_from, to) in versions {
-                state
-                    .operation_queue
-                    .enqueue(Operation::Install { version: to });
+            let started = start_bulk_run(
+                state,
+                BulkRunKind::UpdateMajors,
+                BulkRunAction::Install,
+                versions.into_iter().map(|(_from, to)| to).collect(),
+            );
+            if started {
+                return self.process_next_operation();
             }
-            return self.process_next_operation();
         }
         Task::none()
     }
@@ -150,12 +222,15 @@ impl Versi {
         if let AppState::Main(state) = &mut self.state
             && let Some(Modal::ConfirmBulkUninstallEOL { versions }) = state.modal.take()
         {
-            for version in versions {
-                state
-                    .operation_queue
-                    .enqueue(Operation::Uninstall { version });
+            let started = start_bulk_run(
+                state,
+                BulkRunKind::UninstallEol,
+                BulkRunAction::Uninstall,
+                versions,
+            );
+            if started {
+                return self.process_next_operation();
             }
-            return self.process_next_operation();
         }
         Task::none()
     }
@@ -166,12 +241,15 @@ impl Versi {
                 state.modal.take()
             && m == major
         {
-            for version in versions {
-                state
-                    .operation_queue
-                    .enqueue(Operation::Uninstall { version });
+            let started = start_bulk_run(
+                state,
+                BulkRunKind::UninstallMajor,
+                BulkRunAction::Uninstall,
+                versions,
+            );
+            if started {
+                return self.process_next_operation();
             }
-            return self.process_next_operation();
         }
         Task::none()
     }
@@ -181,6 +259,10 @@ impl Versi {
         major: u32,
     ) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
+            if state.bulk_run.is_some() {
+                return Task::none();
+            }
+
             let env = state.active_environment();
 
             let Some((versions, keeping)) =
@@ -208,12 +290,15 @@ impl Versi {
             }) = state.modal.take()
             && m == major
         {
-            for version in versions {
-                state
-                    .operation_queue
-                    .enqueue(Operation::Uninstall { version });
+            let started = start_bulk_run(
+                state,
+                BulkRunKind::UninstallMajorExceptLatest,
+                BulkRunAction::Uninstall,
+                versions,
+            );
+            if started {
+                return self.process_next_operation();
             }
-            return self.process_next_operation();
         }
         Task::none()
     }

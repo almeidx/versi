@@ -3,6 +3,7 @@
 //! Handles messages: `StartInstall`, `InstallComplete`, Uninstall, `UninstallComplete`,
 //! `SetDefault`, `DefaultChanged`, `CloseModal`
 
+use std::collections::HashSet;
 use std::time::Duration;
 
 use iced::Task;
@@ -11,7 +12,7 @@ use versi_backend::{InstallProgress, NodeVersion};
 
 use crate::error::AppError;
 use crate::message::Message;
-use crate::state::{AppState, MainState, Modal, Operation, Toast};
+use crate::state::{AppState, BulkRunAction, MainState, Modal, Operation, Toast};
 
 use super::Versi;
 use super::async_helpers::run_with_timeout;
@@ -66,10 +67,47 @@ fn set_default_failure_message(error: Option<AppError>) -> String {
     format!("Failed to set default: {}", error_text(error))
 }
 
+fn bulk_operation_error(operation: &'static str, error: Option<AppError>) -> AppError {
+    error.unwrap_or_else(|| AppError::operation_failed(operation, "unknown error"))
+}
+
 fn add_failure_toast(state: &mut MainState, message: String) {
     let toast_id = state.next_toast_id();
     state.add_toast(Toast::error(toast_id, message));
 }
+
+fn mark_bulk_item_running(state: &mut MainState, version: &str, action: BulkRunAction) {
+    if let Some(run) = state.bulk_run.as_mut() {
+        run.mark_running(version, action);
+    }
+}
+
+fn mark_bulk_item_finished(
+    state: &mut MainState,
+    version: &str,
+    action: BulkRunAction,
+    success: bool,
+    error: Option<AppError>,
+) {
+    if let Some(run) = state.bulk_run.as_mut() {
+        let bulk_error = (!success).then(|| {
+            let operation = match action {
+                BulkRunAction::Install => "Install",
+                BulkRunAction::Uninstall => "Uninstall",
+            };
+            bulk_operation_error(operation, error)
+        });
+        run.mark_finished(version, action, success, bulk_error);
+    }
+}
+
+fn clear_inactive_bulk_run(state: &mut MainState) {
+    if state.bulk_run.as_ref().is_some_and(|run| !run.is_active()) {
+        state.bulk_run = None;
+    }
+}
+
+const BULK_INSTALL_DISPATCH_LIMIT: usize = 1;
 
 impl Versi {
     pub(super) fn handle_close_modal(&mut self) {
@@ -95,10 +133,46 @@ impl Versi {
         Task::none()
     }
 
+    pub(super) fn handle_cancel_bulk_run(&mut self) -> Task<Message> {
+        if let AppState::Main(state) = &mut self.state
+            && let Some(run) = state.bulk_run.as_mut()
+        {
+            let canceled = run.cancel_pending();
+            if canceled.is_empty() {
+                return Task::none();
+            }
+
+            let mut install_targets = HashSet::new();
+            let mut uninstall_targets = HashSet::new();
+            for (version, action) in canceled {
+                match action {
+                    BulkRunAction::Install => {
+                        install_targets.insert(version);
+                    }
+                    BulkRunAction::Uninstall => {
+                        uninstall_targets.insert(version);
+                    }
+                }
+            }
+
+            let _removed = state
+                .operation_queue
+                .remove_pending_matching(|op| match op {
+                    Operation::Install { version } => install_targets.contains(version),
+                    Operation::Uninstall { version } => uninstall_targets.contains(version),
+                    Operation::SetDefault { .. } => false,
+                });
+
+            clear_inactive_bulk_run(state);
+        }
+        Task::none()
+    }
+
     pub(super) fn start_install_internal(&mut self, version: String) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
             state.operation_queue.start_install(version.clone());
             state.install_progress.remove(&version);
+            mark_bulk_item_running(state, &version, BulkRunAction::Install);
 
             let backend = state.backend.clone();
             let timeout = Duration::from_secs(self.settings.install_timeout_secs);
@@ -179,10 +253,19 @@ impl Versi {
         if let AppState::Main(state) = &mut self.state {
             state.operation_queue.remove_completed_install(version);
             state.install_progress.remove(version);
+            mark_bulk_item_finished(
+                state,
+                version,
+                BulkRunAction::Install,
+                success,
+                error.clone(),
+            );
 
             if !success {
                 add_failure_toast(state, install_failure_message(version, error));
             }
+
+            clear_inactive_bulk_run(state);
         }
 
         let next_task = self.process_next_operation();
@@ -236,6 +319,7 @@ impl Versi {
             state.operation_queue.start_exclusive(Operation::Uninstall {
                 version: version.clone(),
             });
+            mark_bulk_item_running(state, &version, BulkRunAction::Uninstall);
 
             let backend = state.backend.clone();
             let timeout = Duration::from_secs(self.settings.uninstall_timeout_secs);
@@ -272,10 +356,19 @@ impl Versi {
     ) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
             state.operation_queue.complete_exclusive();
+            mark_bulk_item_finished(
+                state,
+                version,
+                BulkRunAction::Uninstall,
+                success,
+                error.clone(),
+            );
 
             if !success {
                 add_failure_toast(state, uninstall_failure_message(version, error));
             }
+
+            clear_inactive_bulk_run(state);
         }
 
         let next_task = self.process_next_operation();
@@ -350,7 +443,18 @@ impl Versi {
 
     pub(super) fn process_next_operation(&mut self) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            let (install_versions, exclusive_request) = state.operation_queue.drain_next();
+            let install_limit = state.bulk_run.as_ref().and_then(|run| {
+                if run.is_active() {
+                    Some(BULK_INSTALL_DISPATCH_LIMIT)
+                } else {
+                    None
+                }
+            });
+            let (install_versions, exclusive_request) = if let Some(limit) = install_limit {
+                state.operation_queue.drain_next_with_limit(Some(limit))
+            } else {
+                state.operation_queue.drain_next()
+            };
 
             let mut tasks: Vec<Task<Message>> = Vec::new();
             for version in install_versions {
@@ -510,5 +614,101 @@ mod tests {
         let _ = app.handle_install_complete("v22.1.0", true, None);
         let state = app.main_state();
         assert!(!state.install_progress.contains_key("v22.1.0"));
+    }
+
+    #[test]
+    fn cancel_bulk_run_removes_only_pending_bulk_operations() {
+        let mut app = test_app_with_two_environments();
+        let state = app.main_state_mut();
+        state.bulk_run = Some(crate::state::BulkRunState::new(
+            crate::state::BulkRunKind::UpdateMajors,
+            vec![
+                crate::state::BulkRunItem {
+                    version: "v22.1.0".to_string(),
+                    action: crate::state::BulkRunAction::Install,
+                    status: crate::state::BulkItemStatus::Pending,
+                },
+                crate::state::BulkRunItem {
+                    version: "v18.19.0".to_string(),
+                    action: crate::state::BulkRunAction::Uninstall,
+                    status: crate::state::BulkItemStatus::Pending,
+                },
+                crate::state::BulkRunItem {
+                    version: "v20.11.0".to_string(),
+                    action: crate::state::BulkRunAction::Install,
+                    status: crate::state::BulkItemStatus::Running,
+                },
+            ],
+        ));
+        state.operation_queue.enqueue(Operation::Install {
+            version: "v22.1.0".to_string(),
+        });
+        state.operation_queue.enqueue(Operation::Uninstall {
+            version: "v18.19.0".to_string(),
+        });
+        state.operation_queue.enqueue(Operation::Install {
+            version: "v16.20.0".to_string(),
+        });
+        state.operation_queue.enqueue(Operation::SetDefault {
+            version: "v16.20.0".to_string(),
+        });
+
+        let _ = app.handle_cancel_bulk_run();
+
+        let state = app.main_state();
+        assert_eq!(state.operation_queue.pending.len(), 2);
+        assert!(matches!(
+            state.operation_queue.pending.front(),
+            Some(Operation::Install { version }) if version == "v16.20.0"
+        ));
+        assert!(state.bulk_run.is_some());
+        let run = state
+            .bulk_run
+            .as_ref()
+            .expect("bulk run should remain while running");
+        assert_eq!(run.pending_count(), 0);
+        assert_eq!(run.running_count(), 1);
+        assert_eq!(run.canceled_count(), 2);
+    }
+
+    #[test]
+    fn process_next_operation_limits_bulk_install_dispatch() {
+        let mut app = test_app_with_two_environments();
+        let state = app.main_state_mut();
+        state.bulk_run = Some(crate::state::BulkRunState::new(
+            crate::state::BulkRunKind::UpdateMajors,
+            vec![
+                crate::state::BulkRunItem {
+                    version: "v22.1.0".to_string(),
+                    action: crate::state::BulkRunAction::Install,
+                    status: crate::state::BulkItemStatus::Pending,
+                },
+                crate::state::BulkRunItem {
+                    version: "v20.11.1".to_string(),
+                    action: crate::state::BulkRunAction::Install,
+                    status: crate::state::BulkItemStatus::Pending,
+                },
+                crate::state::BulkRunItem {
+                    version: "v18.20.0".to_string(),
+                    action: crate::state::BulkRunAction::Install,
+                    status: crate::state::BulkItemStatus::Pending,
+                },
+            ],
+        ));
+        state.operation_queue.enqueue(Operation::Install {
+            version: "v22.1.0".to_string(),
+        });
+        state.operation_queue.enqueue(Operation::Install {
+            version: "v20.11.1".to_string(),
+        });
+        state.operation_queue.enqueue(Operation::Install {
+            version: "v18.20.0".to_string(),
+        });
+
+        let _ = app.process_next_operation();
+
+        let state = app.main_state();
+        assert_eq!(state.operation_queue.active_installs.len(), 1);
+        assert_eq!(state.operation_queue.pending.len(), 2);
     }
 }

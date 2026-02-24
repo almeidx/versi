@@ -85,6 +85,7 @@ pub enum Message {
         major: u32,
     },
     CancelBulkOperation,
+    CancelBulkRun,
 
     SetDefault(String),
     DefaultChanged {

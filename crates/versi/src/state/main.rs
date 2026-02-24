@@ -12,7 +12,8 @@ use crate::error::AppError;
 use crate::version_query::{RemoteVersionSearchIndex, search_available_versions_with_index};
 
 use super::{
-    ContextMenu, EnvironmentState, MainViewKind, Modal, OperationQueue, SettingsModalState, Toast,
+    BulkRunState, ContextMenu, EnvironmentState, MainViewKind, Modal, OperationQueue,
+    SettingsModalState, Toast,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -29,6 +30,7 @@ pub struct MainState {
     pub active_environment_idx: usize,
     pub available_versions: VersionCache,
     pub operation_queue: OperationQueue,
+    pub bulk_run: Option<BulkRunState>,
     pub install_progress: HashMap<String, InstallProgress>,
     pub toasts: Vec<Toast>,
     pub modal: Option<Modal>,
@@ -101,6 +103,7 @@ impl MainState {
             active_environment_idx: 0,
             available_versions: VersionCache::new(),
             operation_queue: OperationQueue::new(),
+            bulk_run: None,
             install_progress: HashMap::new(),
             toasts: Vec::new(),
             modal: None,

@@ -57,6 +57,10 @@ pub fn view<'a>(
         content_column = content_column.push(container(chips).padding(right_inset));
     }
 
+    if let Some(progress_banner) = banners::bulk_operation_progress_banner(state) {
+        content_column = content_column.push(container(progress_banner).padding(right_inset));
+    }
+
     if state.search_query.is_empty()
         && let Some(banner_content) = banners::contextual_banners(state)
     {
