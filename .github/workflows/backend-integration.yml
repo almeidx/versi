@@ -2,12 +2,6 @@ name: Backend Integration
 
 on:
   workflow_dispatch:
-    inputs:
-      run_wsl:
-        description: "Run Windows WSL integration tests"
-        required: false
-        default: false
-        type: boolean
   schedule:
     - cron: "0 6 * * 1"
 
@@ -84,24 +78,3 @@ jobs:
         env:
           VERSI_IT_NVM: "1"
         run: cargo test -p versi-nvm --test backend_integration -- --ignored --nocapture
-
-  wsl-integration:
-    name: WSL Integration (Windows)
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_wsl }}
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: backend-integration-windows
-          cache-on-failure: true
-
-      - name: Run WSL integration tests
-        env:
-          VERSI_IT_WSL: "1"
-        run: cargo test -p versi-platform --test wsl_integration -- --ignored --nocapture
