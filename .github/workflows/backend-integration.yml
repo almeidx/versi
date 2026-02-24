@@ -1,0 +1,107 @@
+name: Backend Integration
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_wsl:
+        description: "Run Windows WSL integration tests"
+        required: false
+        default: false
+        type: boolean
+  schedule:
+    - cron: "0 6 * * 1"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  VERSI_IT_NODE_VERSION: v20.11.1
+
+jobs:
+  fnm-integration:
+    name: fnm Integration (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: backend-integration-linux
+          cache-on-failure: true
+
+      - name: Install fnm
+        run: |
+          curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell
+          echo "$HOME/.local/share/fnm" >> "$GITHUB_PATH"
+
+      - name: Verify fnm installation
+        run: fnm --version
+
+      - name: Run fnm backend integration tests
+        env:
+          VERSI_IT_FNM: "1"
+        run: cargo test -p versi-fnm --test backend_integration -- --ignored --nocapture
+
+  nvm-integration:
+    name: nvm Integration (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: backend-integration-linux
+          cache-on-failure: true
+
+      - name: Set NVM_DIR
+        run: echo "NVM_DIR=${RUNNER_TEMP}/nvm" >> "$GITHUB_ENV"
+
+      - name: Install nvm
+        run: |
+          mkdir -p "$NVM_DIR"
+          curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
+
+      - name: Verify nvm installation
+        run: |
+          export NVM_DIR="$NVM_DIR"
+          [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+          nvm --version
+
+      - name: Run nvm backend integration tests
+        env:
+          VERSI_IT_NVM: "1"
+        run: cargo test -p versi-nvm --test backend_integration -- --ignored --nocapture
+
+  wsl-integration:
+    name: WSL Integration (Windows)
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_wsl }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: backend-integration-windows
+          cache-on-failure: true
+
+      - name: Run WSL integration tests
+        env:
+          VERSI_IT_WSL: "1"
+        run: cargo test -p versi-platform --test wsl_integration -- --ignored --nocapture

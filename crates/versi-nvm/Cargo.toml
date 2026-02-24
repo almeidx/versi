@@ -17,3 +17,6 @@ dirs.workspace = true
 reqwest.workspace = true
 async-trait.workspace = true
 log.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
