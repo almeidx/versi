@@ -22,6 +22,7 @@ pub struct VersionListContext<'a> {
     pub schedule: Option<&'a ReleaseSchedule>,
     pub search_index: Option<&'a crate::version_query::RemoteVersionSearchIndex>,
     pub operation_queue: &'a OperationQueue,
+    pub install_progress: &'a HashMap<String, versi_backend::InstallProgress>,
     pub hovered_version: &'a Option<String>,
     pub metadata: Option<&'a HashMap<String, VersionMeta>>,
     pub installed_set: &'a HashSet<NodeVersion>,

@@ -1,7 +1,7 @@
 use iced::widget::{Space, button, container, mouse_area, row, text};
 use iced::{Alignment, Element, Length};
 
-use versi_backend::RemoteVersion;
+use versi_backend::{InstallProgress, RemoteVersion};
 
 use crate::message::Message;
 use crate::theme::styles;
@@ -78,12 +78,53 @@ fn version_badge_kinds(has_lts: bool, is_eol: bool, has_security: bool) -> Vec<V
     badges
 }
 
-fn action_button<'a>(action: VersionRowAction, version: &str) -> Element<'a, Message> {
+fn format_install_progress(progress: Option<&InstallProgress>) -> String {
+    match progress {
+        Some(InstallProgress::Downloading {
+            downloaded_bytes,
+            total_bytes,
+        }) if *total_bytes > 0 => {
+            let downloaded_mb = format_mb_tenths(*downloaded_bytes);
+            let total_mb = format_mb_tenths(*total_bytes);
+            let percent = percent_complete(*downloaded_bytes, *total_bytes);
+            format!("{downloaded_mb} MB / {total_mb} MB ({percent}%)")
+        }
+        Some(InstallProgress::Extracting) => "Extracting...".to_string(),
+        Some(InstallProgress::Configuring) => "Configuring...".to_string(),
+        _ => "Installing...".to_string(),
+    }
+}
+
+fn format_mb_tenths(bytes: u64) -> String {
+    const MB: u128 = 1024 * 1024;
+    let scaled = (u128::from(bytes) * 10 + MB / 2) / MB;
+    let whole = scaled / 10;
+    let tenth = scaled % 10;
+    format!("{whole}.{tenth}")
+}
+
+fn percent_complete(downloaded: u64, total: u64) -> u64 {
+    if total == 0 {
+        return 0;
+    }
+
+    let rounded = (u128::from(downloaded) * 100 + u128::from(total) / 2) / u128::from(total);
+    let clamped = rounded.min(100);
+    u64::try_from(clamped).unwrap_or(100)
+}
+
+fn action_button<'a>(
+    action: VersionRowAction,
+    version: &str,
+    install_progress: Option<&InstallProgress>,
+) -> Element<'a, Message> {
     match action {
-        VersionRowAction::Installing => button(text("Installing...").size(12))
-            .style(styles::primary_button)
-            .padding([6, 12])
-            .into(),
+        VersionRowAction::Installing => {
+            button(text(format_install_progress(install_progress)).size(12))
+                .style(styles::primary_button)
+                .padding([6, 12])
+                .into()
+        }
         VersionRowAction::Queued => button(text("Queued").size(12))
             .style(styles::secondary_button)
             .padding([6, 12])
@@ -186,7 +227,8 @@ pub(super) fn available_version_row<'a>(
     };
     let action = resolve_version_row_action(activity, install_state, hover_state);
     let has_security = meta.is_some_and(|m| m.security);
-    let action_button = action_button(action, &version_label);
+    let install_progress = ctx.install_progress.get(&version_label);
+    let action_button = action_button(action, &version_label, install_progress);
     let badges = version_badges(version, is_eol, has_security);
 
     let date_text: Element<Message> = if let Some(date) = meta.map(|m| m.date.as_str()) {
@@ -225,8 +267,10 @@ pub(super) fn available_version_row<'a>(
 mod tests {
     use super::{
         HoverState, InstallState, RowActivity, VersionBadgeKind, VersionRowAction,
-        resolve_version_row_action, version_badge_kinds,
+        format_install_progress, format_mb_tenths, percent_complete, resolve_version_row_action,
+        version_badge_kinds,
     };
+    use versi_backend::InstallProgress;
 
     #[test]
     fn row_action_prioritizes_active_then_pending() {
@@ -295,5 +339,34 @@ mod tests {
             vec![VersionBadgeKind::Eol, VersionBadgeKind::Security]
         );
         assert!(version_badge_kinds(false, false, false).is_empty());
+    }
+
+    #[test]
+    fn install_progress_text_formats_expected_states() {
+        assert_eq!(
+            format_install_progress(Some(&InstallProgress::Downloading {
+                downloaded_bytes: 5 * 1024 * 1024,
+                total_bytes: 20 * 1024 * 1024,
+            })),
+            "5.0 MB / 20.0 MB (25%)"
+        );
+        assert_eq!(
+            format_install_progress(Some(&InstallProgress::Extracting)),
+            "Extracting..."
+        );
+        assert_eq!(
+            format_install_progress(Some(&InstallProgress::Configuring)),
+            "Configuring..."
+        );
+        assert_eq!(format_install_progress(None), "Installing...");
+    }
+
+    #[test]
+    fn progress_numeric_helpers_round_and_clamp() {
+        assert_eq!(format_mb_tenths(5 * 1024 * 1024), "5.0");
+        assert_eq!(format_mb_tenths(1_572_864), "1.5");
+        assert_eq!(percent_complete(25, 100), 25);
+        assert_eq!(percent_complete(120, 100), 100);
+        assert_eq!(percent_complete(1, 0), 0);
     }
 }

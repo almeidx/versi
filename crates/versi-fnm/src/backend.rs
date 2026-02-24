@@ -1,16 +1,35 @@
 use async_trait::async_trait;
 use log::{debug, error, info, trace};
 use std::path::PathBuf;
+use std::process::Stdio;
+use tokio::io::AsyncReadExt;
 use tokio::process::Command;
+use tokio::sync::mpsc;
 
 use versi_core::HideWindow;
 
 use versi_backend::{
-    BackendError, BackendInfo, InstalledVersion, ManagerCapabilities, NodeVersion, RemoteVersion,
-    ShellInitOptions, VersionManager,
+    BackendError, BackendInfo, InstallProgress, InstalledVersion, ManagerCapabilities, NodeVersion,
+    RemoteVersion, ShellInitOptions, VersionManager,
 };
 
 use crate::version::{parse_installed_versions, parse_remote_versions};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ProgressStream {
+    Stdout,
+    Stderr,
+}
+
+#[derive(Debug, Default)]
+struct InstallProgressParser {
+    remainder: String,
+    saw_download: bool,
+    sent_extracting: bool,
+    sent_configuring: bool,
+    last_downloaded_bytes: Option<u64>,
+    last_total_bytes: Option<u64>,
+}
 
 #[derive(Debug, Clone)]
 pub enum Environment {
@@ -72,6 +91,18 @@ impl FnmBackend {
         }
     }
 
+    fn apply_native_env(&self, cmd: &mut Command) {
+        if let Some(dir) = &self.fnm_dir {
+            debug!("Setting FNM_DIR={}", dir.display());
+            cmd.env("FNM_DIR", dir);
+        }
+
+        if let Some(mirror) = &self.node_dist_mirror {
+            debug!("Setting FNM_NODE_DIST_MIRROR={mirror}");
+            cmd.env("FNM_NODE_DIST_MIRROR", mirror);
+        }
+    }
+
     fn build_command(&self, args: &[&str]) -> Command {
         match &self.environment {
             Environment::Native => {
@@ -83,16 +114,7 @@ impl FnmBackend {
 
                 let mut cmd = Command::new(&self.info.path);
                 cmd.args(args);
-
-                if let Some(dir) = &self.fnm_dir {
-                    debug!("Setting FNM_DIR={}", dir.display());
-                    cmd.env("FNM_DIR", dir);
-                }
-
-                if let Some(mirror) = &self.node_dist_mirror {
-                    debug!("Setting FNM_NODE_DIST_MIRROR={mirror}");
-                    cmd.env("FNM_NODE_DIST_MIRROR", mirror);
-                }
+                self.apply_native_env(&mut cmd);
 
                 cmd.hide_window();
                 cmd
@@ -112,6 +134,51 @@ impl FnmBackend {
                 cmd
             }
         }
+    }
+
+    fn should_use_tty_wrapper(&self) -> bool {
+        if !matches!(self.environment, Environment::Native) {
+            return false;
+        }
+
+        #[cfg(unix)]
+        {
+            which::which("script").is_ok()
+        }
+
+        #[cfg(not(unix))]
+        {
+            false
+        }
+    }
+
+    fn build_script_install_command(&self, version: &str) -> Command {
+        let mut cmd = Command::new("script");
+        cmd.args(["-q", "/dev/null"]);
+        if !cfg!(target_os = "macos") {
+            cmd.arg("--");
+        }
+        cmd.arg(&self.info.path);
+        cmd.args(["install", version, "--progress", "always"]);
+        self.apply_native_env(&mut cmd);
+        cmd.hide_window();
+        cmd
+    }
+
+    fn build_install_command(&self, version: &str) -> (Command, ProgressStream) {
+        if self.should_use_tty_wrapper() {
+            info!("Executing fnm install with TTY progress wrapper");
+            return (
+                self.build_script_install_command(version),
+                ProgressStream::Stdout,
+            );
+        }
+
+        info!("Executing fnm install in direct mode (progress may be limited)");
+        (
+            self.build_command(&["install", version, "--progress", "always"]),
+            ProgressStream::Stderr,
+        )
     }
 
     async fn execute(&self, args: &[&str]) -> Result<String, BackendError> {
@@ -136,6 +203,279 @@ impl FnmBackend {
             Err(BackendError::CommandFailed { stderr })
         }
     }
+
+    async fn execute_install_with_progress(
+        &self,
+        version: &str,
+        progress_tx: mpsc::Sender<InstallProgress>,
+    ) -> Result<(), BackendError> {
+        let (mut command, progress_stream) = self.build_install_command(version);
+        command.stdout(Stdio::piped()).stderr(Stdio::piped());
+
+        let mut child = command.spawn()?;
+
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| BackendError::BackendSpecific {
+                context: "install spawn",
+                details: "failed to capture stdout".to_string(),
+            })?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| BackendError::BackendSpecific {
+                context: "install spawn",
+                details: "failed to capture stderr".to_string(),
+            })?;
+
+        let parse_stdout = progress_stream == ProgressStream::Stdout;
+        let stdout_tx = progress_tx.clone();
+        let stderr_tx = progress_tx.clone();
+
+        let stdout_task =
+            tokio::spawn(async move { read_stream(stdout, parse_stdout, stdout_tx).await });
+        let stderr_task =
+            tokio::spawn(async move { read_stream(stderr, !parse_stdout, stderr_tx).await });
+
+        let status = child.wait().await?;
+
+        let (stdout_bytes, mut stdout_parser) = stdout_task
+            .await
+            .map_err(|error| BackendError::BackendSpecific {
+                context: "install stdout reader",
+                details: format!("reader task failed: {error}"),
+            })?
+            .map_err(BackendError::from)?;
+        let (stderr_bytes, mut stderr_parser) = stderr_task
+            .await
+            .map_err(|error| BackendError::BackendSpecific {
+                context: "install stderr reader",
+                details: format!("reader task failed: {error}"),
+            })?
+            .map_err(BackendError::from)?;
+
+        debug!("fnm install exit status: {status:?}");
+        trace!(
+            "fnm install stdout: {}",
+            String::from_utf8_lossy(&stdout_bytes)
+        );
+        if !stderr_bytes.is_empty() {
+            trace!(
+                "fnm install stderr: {}",
+                String::from_utf8_lossy(&stderr_bytes)
+            );
+        }
+
+        if status.success() {
+            let parser = if parse_stdout {
+                stdout_parser.as_mut()
+            } else {
+                stderr_parser.as_mut()
+            };
+            if let Some(parser) = parser {
+                parser.finish(&progress_tx);
+            }
+            Ok(())
+        } else {
+            let stderr_text = String::from_utf8_lossy(&stderr_bytes);
+            let stdout_text = String::from_utf8_lossy(&stdout_bytes);
+            let details = combined_error_output(stderr_text.as_ref(), stdout_text.as_ref());
+            error!("fnm install failed for {version}: {details}");
+            Err(BackendError::CommandFailed { stderr: details })
+        }
+    }
+}
+
+impl InstallProgressParser {
+    fn feed_bytes(&mut self, chunk: &[u8], progress_tx: &mpsc::Sender<InstallProgress>) {
+        self.remainder.push_str(&String::from_utf8_lossy(chunk));
+
+        while let Some(idx) = self.remainder.find(['\r', '\n']) {
+            let line = self.remainder[..idx].to_string();
+            self.remainder.drain(..=idx);
+            self.process_line(&line, progress_tx);
+        }
+    }
+
+    fn finish(&mut self, progress_tx: &mpsc::Sender<InstallProgress>) {
+        if !self.remainder.is_empty() {
+            let line = self.remainder.clone();
+            self.remainder.clear();
+            self.process_line(&line, progress_tx);
+        }
+
+        if self.saw_download {
+            if !self.sent_extracting {
+                let _ = progress_tx.try_send(InstallProgress::Extracting);
+                self.sent_extracting = true;
+            }
+            if !self.sent_configuring {
+                let _ = progress_tx.try_send(InstallProgress::Configuring);
+                self.sent_configuring = true;
+            }
+        }
+    }
+
+    fn process_line(&mut self, line: &str, progress_tx: &mpsc::Sender<InstallProgress>) {
+        let cleaned = sanitize_terminal_text(line);
+        if cleaned.is_empty() {
+            return;
+        }
+
+        let Some((downloaded_bytes, total_bytes)) = parse_download_progress(&cleaned) else {
+            return;
+        };
+
+        self.saw_download = true;
+        if self.last_downloaded_bytes != Some(downloaded_bytes)
+            || self.last_total_bytes != Some(total_bytes)
+        {
+            let _ = progress_tx.try_send(InstallProgress::Downloading {
+                downloaded_bytes,
+                total_bytes,
+            });
+            self.last_downloaded_bytes = Some(downloaded_bytes);
+            self.last_total_bytes = Some(total_bytes);
+        }
+
+        if downloaded_bytes >= total_bytes && !self.sent_extracting {
+            let _ = progress_tx.try_send(InstallProgress::Extracting);
+            self.sent_extracting = true;
+        }
+    }
+}
+
+async fn read_stream<R>(
+    mut stream: R,
+    parse_progress: bool,
+    progress_tx: mpsc::Sender<InstallProgress>,
+) -> Result<(Vec<u8>, Option<InstallProgressParser>), std::io::Error>
+where
+    R: tokio::io::AsyncRead + Unpin,
+{
+    let mut bytes = Vec::new();
+    let mut parser = parse_progress.then(InstallProgressParser::default);
+    let mut chunk = [0_u8; 4096];
+
+    loop {
+        let read = stream.read(&mut chunk).await?;
+        if read == 0 {
+            break;
+        }
+
+        bytes.extend_from_slice(&chunk[..read]);
+        if let Some(parser) = parser.as_mut() {
+            parser.feed_bytes(&chunk[..read], &progress_tx);
+        }
+    }
+
+    Ok((bytes, parser))
+}
+
+fn combined_error_output(stderr: &str, stdout: &str) -> String {
+    let stderr = stderr.trim();
+    let stdout = stdout.trim();
+
+    if stderr.is_empty() {
+        return stdout.to_string();
+    }
+    if stdout.is_empty() {
+        return stderr.to_string();
+    }
+
+    format!("{stderr}\n{stdout}")
+}
+
+fn sanitize_terminal_text(input: &str) -> String {
+    let mut output = String::with_capacity(input.len());
+    let mut chars = input.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        match ch {
+            '\u{1b}' => {
+                if chars.peek() == Some(&'[') {
+                    let _ = chars.next();
+                    for esc_ch in chars.by_ref() {
+                        if esc_ch.is_ascii_alphabetic() {
+                            break;
+                        }
+                    }
+                }
+            }
+            '\u{8}' => {
+                let _ = output.pop();
+            }
+            control if control.is_control() => {}
+            _ => output.push(ch),
+        }
+    }
+
+    output.trim().to_string()
+}
+
+fn parse_download_progress(line: &str) -> Option<(u64, u64)> {
+    let slash_index = line.find('/')?;
+    let before = line[..slash_index].trim_end();
+    let after = line[slash_index + 1..].trim_start();
+
+    let mut before_tokens = before.split_whitespace();
+    let downloaded_unit = before_tokens.next_back()?;
+    let downloaded_value = before_tokens.next_back()?;
+
+    let mut after_tokens = after.split_whitespace();
+    let total_value = after_tokens.next()?;
+    let total_unit = after_tokens.next()?;
+
+    let downloaded = parse_size(downloaded_value, downloaded_unit)?;
+    let total = parse_size(total_value, total_unit)?;
+    if total == 0 {
+        return None;
+    }
+
+    Some((downloaded.min(total), total))
+}
+
+fn parse_size(value: &str, unit: &str) -> Option<u64> {
+    let (scaled_value, scale) = parse_decimal_scaled(value)?;
+    let multiplier = match unit.trim_end_matches([',', ')', ']']) {
+        "B" => 1_u128,
+        "KB" | "KiB" => 1024_u128,
+        "MB" | "MiB" => 1024_u128.pow(2),
+        "GB" | "GiB" => 1024_u128.pow(3),
+        "TB" | "TiB" => 1024_u128.pow(4),
+        _ => return None,
+    };
+
+    let scaled_bytes = scaled_value.checked_mul(multiplier)?;
+    let rounded = scaled_bytes.checked_add(scale / 2)?.checked_div(scale)?;
+    u64::try_from(rounded).ok()
+}
+
+fn parse_decimal_scaled(value: &str) -> Option<(u128, u128)> {
+    let (whole, frac) = match value.split_once('.') {
+        Some((whole, frac)) => (whole, frac),
+        None => (value, ""),
+    };
+
+    if whole.is_empty() || whole.starts_with('-') || frac.starts_with('-') {
+        return None;
+    }
+    if !whole.chars().all(|ch| ch.is_ascii_digit()) || !frac.chars().all(|ch| ch.is_ascii_digit()) {
+        return None;
+    }
+
+    let whole_part: u128 = whole.parse().ok()?;
+    let frac_part: u128 = if frac.is_empty() {
+        0
+    } else {
+        frac.parse().ok()?
+    };
+    let frac_len_u32 = u32::try_from(frac.len()).ok()?;
+    let scale = 10_u128.checked_pow(frac_len_u32)?;
+
+    let scaled = whole_part.checked_mul(scale)?.checked_add(frac_part)?;
+    Some((scaled, scale))
 }
 
 #[async_trait]
@@ -198,6 +538,15 @@ impl VersionManager for FnmBackend {
         Ok(())
     }
 
+    async fn install_with_progress(
+        &self,
+        version: &str,
+        progress_tx: mpsc::Sender<InstallProgress>,
+    ) -> Result<(), BackendError> {
+        self.execute_install_with_progress(version, progress_tx)
+            .await
+    }
+
     async fn uninstall(&self, version: &str) -> Result<(), BackendError> {
         self.execute(&["uninstall", version]).await?;
         Ok(())
@@ -246,10 +595,11 @@ impl VersionManager for FnmBackend {
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
+    use tokio::sync::mpsc;
 
-    use versi_backend::{ShellInitOptions, VersionManager};
+    use versi_backend::{InstallProgress, ShellInitOptions, VersionManager};
 
-    use super::FnmBackend;
+    use super::{FnmBackend, parse_download_progress, sanitize_terminal_text};
 
     fn backend() -> FnmBackend {
         FnmBackend::new(PathBuf::from("fnm"), Some("1.38.0".to_string()), None)
@@ -302,5 +652,54 @@ mod tests {
         let options = ShellInitOptions::default();
 
         assert!(backend().shell_init_command("nu", &options).is_none());
+    }
+
+    #[test]
+    fn sanitize_terminal_text_removes_ansi_and_backspaces() {
+        let raw = "\u{1b}[2K^D\u{8}\u{8}00:00:00 █ 10.49 MiB/19.66 MiB (4.23 MiB/s, 2s)\r";
+        let cleaned = sanitize_terminal_text(raw);
+        assert_eq!(cleaned, "00:00:00 █ 10.49 MiB/19.66 MiB (4.23 MiB/s, 2s)");
+    }
+
+    #[test]
+    fn parse_download_progress_extracts_downloaded_and_total_bytes() {
+        let line = "00:00:03 █████████████████▌ 10.71 MiB/19.66 MiB (4.20 MiB/s, 2s)";
+        let (downloaded, total) =
+            parse_download_progress(line).expect("progress line should parse");
+
+        assert_eq!(downloaded, 11_230_249);
+        assert_eq!(total, 20_615_004);
+    }
+
+    #[test]
+    fn parser_emits_downloading_extracting_and_configuring() {
+        let (tx, mut rx) = mpsc::channel(8);
+        let mut parser = super::InstallProgressParser::default();
+
+        parser.feed_bytes(b"00:00:00  1.00 MiB/2.00 MiB (4.00 MiB/s, 1s)\r", &tx);
+        parser.feed_bytes(b"00:00:01  2.00 MiB/2.00 MiB (4.00 MiB/s, 0s)\r", &tx);
+        parser.finish(&tx);
+
+        let first = rx.try_recv().expect("first progress message");
+        let second = rx.try_recv().expect("second progress message");
+        let third = rx.try_recv().expect("third progress message");
+        let fourth = rx.try_recv().expect("fourth progress message");
+
+        assert!(matches!(
+            first,
+            InstallProgress::Downloading {
+                downloaded_bytes,
+                total_bytes
+            } if downloaded_bytes == 1_048_576 && total_bytes == 2_097_152
+        ));
+        assert!(matches!(
+            second,
+            InstallProgress::Downloading {
+                downloaded_bytes,
+                total_bytes
+            } if downloaded_bytes == 2_097_152 && total_bytes == 2_097_152
+        ));
+        assert!(matches!(third, InstallProgress::Extracting));
+        assert!(matches!(fourth, InstallProgress::Configuring));
     }
 }

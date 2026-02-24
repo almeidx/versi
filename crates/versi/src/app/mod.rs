@@ -48,6 +48,7 @@ fn should_dismiss_context_menu(message: &Message) -> bool {
             | Message::AnimationTick
             | Message::VersionListCursorMoved(_)
             | Message::VersionRowHovered(_)
+            | Message::InstallProgress { .. }
             | Message::WindowEvent(_)
             | Message::SystemThemeChanged(_)
             | Message::CloseContextMenu

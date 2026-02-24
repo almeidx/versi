@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use versi_backend::{BackendUpdate, InstalledVersion, RemoteVersion};
+use versi_backend::{BackendUpdate, InstallProgress, InstalledVersion, RemoteVersion};
 use versi_core::{AppUpdate, ReleaseSchedule, VersionMeta};
 use versi_platform::EnvironmentId;
 use versi_shell::ShellType;
@@ -50,6 +50,10 @@ pub enum Message {
     CloseModal,
     OpenChangelog(String),
     StartInstall(String),
+    InstallProgress {
+        version: String,
+        progress: InstallProgress,
+    },
     InstallComplete {
         version: String,
         success: bool,

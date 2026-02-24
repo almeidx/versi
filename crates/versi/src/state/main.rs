@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use chrono::{DateTime, Utc};
 use tokio_util::sync::CancellationToken;
-use versi_backend::{BackendUpdate, NodeVersion, RemoteVersion, VersionManager};
+use versi_backend::{BackendUpdate, InstallProgress, NodeVersion, RemoteVersion, VersionManager};
 use versi_core::{AppUpdate, ReleaseSchedule, VersionMeta};
 
 use crate::backend_kind::BackendKind;
@@ -29,6 +29,7 @@ pub struct MainState {
     pub active_environment_idx: usize,
     pub available_versions: VersionCache,
     pub operation_queue: OperationQueue,
+    pub install_progress: HashMap<String, InstallProgress>,
     pub toasts: Vec<Toast>,
     pub modal: Option<Modal>,
     pub search_query: String,
@@ -100,6 +101,7 @@ impl MainState {
             active_environment_idx: 0,
             available_versions: VersionCache::new(),
             operation_queue: OperationQueue::new(),
+            install_progress: HashMap::new(),
             toasts: Vec::new(),
             modal: None,
             search_query: String::new(),

@@ -16,8 +16,8 @@ mod types;
 pub use error::{BackendError, NetworkStage};
 /// Backend traits and capability metadata used by the application.
 pub use traits::{
-    BackendDetection, BackendInfo, BackendProvider, BackendUpdate, ManagerCapabilities,
-    ShellInitOptions, VersionManager,
+    BackendDetection, BackendInfo, BackendProvider, BackendUpdate, InstallProgress,
+    ManagerCapabilities, ShellInitOptions, VersionManager,
 };
 /// Version and grouping models shared across backend implementations.
 pub use types::{

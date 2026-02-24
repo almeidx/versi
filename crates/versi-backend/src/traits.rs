@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use tokio::sync::mpsc;
 
 use crate::error::BackendError;
 use crate::types::{InstalledVersion, NodeVersion, RemoteVersion};
@@ -75,6 +76,16 @@ pub struct ShellInitOptions {
     pub corepack_enabled: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InstallProgress {
+    Downloading {
+        downloaded_bytes: u64,
+        total_bytes: u64,
+    },
+    Extracting,
+    Configuring,
+}
+
 #[async_trait]
 pub trait VersionManager: Send + Sync {
     fn name(&self) -> &'static str;
@@ -92,6 +103,14 @@ pub trait VersionManager: Send + Sync {
     async fn default_version(&self) -> Result<Option<NodeVersion>, BackendError>;
 
     async fn install(&self, version: &str) -> Result<(), BackendError>;
+
+    async fn install_with_progress(
+        &self,
+        version: &str,
+        _progress_tx: mpsc::Sender<InstallProgress>,
+    ) -> Result<(), BackendError> {
+        self.install(version).await
+    }
 
     async fn uninstall(&self, version: &str) -> Result<(), BackendError>;
 

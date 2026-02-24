@@ -30,6 +30,7 @@ pub fn view<'a>(
         schedule: state.available_versions.schedule.as_ref(),
         search_index: Some(&state.available_versions.search_index),
         operation_queue: &state.operation_queue,
+        install_progress: &state.install_progress,
         hovered_version: hovered,
         metadata: state.available_versions.metadata.as_ref(),
         installed_set: &env.installed_set,

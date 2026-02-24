@@ -8,6 +8,9 @@ impl Versi {
     pub(super) fn dispatch_operations(&mut self, message: Message) -> super::DispatchResult {
         match message {
             Message::StartInstall(version) => Ok(self.handle_start_install(version)),
+            Message::InstallProgress { version, progress } => {
+                Ok(self.handle_install_progress(version, progress))
+            }
             Message::InstallComplete {
                 version,
                 success,

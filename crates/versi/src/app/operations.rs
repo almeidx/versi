@@ -6,7 +6,8 @@
 use std::time::Duration;
 
 use iced::Task;
-use versi_backend::NodeVersion;
+use iced::futures::SinkExt;
+use versi_backend::{InstallProgress, NodeVersion};
 
 use crate::error::AppError;
 use crate::message::Message;
@@ -97,30 +98,74 @@ impl Versi {
     pub(super) fn start_install_internal(&mut self, version: String) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
             state.operation_queue.start_install(version.clone());
+            state.install_progress.remove(&version);
 
             let backend = state.backend.clone();
             let timeout = Duration::from_secs(self.settings.install_timeout_secs);
 
-            return Task::perform(
-                async move {
-                    match run_with_timeout(
-                        timeout,
-                        "Installation",
-                        backend.install(&version),
-                        |error| AppError::operation_failed("Install", error),
-                    )
-                    .await
-                    {
-                        Ok(()) => (version, true, None),
-                        Err(error) => (version, false, Some(error)),
-                    }
-                },
-                |(version, success, error)| Message::InstallComplete {
-                    version,
-                    success,
-                    error,
-                },
+            return Task::run(
+                iced::stream::channel(
+                    32,
+                    move |mut sender: iced::futures::channel::mpsc::Sender<Message>| async move {
+                        let (progress_tx, mut progress_rx) = tokio::sync::mpsc::channel(64);
+                        let install_version = version.clone();
+
+                        let install_task = tokio::spawn(async move {
+                            run_with_timeout(
+                                timeout,
+                                "Installation",
+                                backend.install_with_progress(&install_version, progress_tx),
+                                |error| AppError::operation_failed("Install", error),
+                            )
+                            .await
+                        });
+
+                        while let Some(progress) = progress_rx.recv().await {
+                            let _ = sender
+                                .send(Message::InstallProgress {
+                                    version: version.clone(),
+                                    progress,
+                                })
+                                .await;
+                        }
+
+                        let result = match install_task.await {
+                            Ok(Ok(())) => (version, true, None),
+                            Ok(Err(error)) => (version, false, Some(error)),
+                            Err(error) => (
+                                version,
+                                false,
+                                Some(AppError::operation_failed(
+                                    "Install",
+                                    format!("install task panicked: {error}"),
+                                )),
+                            ),
+                        };
+
+                        let _ = sender
+                            .send(Message::InstallComplete {
+                                version: result.0,
+                                success: result.1,
+                                error: result.2,
+                            })
+                            .await;
+                    },
+                ),
+                std::convert::identity,
             );
+        }
+        Task::none()
+    }
+
+    pub(super) fn handle_install_progress(
+        &mut self,
+        version: String,
+        progress: InstallProgress,
+    ) -> Task<Message> {
+        if let AppState::Main(state) = &mut self.state
+            && state.operation_queue.has_active_install(&version)
+        {
+            state.install_progress.insert(version, progress);
         }
         Task::none()
     }
@@ -133,6 +178,7 @@ impl Versi {
     ) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
             state.operation_queue.remove_completed_install(version);
+            state.install_progress.remove(version);
 
             if !success {
                 add_failure_toast(state, install_failure_message(version, error));
@@ -332,6 +378,8 @@ impl Versi {
 
 #[cfg(test)]
 mod tests {
+    use versi_backend::InstallProgress;
+
     use super::super::test_app_with_two_environments;
     use super::*;
 
@@ -433,5 +481,34 @@ mod tests {
             state.operation_queue.pending.front(),
             Some(Operation::SetDefault { version }) if version == "v22.0.0"
         ));
+    }
+
+    #[test]
+    fn install_progress_updates_active_install_and_is_cleared_on_completion() {
+        let mut app = test_app_with_two_environments();
+        app.main_state_mut()
+            .operation_queue
+            .start_install("v22.1.0".to_string());
+
+        let _ = app.handle_install_progress(
+            "v22.1.0".to_string(),
+            InstallProgress::Downloading {
+                downloaded_bytes: 5,
+                total_bytes: 10,
+            },
+        );
+
+        let state = app.main_state();
+        assert!(matches!(
+            state.install_progress.get("v22.1.0"),
+            Some(InstallProgress::Downloading {
+                downloaded_bytes: 5,
+                total_bytes: 10
+            })
+        ));
+
+        let _ = app.handle_install_complete("v22.1.0", true, None);
+        let state = app.main_state();
+        assert!(!state.install_progress.contains_key("v22.1.0"));
     }
 }
