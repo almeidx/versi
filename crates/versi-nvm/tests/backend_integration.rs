@@ -4,7 +4,7 @@ use std::fs;
 use std::path::Path;
 
 use tempfile::tempdir;
-use versi_backend::{BackendProvider, NodeVersion, VersionManager};
+use versi_backend::{BackendError, BackendProvider, NodeVersion, VersionManager};
 use versi_nvm::{NvmBackend, NvmClient, NvmProvider};
 
 fn integration_enabled() -> bool {
@@ -59,7 +59,24 @@ async fn uninstall_if_present(backend: &dyn VersionManager, version: &str) {
         .iter()
         .any(|installed| installed.version == target_version)
     {
-        let _ = backend.uninstall(version).await;
+        let _ = uninstall_version(backend, version).await;
+    }
+}
+
+async fn uninstall_version(
+    backend: &dyn VersionManager,
+    version: &str,
+) -> Result<(), BackendError> {
+    match backend.uninstall(version).await {
+        Ok(()) => Ok(()),
+        Err(BackendError::CommandFailed { stderr })
+            if stderr.contains("currently-active node version") =>
+        {
+            let _ = backend.use_version("system").await;
+            let _ = backend.set_default("system").await;
+            backend.uninstall(version).await
+        }
+        Err(error) => Err(error),
     }
 }
 
@@ -130,8 +147,7 @@ async fn nvm_install_set_default_and_uninstall_roundtrip() {
         .expect("read default version");
     assert_eq!(default_version, Some(expected_default.clone()));
 
-    backend
-        .uninstall(&version)
+    uninstall_version(backend.as_ref(), &version)
         .await
         .expect("uninstall test Node version");
 
