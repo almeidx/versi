@@ -8,6 +8,7 @@ use iced::futures::SinkExt;
 use thiserror::Error;
 use tray_icon::menu::{Menu, MenuEvent, MenuId, MenuItem, PredefinedMenuItem};
 use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
+use versi_backend::NodeVersion;
 use versi_platform::EnvironmentId;
 
 use crate::message::Message;
@@ -285,6 +286,27 @@ pub fn update_menu(data: &TrayMenuData) {
     });
 }
 
+pub fn tooltip_text(default_version: Option<&NodeVersion>) -> String {
+    match default_version {
+        Some(version) => format!("Versi - Node {version}"),
+        None => "Versi".to_string(),
+    }
+}
+
+pub fn update_tooltip(tooltip: &str) {
+    TRAY_ICON.with(|cell| {
+        if let Some(tray) = cell.borrow().as_ref() {
+            #[cfg(not(target_os = "linux"))]
+            if let Err(error) = tray.set_tooltip(Some(tooltip)) {
+                log::warn!("Failed to update tray tooltip: {error}");
+            }
+
+            #[cfg(target_os = "linux")]
+            let _ = tooltip;
+        }
+    });
+}
+
 fn parse_menu_event(id: &str) -> Option<TrayMessage> {
     match id {
         "show_window" => Some(TrayMessage::ShowWindow),
@@ -377,7 +399,7 @@ mod tests {
     use chrono::Utc;
     use versi_platform::EnvironmentId;
 
-    use super::{TrayMenuData, TrayMessage, encode_environment_id, parse_menu_event};
+    use super::{TrayMenuData, TrayMessage, encode_environment_id, parse_menu_event, tooltip_text};
     use crate::backend_kind::BackendKind;
     use crate::state::EnvironmentState;
 
@@ -454,5 +476,17 @@ mod tests {
         ));
         assert!(parse_menu_event("set:nothex:v20.11.0").is_none());
         assert!(parse_menu_event("unknown").is_none());
+    }
+
+    #[test]
+    fn tooltip_text_reflects_default_version_when_available() {
+        let default_version: versi_backend::NodeVersion =
+            "v22.11.0".parse().expect("test version should parse");
+
+        assert_eq!(
+            tooltip_text(Some(&default_version)),
+            "Versi - Node v22.11.0"
+        );
+        assert_eq!(tooltip_text(None), "Versi");
     }
 }

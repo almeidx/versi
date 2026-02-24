@@ -204,7 +204,9 @@ impl Versi {
     pub(super) fn update_tray_menu(&self) {
         if let AppState::Main(state) = &self.state {
             let data = TrayMenuData::from_environments(&state.environments, self.window_visible);
+            let tooltip = tray::tooltip_text(state.active_environment().default_version.as_ref());
             tray::update_menu(&data);
+            tray::update_tooltip(&tooltip);
         }
     }
 }
