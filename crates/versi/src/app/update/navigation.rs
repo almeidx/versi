@@ -14,6 +14,9 @@ impl Versi {
                 request_seq,
                 result,
             } => Ok(self.handle_environment_loaded(&env_id, request_seq, result)),
+            Message::StartBackgroundEnvironmentPreload { env_id } => {
+                Ok(self.handle_start_background_environment_preload(&env_id))
+            }
             Message::RefreshEnvironment => Ok(self.handle_refresh_environment()),
             Message::FocusSearch => Ok(self.focus_search()),
             other => self.dispatch_navigation_selection(other),
@@ -176,6 +179,7 @@ impl Versi {
 #[cfg(test)]
 mod tests {
     use versi_backend::InstalledVersion;
+    use versi_platform::EnvironmentId;
 
     use super::super::super::test_app_with_two_environments;
     use super::*;
@@ -198,6 +202,19 @@ mod tests {
         let result = app.dispatch_navigation(Message::NoOp);
 
         assert!(matches!(result, Err(other) if matches!(*other, Message::NoOp)));
+    }
+
+    #[test]
+    fn dispatch_navigation_handles_background_preload_message() {
+        let mut app = test_app_with_two_environments();
+        let env_id = EnvironmentId::Wsl {
+            distro: "Ubuntu".to_string(),
+            backend_path: "/home/user/.nvm/nvm.sh".to_string(),
+        };
+
+        let result = app.dispatch_navigation(Message::StartBackgroundEnvironmentPreload { env_id });
+
+        assert!(result.is_ok());
     }
 
     #[test]

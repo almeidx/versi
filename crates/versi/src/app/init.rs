@@ -48,11 +48,16 @@ impl Versi {
 
         self.state = AppState::Main(Box::new(main_state));
 
-        let mut tasks = self.build_environment_load_tasks(
+        self.mark_non_active_environments_not_loading();
+
+        let mut tasks = Vec::new();
+        if let Some(task) = self.build_active_environment_load_task(
             &result.environments,
             &backend_path,
             backend_dir.as_ref(),
-        );
+        ) {
+            tasks.push(task);
+        }
         tasks.extend(self.build_post_init_tasks());
 
         Task::batch(tasks)
@@ -108,29 +113,22 @@ impl Versi {
         (backend_path, backend_dir, backend)
     }
 
-    fn build_environment_load_tasks(
+    fn build_active_environment_load_task(
         &mut self,
         environments: &[EnvironmentInfo],
         backend_path: &Path,
         backend_dir: Option<&PathBuf>,
-    ) -> Vec<Task<Message>> {
-        let mut tasks = Vec::new();
-        for env_info in environments {
-            if !env_info.available {
-                debug!(
-                    "Skipping load for unavailable environment: {:?}",
-                    env_info.id
-                );
-                continue;
-            }
-
-            if let Some(task) =
-                self.build_environment_load_task(env_info, backend_path, backend_dir)
-            {
-                tasks.push(task);
-            }
+    ) -> Option<Task<Message>> {
+        let active_env = environments.first()?;
+        if !active_env.available {
+            debug!(
+                "Skipping startup load for unavailable active environment: {:?}",
+                active_env.id
+            );
+            return None;
         }
-        tasks
+
+        self.build_environment_load_task(active_env, backend_path, backend_dir)
     }
 
     fn build_environment_load_task(
@@ -178,6 +176,19 @@ impl Versi {
         env.error = None;
         env.load_request_seq = env.load_request_seq.wrapping_add(1);
         Some(env.load_request_seq)
+    }
+
+    fn mark_non_active_environments_not_loading(&mut self) {
+        let AppState::Main(state) = &mut self.state else {
+            return;
+        };
+
+        for (idx, env) in state.environments.iter_mut().enumerate() {
+            if idx != state.active_environment_idx && env.available {
+                env.loading = false;
+                env.load_cancel_token = None;
+            }
+        }
     }
 
     fn build_post_init_tasks(&mut self) -> [Task<Message>; 5] {
@@ -548,6 +559,7 @@ mod tests {
     use versi_backend::{BackendDetection, BackendProvider};
     use versi_platform::EnvironmentId;
 
+    use super::super::test_app_with_two_environments;
     use super::{
         build_environment_states, choose_backend_detection, collect_detected_backends,
         create_backend_for_environment, native_environment, no_backend_init_result,
@@ -702,5 +714,43 @@ mod tests {
         assert_eq!(env.backend_name, BackendKind::Fnm);
         assert!(env.available);
         assert!(env.unavailable_reason.is_none());
+    }
+
+    #[test]
+    fn initialized_marks_only_active_environment_as_loading() {
+        let mut app = test_app_with_two_environments();
+
+        let init_result = crate::message::InitResult {
+            backend_found: true,
+            backend_path: Some(PathBuf::from("fnm")),
+            backend_dir: None,
+            backend_version: Some("1.0.0".to_string()),
+            environments: vec![
+                EnvironmentInfo {
+                    id: EnvironmentId::Native,
+                    backend_name: BackendKind::Fnm,
+                    backend_version: Some("1.0.0".to_string()),
+                    available: true,
+                    unavailable_reason: None,
+                },
+                EnvironmentInfo {
+                    id: EnvironmentId::Wsl {
+                        distro: "Ubuntu".to_string(),
+                        backend_path: "/home/user/.nvm/nvm.sh".to_string(),
+                    },
+                    backend_name: BackendKind::Nvm,
+                    backend_version: Some("0.39.0".to_string()),
+                    available: true,
+                    unavailable_reason: None,
+                },
+            ],
+            detected_backends: vec![BackendKind::Fnm, BackendKind::Nvm],
+        };
+
+        let _ = app.handle_initialized(init_result);
+
+        let state = app.main_state();
+        assert!(state.environments[0].loading);
+        assert!(!state.environments[1].loading);
     }
 }

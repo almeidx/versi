@@ -14,11 +14,31 @@ use versi_platform::EnvironmentId;
 
 use crate::error::AppError;
 use crate::message::Message;
-use crate::state::{AppState, MainViewKind, SearchFilter};
+use crate::state::{AppState, MainState, MainViewKind, SearchFilter};
 
 use super::Versi;
 use super::async_helpers::run_with_timeout;
 use super::init::create_backend_for_environment;
+
+const BACKGROUND_PRELOAD_DELAY: Duration = Duration::from_millis(1_500);
+
+fn environment_needs_load(env: &crate::state::EnvironmentState) -> bool {
+    env.installed_versions.is_empty() && env.load_cancel_token.is_none()
+}
+
+fn collect_background_preload_targets(
+    state: &MainState,
+    active_env_id: &EnvironmentId,
+) -> Vec<EnvironmentId> {
+    state
+        .environments
+        .iter()
+        .filter(|env| env.available)
+        .filter(|env| &env.id != active_env_id)
+        .filter(|env| env.installed_versions.is_empty())
+        .map(|env| env.id.clone())
+        .collect()
+}
 
 impl Versi {
     pub(super) fn handle_environment_loaded(
@@ -69,6 +89,7 @@ impl Versi {
 
             state.recompute_banner_stats();
         }
+        let preload_task = self.schedule_background_preloads_after_active_load(env_id);
         self.update_tray_menu();
 
         if self.pending_minimize
@@ -81,10 +102,49 @@ impl Versi {
             } else {
                 iced::window::set_mode(id, iced::window::Mode::Hidden)
             };
-            return Task::batch([Task::done(Message::HideDockIcon), hide_task]);
+            return Task::batch([preload_task, Task::done(Message::HideDockIcon), hide_task]);
         }
 
-        Task::none()
+        preload_task
+    }
+
+    fn schedule_background_preloads_after_active_load(
+        &mut self,
+        loaded_env_id: &EnvironmentId,
+    ) -> Task<Message> {
+        let AppState::Main(state) = &mut self.state else {
+            return Task::none();
+        };
+
+        if state.background_preload_started {
+            return Task::none();
+        }
+
+        let active_env_id = state.active_environment().id.clone();
+        if &active_env_id != loaded_env_id {
+            return Task::none();
+        }
+
+        let targets = collect_background_preload_targets(state, &active_env_id);
+        state.background_preload_started = true;
+        if targets.is_empty() {
+            return Task::none();
+        }
+
+        Task::batch(
+            targets
+                .into_iter()
+                .map(|env_id| {
+                    Task::perform(
+                        async move {
+                            tokio::time::sleep(BACKGROUND_PRELOAD_DELAY).await;
+                            env_id
+                        },
+                        |env_id| Message::StartBackgroundEnvironmentPreload { env_id },
+                    )
+                })
+                .collect::<Vec<_>>(),
+        )
     }
 
     pub(super) fn handle_environment_selected(&mut self, idx: usize) -> Task<Message> {
@@ -105,7 +165,7 @@ impl Versi {
             let env_id = env.id.clone();
             debug!("Selected environment: {env_id:?}");
 
-            let needs_load = env.loading || env.installed_versions.is_empty();
+            let needs_load = environment_needs_load(env);
             debug!("Environment needs loading: {needs_load}");
 
             let env_provider = self
@@ -189,6 +249,76 @@ impl Versi {
             };
 
             return Task::batch([load_task, backend_update_task, shell_task]);
+        }
+        Task::none()
+    }
+
+    pub(super) fn handle_start_background_environment_preload(
+        &mut self,
+        env_id: &EnvironmentId,
+    ) -> Task<Message> {
+        if let AppState::Main(state) = &mut self.state {
+            let Some(env_idx) = state.environments.iter().position(|env| &env.id == env_id) else {
+                return Task::none();
+            };
+
+            let (available, already_loaded, already_loading, backend_name, target_env_id) = {
+                let env = &state.environments[env_idx];
+                (
+                    env.available,
+                    !env.installed_versions.is_empty(),
+                    env.load_cancel_token.is_some(),
+                    env.backend_name,
+                    env.id.clone(),
+                )
+            };
+
+            if !available || already_loaded || already_loading {
+                return Task::none();
+            }
+
+            let env_provider = self
+                .providers
+                .get(&backend_name)
+                .cloned()
+                .unwrap_or_else(|| self.provider.clone());
+            let backend = create_backend_for_environment(
+                &target_env_id,
+                &self.backend_path,
+                self.backend_dir.as_ref(),
+                &env_provider,
+            );
+
+            let env = &mut state.environments[env_idx];
+            env.loading = true;
+            env.error = None;
+            env.load_request_seq = env.load_request_seq.wrapping_add(1);
+            let request_seq = env.load_request_seq;
+            let cancel_token = CancellationToken::new();
+            env.load_cancel_token = Some(cancel_token.clone());
+
+            let fetch_timeout = Duration::from_secs(self.settings.fetch_timeout_secs);
+            return Task::perform(
+                async move {
+                    let result = tokio::select! {
+                        () = cancel_token.cancelled() => {
+                            Err(AppError::operation_cancelled("Loading versions"))
+                        }
+                        result = run_with_timeout(
+                            fetch_timeout,
+                            "Loading versions",
+                            backend.list_installed(),
+                            AppError::environment_load_failed,
+                        ) => result
+                    };
+                    (target_env_id, request_seq, result)
+                },
+                |(env_id, request_seq, result)| Message::EnvironmentLoaded {
+                    env_id,
+                    request_seq,
+                    result,
+                },
+            );
         }
         Task::none()
     }
@@ -285,9 +415,23 @@ mod tests {
     use std::collections::HashSet;
 
     use tokio_util::sync::CancellationToken;
+    use versi_backend::{InstalledVersion, NodeVersion};
+    use versi_platform::EnvironmentId;
 
     use super::super::test_app_with_two_environments;
     use super::*;
+    use crate::backend_kind::BackendKind;
+    use crate::state::EnvironmentState;
+
+    fn installed(version: &str, is_default: bool) -> InstalledVersion {
+        InstalledVersion {
+            version: version.parse().expect("test version should parse"),
+            is_default,
+            lts_codename: None,
+            install_date: None,
+            disk_size: None,
+        }
+    }
 
     #[test]
     fn search_changed_clears_filters_when_query_becomes_empty() {
@@ -363,6 +507,151 @@ mod tests {
 
         assert!(old_token.is_cancelled());
         let state = app.main_state();
+        assert!(state.active_environment().load_cancel_token.is_some());
+    }
+
+    #[test]
+    fn collect_background_preload_targets_includes_unloaded_available_non_active() {
+        let app = test_app_with_two_environments();
+        let state = app.main_state();
+        let active_env_id = state.active_environment().id.clone();
+
+        let targets = collect_background_preload_targets(state, &active_env_id);
+
+        assert_eq!(targets.len(), 1);
+        assert_eq!(
+            targets[0],
+            EnvironmentId::Wsl {
+                distro: "Ubuntu".to_string(),
+                backend_path: "/home/user/.nvm/nvm.sh".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn collect_background_preload_targets_excludes_loaded_and_unavailable() {
+        let mut app = test_app_with_two_environments();
+        let state = app.main_state_mut();
+        state.environments[1].installed_versions = vec![installed("v20.11.0", true)];
+        state.environments.push(EnvironmentState::unavailable(
+            EnvironmentId::Wsl {
+                distro: "Debian".to_string(),
+                backend_path: "/home/user/.nvm/nvm.sh".to_string(),
+            },
+            BackendKind::Nvm,
+            "Not running",
+        ));
+        let active_env_id = state.active_environment().id.clone();
+
+        let targets = collect_background_preload_targets(state, &active_env_id);
+
+        assert!(targets.is_empty());
+    }
+
+    #[test]
+    fn environment_loaded_starts_background_preload_once_after_active_load() {
+        let mut app = test_app_with_two_environments();
+        let non_active_env = EnvironmentId::Wsl {
+            distro: "Ubuntu".to_string(),
+            backend_path: "/home/user/.nvm/nvm.sh".to_string(),
+        };
+
+        let _ = app.handle_environment_loaded(&non_active_env, 0, Ok(vec![]));
+        assert!(!app.main_state().background_preload_started);
+
+        let _ = app.handle_environment_loaded(
+            &EnvironmentId::Native,
+            0,
+            Ok(vec![InstalledVersion {
+                version: NodeVersion::new(20, 11, 0),
+                is_default: true,
+                lts_codename: None,
+                install_date: None,
+                disk_size: None,
+            }]),
+        );
+        assert!(app.main_state().background_preload_started);
+    }
+
+    #[test]
+    fn start_background_preload_marks_target_environment_loading() {
+        let mut app = test_app_with_two_environments();
+        let env_id = EnvironmentId::Wsl {
+            distro: "Ubuntu".to_string(),
+            backend_path: "/home/user/.nvm/nvm.sh".to_string(),
+        };
+
+        let state = app.main_state_mut();
+        let target = state
+            .environments
+            .iter_mut()
+            .find(|env| env.id == env_id)
+            .expect("expected target environment");
+        target.loading = false;
+        target.load_request_seq = 5;
+        target.load_cancel_token = None;
+        target.installed_versions.clear();
+
+        let _ = app.handle_start_background_environment_preload(&env_id);
+
+        let state = app.main_state();
+        let target = state
+            .environments
+            .iter()
+            .find(|env| env.id == env_id)
+            .expect("expected target environment");
+        assert!(target.loading);
+        assert_eq!(target.load_request_seq, 6);
+        assert!(target.load_cancel_token.is_some());
+    }
+
+    #[test]
+    fn start_background_preload_skips_loaded_environment() {
+        let mut app = test_app_with_two_environments();
+        let env_id = EnvironmentId::Wsl {
+            distro: "Ubuntu".to_string(),
+            backend_path: "/home/user/.nvm/nvm.sh".to_string(),
+        };
+
+        let state = app.main_state_mut();
+        let target = state
+            .environments
+            .iter_mut()
+            .find(|env| env.id == env_id)
+            .expect("expected target environment");
+        target.loading = false;
+        target.load_request_seq = 3;
+        target.load_cancel_token = None;
+        target.installed_versions = vec![installed("v20.11.0", true)];
+
+        let _ = app.handle_start_background_environment_preload(&env_id);
+
+        let state = app.main_state();
+        let target = state
+            .environments
+            .iter()
+            .find(|env| env.id == env_id)
+            .expect("expected target environment");
+        assert_eq!(target.load_request_seq, 3);
+        assert!(target.load_cancel_token.is_none());
+    }
+
+    #[test]
+    fn selecting_environment_with_inflight_preload_does_not_restart_load() {
+        let mut app = test_app_with_two_environments();
+        let old_token = CancellationToken::new();
+        let state = app.main_state_mut();
+        state.environments[1].loading = true;
+        state.environments[1].installed_versions.clear();
+        state.environments[1].load_request_seq = 7;
+        state.environments[1].load_cancel_token = Some(old_token.clone());
+
+        let _ = app.handle_environment_selected(1);
+
+        let state = app.main_state();
+        assert_eq!(state.active_environment_idx, 1);
+        assert_eq!(state.active_environment().load_request_seq, 7);
+        assert!(!old_token.is_cancelled());
         assert!(state.active_environment().load_cancel_token.is_some());
     }
 }

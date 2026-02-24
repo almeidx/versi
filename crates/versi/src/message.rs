@@ -25,6 +25,9 @@ pub enum Message {
         request_seq: u64,
         result: Result<Vec<InstalledVersion>, AppError>,
     },
+    StartBackgroundEnvironmentPreload {
+        env_id: EnvironmentId,
+    },
     RefreshEnvironment,
     FocusSearch,
     SelectPreviousVersion,

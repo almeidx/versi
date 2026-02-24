@@ -28,6 +28,7 @@ pub enum SearchFilter {
 pub struct MainState {
     pub environments: Vec<EnvironmentState>,
     pub active_environment_idx: usize,
+    pub background_preload_started: bool,
     pub available_versions: VersionCache,
     pub operation_queue: OperationQueue,
     pub bulk_run: Option<BulkRunState>,
@@ -101,6 +102,7 @@ impl MainState {
         Self {
             environments,
             active_environment_idx: 0,
+            background_preload_started: false,
             available_versions: VersionCache::new(),
             operation_queue: OperationQueue::new(),
             bulk_run: None,
