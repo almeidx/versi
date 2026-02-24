@@ -293,16 +293,16 @@ pub fn tooltip_text(default_version: Option<&NodeVersion>) -> String {
     }
 }
 
+#[cfg(target_os = "linux")]
+pub fn update_tooltip(_tooltip: &str) {}
+
+#[cfg(not(target_os = "linux"))]
 pub fn update_tooltip(tooltip: &str) {
     TRAY_ICON.with(|cell| {
-        if let Some(tray) = cell.borrow().as_ref() {
-            #[cfg(not(target_os = "linux"))]
-            if let Err(error) = tray.set_tooltip(Some(tooltip)) {
-                log::warn!("Failed to update tray tooltip: {error}");
-            }
-
-            #[cfg(target_os = "linux")]
-            let _ = tooltip;
+        if let Some(tray) = cell.borrow().as_ref()
+            && let Err(error) = tray.set_tooltip(Some(tooltip))
+        {
+            log::warn!("Failed to update tray tooltip: {error}");
         }
     });
 }
