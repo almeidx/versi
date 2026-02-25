@@ -3,6 +3,27 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.11.0] - 2026-02-25
+
+- feat: add overlay scrollbars and sticky section headers
+- fix: trap scroll on modals
+- Integrate Node security advisory warnings and caching
+- deps: Update patch/minor dependencies (#78)
+- Fix fnm mock command test
+- Fix keyboard list-mode version actions and search input bleed
+- Implement background env preload
+- Add bulk progress and preload envs
+- Add bulk operation progress UI
+- test(nvm): retry uninstall when target version is active
+- test(ci): remove WSL integration tests and workflow job
+- Fix tray tooltip update
+- test: add backend integration tests and CI workflow
+- Add tray tooltip version
+- Add detailed install progress
+- deps: Update Rust crate zbus to 5.14.0 (#77)
+- deps: Lock file maintenance (#76)
+
+
 ## [0.10.3] - 2026-02-20
 
 - fix(windows): align launch-at-login registry status type
