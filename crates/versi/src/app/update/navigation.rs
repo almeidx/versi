@@ -94,6 +94,13 @@ impl Versi {
                 self.handle_version_metadata_fetched(request_seq, *result);
                 Ok(Task::none())
             }
+            Message::SecurityAdvisoriesFetched {
+                request_seq,
+                result,
+            } => {
+                self.handle_security_advisories_fetched(request_seq, *result);
+                Ok(Task::none())
+            }
             Message::ShowVersionDetail(version) => {
                 if let AppState::Main(state) = &mut self.state {
                     state.modal = Some(crate::state::Modal::VersionDetail { version });
@@ -112,6 +119,7 @@ impl Versi {
             Message::SelectPreviousEnvironment => Ok(self.select_environment_by_step(false)),
             Message::FetchReleaseSchedule => Ok(self.handle_fetch_release_schedule()),
             Message::FetchVersionMetadata => Ok(self.handle_fetch_version_metadata()),
+            Message::FetchSecurityAdvisories => Ok(self.handle_fetch_security_advisories()),
             other => Err(Box::new(other)),
         }
     }

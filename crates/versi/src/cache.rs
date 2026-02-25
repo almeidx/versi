@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use versi_backend::RemoteVersion;
-use versi_core::{ReleaseSchedule, VersionMeta};
+use versi_core::{ReleaseSchedule, SecurityAdvisory, VersionMeta};
 use versi_platform::AppPaths;
 
 #[derive(Serialize, Deserialize)]
@@ -14,6 +14,8 @@ pub struct DiskCache {
     pub release_schedule: Option<ReleaseSchedule>,
     #[serde(default)]
     pub version_metadata: Option<HashMap<String, VersionMeta>>,
+    #[serde(default)]
+    pub security_advisories: Option<HashMap<String, SecurityAdvisory>>,
     pub cached_at: DateTime<Utc>,
 }
 
@@ -40,6 +42,7 @@ struct DiskCacheSnapshot<'a> {
     remote_versions: &'a [RemoteVersion],
     release_schedule: Option<&'a ReleaseSchedule>,
     version_metadata: Option<&'a HashMap<String, VersionMeta>>,
+    security_advisories: Option<&'a HashMap<String, SecurityAdvisory>>,
     cached_at: DateTime<Utc>,
 }
 
@@ -80,6 +83,7 @@ pub fn save_snapshot(
     remote_versions: &[RemoteVersion],
     release_schedule: Option<&ReleaseSchedule>,
     version_metadata: Option<&HashMap<String, VersionMeta>>,
+    security_advisories: Option<&HashMap<String, SecurityAdvisory>>,
     cached_at: DateTime<Utc>,
 ) {
     let Ok(paths) = AppPaths::new() else {
@@ -92,6 +96,7 @@ pub fn save_snapshot(
         remote_versions,
         release_schedule,
         version_metadata,
+        security_advisories,
         cached_at,
     );
 }
@@ -101,12 +106,14 @@ fn save_snapshot_to_path(
     remote_versions: &[RemoteVersion],
     release_schedule: Option<&ReleaseSchedule>,
     version_metadata: Option<&HashMap<String, VersionMeta>>,
+    security_advisories: Option<&HashMap<String, SecurityAdvisory>>,
     cached_at: DateTime<Utc>,
 ) {
     let payload = DiskCacheSnapshot {
         remote_versions,
         release_schedule,
         version_metadata,
+        security_advisories,
         cached_at,
     };
     if let Ok(data) = serde_json::to_vec(&payload) {
@@ -248,7 +255,7 @@ mod tests {
 
     use chrono::Utc;
     use versi_backend::{NodeVersion, RemoteVersion};
-    use versi_core::VersionMeta;
+    use versi_core::{SecurityAdvisory, VersionMeta};
 
     use super::DiskCache;
 
@@ -270,6 +277,21 @@ mod tests {
                     openssl: Some("3.0.0".to_string()),
                 },
             )])),
+            security_advisories: Some(HashMap::from([(
+                "163".to_string(),
+                SecurityAdvisory {
+                    cve: vec!["CVE-2026-21637".to_string()],
+                    vulnerable: "20.x || 22.x".to_string(),
+                    patched: "^20.20.0 || ^22.22.0".to_string(),
+                    severity: "medium".to_string(),
+                    reference:
+                        "https://nodejs.org/en/blog/vulnerability/december-2025-security-releases"
+                            .to_string(),
+                    description: "TLS callback issue".to_string(),
+                    overview: "overview".to_string(),
+                    affected_environments: vec!["all".to_string()],
+                },
+            )])),
             cached_at: Utc::now(),
         }
     }
@@ -285,6 +307,7 @@ mod tests {
             &cache.remote_versions,
             cache.release_schedule.as_ref(),
             cache.version_metadata.as_ref(),
+            cache.security_advisories.as_ref(),
             cache.cached_at,
         );
         let loaded = DiskCache::load_from_path(&path)
@@ -302,6 +325,12 @@ mod tests {
         assert_eq!(
             metadata.get("v22.10.0").and_then(|v| v.npm.as_deref()),
             Some("10.9.0")
+        );
+        assert!(
+            loaded
+                .security_advisories
+                .as_ref()
+                .is_some_and(|advisories| advisories.contains_key("163"))
         );
     }
 
@@ -329,6 +358,7 @@ mod tests {
             &cache.remote_versions,
             cache.release_schedule.as_ref(),
             cache.version_metadata.as_ref(),
+            cache.security_advisories.as_ref(),
             cache.cached_at,
         );
 
@@ -348,5 +378,26 @@ mod tests {
             })
             .count();
         assert_eq!(temp_files, 0);
+    }
+
+    #[test]
+    fn load_from_path_preserves_backward_compat_without_security_advisories_field() {
+        let temp_dir = tempfile::tempdir().expect("temporary directory should be created");
+        let path = temp_dir.path().join("versions.json");
+        std::fs::write(
+            &path,
+            r#"{
+  "remote_versions": [],
+  "release_schedule": null,
+  "version_metadata": null,
+  "cached_at": "2026-02-20T12:00:00Z"
+}"#,
+        )
+        .expect("legacy cache should be written");
+
+        let loaded = DiskCache::load_from_path(&path)
+            .expect("legacy cache should parse")
+            .expect("legacy cache should load");
+        assert!(loaded.security_advisories.is_none());
     }
 }

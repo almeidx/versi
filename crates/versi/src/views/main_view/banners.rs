@@ -26,6 +26,17 @@ pub(super) fn contextual_banners(state: &MainState) -> Option<Element<'_, Messag
         banners.push(metadata_banner);
     }
 
+    if let Some(security_advisories_banner) = security_advisories_banner(
+        state,
+        state.available_versions.security_advisories.is_some(),
+    ) {
+        banners.push(security_advisories_banner);
+    }
+
+    if let Some(vulnerability_banner) = vulnerability_banner(state) {
+        banners.push(vulnerability_banner);
+    }
+
     if let Some(update_banner) = available_updates_banner(state) {
         banners.push(update_banner);
     }
@@ -338,8 +349,65 @@ fn metadata_banner(state: &MainState, has_metadata: bool) -> Option<Element<'_, 
     }
 }
 
+fn security_advisories_banner(
+    state: &MainState,
+    has_security_advisories: bool,
+) -> Option<Element<'_, Message>> {
+    if state.available_versions.security_fetch.error.is_some() && !has_security_advisories {
+        Some(simple_retry_banner(
+            "Security advisories unavailable \u{2014} vulnerability warnings may be incomplete"
+                .to_string(),
+            Message::FetchSecurityAdvisories,
+        ))
+    } else {
+        None
+    }
+}
+
+fn vulnerability_banner(state: &MainState) -> Option<Element<'_, Message>> {
+    let vulnerable_count = state.banner_stats.vulnerable_installed;
+    if vulnerable_count == 0 {
+        return None;
+    }
+
+    let advisory_count = state.banner_stats.vulnerable_advisory;
+    let eol_count = state.banner_stats.vulnerable_eol;
+    let detail = match (advisory_count, eol_count) {
+        (0, eol) => format!("{eol} end-of-life version(s) are considered vulnerable"),
+        (advisory, 0) => format!("{advisory} version(s) match known advisories"),
+        (advisory, eol) => {
+            format!("{advisory} with advisory matches; {eol} marked vulnerable due to EOL")
+        }
+    };
+
+    let title = format!(
+        "{vulnerable_count} installed {} has security vulnerabilities",
+        if vulnerable_count == 1 {
+            "version"
+        } else {
+            "versions"
+        }
+    );
+
+    Some(
+        container(
+            column![
+                text(title).size(13).color(crate::theme::tokens::DANGER),
+                text(detail)
+                    .size(11)
+                    .color(crate::theme::tokens::TEXT_MUTED),
+            ]
+            .spacing(4),
+        )
+        .style(styles::card_container)
+        .padding([10, 12])
+        .width(Length::Fill)
+        .into(),
+    )
+}
+
 fn available_updates_banner(state: &MainState) -> Option<Element<'_, Message>> {
-    let update_count = state.banner_stats.updatable_major_count;
+    let update_count = state.banner_stats.updatable_majors;
 
     if update_count == 0 {
         return None;
@@ -382,7 +450,7 @@ fn available_updates_banner(state: &MainState) -> Option<Element<'_, Message>> {
 }
 
 fn eol_cleanup_banner(state: &MainState) -> Option<Element<'_, Message>> {
-    let eol_count = state.banner_stats.eol_installed_count;
+    let eol_count = state.banner_stats.eol_installed;
 
     if eol_count == 0 {
         return None;
@@ -459,7 +527,8 @@ mod tests {
 
     use super::{
         bulk_operation_progress_banner, contextual_banners, format_versions_preview,
-        metadata_banner, overall_bulk_progress_basis_points,
+        metadata_banner, overall_bulk_progress_basis_points, security_advisories_banner,
+        vulnerability_banner,
     };
     use crate::backend_kind::BackendKind;
     use crate::error::AppError;
@@ -512,6 +581,39 @@ mod tests {
     fn metadata_banner_hides_without_error() {
         let state = main_state_for_banners();
         assert!(metadata_banner(&state, false).is_none());
+    }
+
+    #[test]
+    fn security_advisories_banner_shows_when_error_exists_without_cached_data() {
+        let mut state = main_state_for_banners();
+        state.available_versions.security_fetch.error = Some(AppError::version_fetch_failed(
+            "Security advisories",
+            "network timeout",
+        ));
+
+        assert!(security_advisories_banner(&state, false).is_some());
+    }
+
+    #[test]
+    fn security_advisories_banner_hides_when_cached_data_exists() {
+        let mut state = main_state_for_banners();
+        state.available_versions.security_fetch.error = Some(AppError::version_fetch_failed(
+            "Security advisories",
+            "network timeout",
+        ));
+        state.available_versions.security_advisories = Some(std::collections::HashMap::new());
+
+        assert!(security_advisories_banner(&state, true).is_none());
+    }
+
+    #[test]
+    fn vulnerability_banner_shows_with_non_zero_count() {
+        let mut state = main_state_for_banners();
+        state.banner_stats.vulnerable_installed = 2;
+        state.banner_stats.vulnerable_advisory = 1;
+        state.banner_stats.vulnerable_eol = 1;
+
+        assert!(vulnerability_banner(&state).is_some());
     }
 
     #[test]

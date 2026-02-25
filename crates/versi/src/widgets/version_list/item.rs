@@ -3,11 +3,16 @@ use iced::{Alignment, Element, Length};
 
 use versi_backend::InstalledVersion;
 
+use crate::icon;
 use crate::message::Message;
-use crate::state::Operation;
+use crate::state::{Operation, VersionSecurityFinding};
 use crate::theme::styles;
 
 use super::VersionListContext;
+
+fn show_security_warning_icon(finding: Option<&VersionSecurityFinding>) -> bool {
+    finding.is_some_and(VersionSecurityFinding::is_vulnerable)
+}
 
 pub(super) fn version_item_view<'a>(
     version: &'a InstalledVersion,
@@ -18,6 +23,7 @@ pub(super) fn version_item_view<'a>(
 
     let version_str = version.version.to_string();
     let meta = ctx.metadata.and_then(|m| m.get(&version_str));
+    let security_finding = ctx.security_findings.get(&version_str);
 
     let active_op = ctx.operation_queue.active_operation_for(&version_str);
     let is_pending = ctx.operation_queue.has_pending_for_version(&version_str);
@@ -32,13 +38,17 @@ pub(super) fn version_item_view<'a>(
         .is_some_and(|h| h == &version_str);
     let show_actions = is_hovered || is_default;
 
-    let row_content = row![
+    let mut row_content = row![
         container(text(version_str.clone()).size(14))
             .padding([2, 4])
             .width(Length::Fixed(crate::theme::tokens::COL_VERSION)),
     ]
     .spacing(8)
     .align_y(Alignment::Center);
+
+    if show_security_warning_icon(security_finding) {
+        row_content = row_content.push(container(icon::warning(13.0)).width(Length::Fixed(16.0)));
+    }
 
     let row_content = push_badges_and_size(row_content, version, meta, is_default);
 
@@ -206,7 +216,8 @@ fn format_tenths(value: u64, unit: u64, suffix: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{format_bytes, format_tenths};
+    use super::{format_bytes, format_tenths, show_security_warning_icon};
+    use crate::state::VersionSecurityFinding;
 
     #[test]
     fn format_bytes_uses_bytes_for_small_values() {
@@ -226,5 +237,22 @@ mod tests {
     fn format_tenths_rounds_to_nearest_tenth() {
         assert_eq!(format_tenths(1280, 1024, "KB"), "1.3 KB");
         assert_eq!(format_tenths(1228, 1024, "KB"), "1.2 KB");
+    }
+
+    #[test]
+    fn show_security_warning_icon_requires_vulnerable_finding() {
+        assert!(!show_security_warning_icon(None));
+        assert!(!show_security_warning_icon(Some(&VersionSecurityFinding {
+            advisory_ids: Vec::new(),
+            is_eol: false,
+        })));
+        assert!(show_security_warning_icon(Some(&VersionSecurityFinding {
+            advisory_ids: vec!["163".to_string()],
+            is_eol: false,
+        })));
+        assert!(show_security_warning_icon(Some(&VersionSecurityFinding {
+            advisory_ids: Vec::new(),
+            is_eol: true,
+        })));
     }
 }

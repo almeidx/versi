@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
-use iced::widget::{Space, button, column, container, mouse_area, row, text};
+use iced::widget::{Space, button, column, container, mouse_area, row, scrollable, text};
 use iced::{Element, Length};
 
 use versi_core::VersionMeta;
 
+use crate::icon;
 use crate::message::Message;
 use crate::settings::AppSettings;
 use crate::state::{MainState, Modal};
@@ -26,6 +27,8 @@ fn version_preview_list(labels: Vec<String>, preview_limit: usize) -> Element<'s
     }
     list.into()
 }
+
+const VERSION_DETAIL_MODAL_MAX_HEIGHT: f32 = 760.0;
 
 pub(super) fn modal_overlay<'a>(
     content: Element<'a, Message>,
@@ -60,6 +63,7 @@ pub(super) fn modal_overlay<'a>(
             version_detail_view(version, state.available_versions.metadata.as_ref(), state)
         }
     };
+    let is_version_detail = matches!(modal, Modal::VersionDetail { .. });
 
     let backdrop = mouse_area(
         container(Space::new().width(Length::Fill).height(Length::Fill))
@@ -77,13 +81,15 @@ pub(super) fn modal_overlay<'a>(
     )
     .on_press(Message::CloseModal);
 
-    let modal_container = mouse_area(
-        container(modal_content)
-            .style(styles::modal_container)
-            .padding(iced::Padding::new(crate::theme::tokens::MODAL_PADDING))
-            .max_width(crate::theme::tokens::MODAL_MAX_WIDTH),
-    )
-    .on_press(Message::NoOp);
+    let mut modal_shell = container(modal_content)
+        .style(styles::modal_container)
+        .padding(iced::Padding::new(crate::theme::tokens::MODAL_PADDING))
+        .max_width(crate::theme::tokens::MODAL_MAX_WIDTH);
+    if is_version_detail {
+        modal_shell = modal_shell.max_height(VERSION_DETAIL_MODAL_MAX_HEIGHT);
+    }
+
+    let modal_container = mouse_area(modal_shell).on_press(Message::NoOp);
 
     let modal_layer = container(modal_container)
         .center_x(Length::Fill)
@@ -282,63 +288,15 @@ fn version_detail_view<'a>(
 ) -> Element<'a, Message> {
     let muted = crate::theme::tokens::TEXT_MUTED;
     let meta = metadata.and_then(|m| m.get(version));
+    let security_finding = state.security_findings_by_version.get(version);
+    let security_advisories = state.available_versions.security_advisories.as_ref();
 
     let mut content = column![text(format!("Node {version}")).size(20),].spacing(4);
 
     content = content.push(Space::new().height(12));
 
-    if let Some(meta) = meta {
-        content = content.push(
-            text(format!("Released {}", meta.date))
-                .size(13)
-                .color(muted),
-        );
-        content = content.push(Space::new().height(8));
-
-        let mut badge_row = row![].spacing(8).align_y(iced::Alignment::Center);
-
-        if meta.security {
-            badge_row = badge_row.push(
-                container(text("Security Release").size(11))
-                    .padding([2, 6])
-                    .style(styles::badge_security),
-            );
-        }
-
-        if let Some(lts) = lookup_lts(version, state) {
-            badge_row = badge_row.push(
-                container(text(format!("LTS: {lts}")).size(11))
-                    .padding([2, 6])
-                    .style(styles::badge_lts),
-            );
-        }
-
-        content = content.push(badge_row);
-        content = content.push(Space::new().height(12));
-
-        let mut details = column![].spacing(6);
-        if let Some(npm) = &meta.npm {
-            details = details.push(meta_row("npm", npm, muted));
-        }
-        if let Some(v8) = &meta.v8 {
-            details = details.push(meta_row("V8", v8, muted));
-        }
-        if let Some(openssl) = &meta.openssl {
-            details = details.push(meta_row("OpenSSL", openssl, muted));
-        }
-        content = content.push(details);
-
-        if is_major_release(version) {
-            content = content.push(Space::new().height(8));
-            content = content.push(
-                text("Major release — check changelog for breaking changes")
-                    .size(12)
-                    .color(crate::theme::tokens::EOL_ORANGE),
-            );
-        }
-    } else {
-        content = content.push(text("No metadata available").size(13).color(muted));
-    }
+    content = append_metadata_section(content, version, state, meta, muted);
+    content = append_security_section(content, security_finding, security_advisories, muted);
 
     content = content.push(Space::new().height(24));
     content = content.push(
@@ -348,15 +306,158 @@ fn version_detail_view<'a>(
                 .style(styles::secondary_button)
                 .padding([10, 20]),
             Space::new().width(Length::Fill),
-            button(text("View Full Changelog").size(13))
-                .on_press(Message::OpenChangelog(version.to_string()))
-                .style(styles::primary_button)
-                .padding([10, 20]),
+            button(
+                row![
+                    text("View Full Changelog").size(13),
+                    icon::arrow_up_right(12.0),
+                ]
+                .spacing(6)
+                .align_y(iced::Alignment::Center),
+            )
+            .on_press(Message::OpenChangelog(version.to_string()))
+            .style(styles::primary_button)
+            .padding([10, 20]),
         ]
         .spacing(16),
     );
 
-    content.width(Length::Fill).into()
+    scrollable(content.width(Length::Fill)).into()
+}
+
+fn append_metadata_section<'a>(
+    mut content: iced::widget::Column<'a, Message>,
+    version: &'a str,
+    state: &'a MainState,
+    meta: Option<&'a VersionMeta>,
+    muted: iced::Color,
+) -> iced::widget::Column<'a, Message> {
+    let Some(meta) = meta else {
+        return content.push(text("No metadata available").size(13).color(muted));
+    };
+
+    content = content.push(
+        text(format!("Released {}", meta.date))
+            .size(13)
+            .color(muted),
+    );
+    content = content.push(Space::new().height(8));
+
+    let mut badge_row = row![].spacing(8).align_y(iced::Alignment::Center);
+    if meta.security {
+        badge_row = badge_row.push(
+            container(text("Security Release").size(11))
+                .padding([2, 6])
+                .style(styles::badge_security),
+        );
+    }
+    if let Some(lts) = lookup_lts(version, state) {
+        badge_row = badge_row.push(
+            container(text(format!("LTS: {lts}")).size(11))
+                .padding([2, 6])
+                .style(styles::badge_lts),
+        );
+    }
+    content = content.push(badge_row);
+    content = content.push(Space::new().height(12));
+
+    let mut details = column![].spacing(6);
+    if let Some(npm) = &meta.npm {
+        details = details.push(meta_row("npm", npm, muted));
+    }
+    if let Some(v8) = &meta.v8 {
+        details = details.push(meta_row("V8", v8, muted));
+    }
+    if let Some(openssl) = &meta.openssl {
+        details = details.push(meta_row("OpenSSL", openssl, muted));
+    }
+    content = content.push(details);
+
+    if is_major_release(version) {
+        content = content.push(Space::new().height(8));
+        content = content.push(
+            text("Major release — review changelog for breaking changes")
+                .size(12)
+                .color(crate::theme::tokens::EOL_ORANGE),
+        );
+        content = content.push(Space::new().height(4));
+        content = content.push(
+            button(
+                row![text("Open changelog").size(12), icon::arrow_up_right(11.0),]
+                    .spacing(6)
+                    .align_y(iced::Alignment::Center),
+            )
+            .on_press(Message::OpenChangelog(version.to_string()))
+            .style(styles::secondary_button)
+            .padding([4, 10]),
+        );
+    }
+
+    content
+}
+
+fn append_security_section<'a>(
+    mut content: iced::widget::Column<'a, Message>,
+    finding: Option<&'a crate::state::VersionSecurityFinding>,
+    security_advisories: Option<&'a HashMap<String, versi_core::SecurityAdvisory>>,
+    muted: iced::Color,
+) -> iced::widget::Column<'a, Message> {
+    let Some(finding) = finding else {
+        return content;
+    };
+
+    content = content.push(Space::new().height(12));
+    content = content.push(
+        text("Security advisories")
+            .size(14)
+            .color(crate::theme::tokens::DANGER),
+    );
+    content = content.push(Space::new().height(6));
+
+    if finding.is_eol {
+        content = content.push(
+            text("This version is end-of-life and no longer receives security updates.")
+                .size(12)
+                .color(crate::theme::tokens::EOL_ORANGE),
+        );
+        content = content.push(Space::new().height(6));
+    }
+
+    for advisory_id in &finding.advisory_ids {
+        if let Some(advisory) = security_advisories.and_then(|map| map.get(advisory_id)) {
+            content = content.push(
+                text(advisory_heading(advisory_id, advisory))
+                    .size(12)
+                    .color(crate::theme::tokens::DANGER),
+            );
+            if !advisory.patched.is_empty() {
+                content = content.push(
+                    text(format!("Fixed versions: {}", advisory.patched))
+                        .size(12)
+                        .color(muted),
+                );
+            }
+            if !advisory.description.is_empty() {
+                content = content.push(text(advisory.description.clone()).size(12));
+            }
+            if !advisory.reference.is_empty() {
+                content = content.push(
+                    button(
+                        row![text("Open advisory").size(12), icon::arrow_up_right(11.0),]
+                            .spacing(6)
+                            .align_y(iced::Alignment::Center),
+                    )
+                    .on_press(Message::OpenLink(advisory.reference.clone()))
+                    .style(styles::secondary_button)
+                    .padding([4, 10]),
+                );
+            }
+            content = content.push(Space::new().height(6));
+        } else {
+            content = content.push(text(format!("NSWG-COR-{advisory_id}")).size(12));
+        }
+    }
+
+    content
 }
 
 fn meta_row<'a>(label: &'a str, value: &'a str, muted: iced::Color) -> Element<'a, Message> {
@@ -370,6 +471,20 @@ fn meta_row<'a>(label: &'a str, value: &'a str, muted: iced::Color) -> Element<'
     .spacing(8)
     .align_y(iced::Alignment::Center)
     .into()
+}
+
+fn advisory_heading(advisory_id: &str, advisory: &versi_core::SecurityAdvisory) -> String {
+    let cve_label = if advisory.cve.is_empty() {
+        format!("NSWG-COR-{advisory_id}")
+    } else {
+        advisory.cve.join(", ")
+    };
+
+    if advisory.severity.is_empty() {
+        cve_label
+    } else {
+        format!("{cve_label} ({})", advisory.severity)
+    }
 }
 
 fn lookup_lts<'a>(version: &str, state: &'a MainState) -> Option<&'a str> {
@@ -440,4 +555,44 @@ fn keyboard_shortcuts_view() -> Element<'static, Message> {
     .spacing(4)
     .width(Length::Fill)
     .into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::advisory_heading;
+
+    #[test]
+    fn advisory_heading_prefers_cve_list_and_severity() {
+        let advisory = versi_core::SecurityAdvisory {
+            cve: vec!["CVE-2026-21637".to_string(), "CVE-2026-30000".to_string()],
+            vulnerable: "22.x".to_string(),
+            patched: "^22.22.0".to_string(),
+            severity: "medium".to_string(),
+            reference: "https://example.com".to_string(),
+            description: String::new(),
+            overview: String::new(),
+            affected_environments: vec!["all".to_string()],
+        };
+
+        assert_eq!(
+            advisory_heading("163", &advisory),
+            "CVE-2026-21637, CVE-2026-30000 (medium)"
+        );
+    }
+
+    #[test]
+    fn advisory_heading_falls_back_to_nswg_identifier_without_cve() {
+        let advisory = versi_core::SecurityAdvisory {
+            cve: Vec::new(),
+            vulnerable: "22.x".to_string(),
+            patched: "^22.22.0".to_string(),
+            severity: String::new(),
+            reference: "https://example.com".to_string(),
+            description: String::new(),
+            overview: String::new(),
+            affected_environments: vec!["all".to_string()],
+        };
+
+        assert_eq!(advisory_heading("163", &advisory), "NSWG-COR-163");
+    }
 }

@@ -42,6 +42,23 @@ fn sample_metadata() -> HashMap<String, versi_core::VersionMeta> {
     )])
 }
 
+fn sample_security_advisories() -> HashMap<String, versi_core::SecurityAdvisory> {
+    HashMap::from([(
+        "163".to_string(),
+        versi_core::SecurityAdvisory {
+            cve: vec!["CVE-2026-21637".to_string()],
+            vulnerable: "20.x || 22.x || 24.x || 25.x".to_string(),
+            patched: "^20.20.0 || ^22.22.0 || ^24.13.0 || ^25.3.0".to_string(),
+            severity: "medium".to_string(),
+            reference: "https://nodejs.org/en/blog/vulnerability/december-2025-security-releases"
+                .to_string(),
+            description: "TLS callback issue".to_string(),
+            overview: "overview".to_string(),
+            affected_environments: vec!["all".to_string()],
+        },
+    )])
+}
+
 #[test]
 fn remote_versions_fetched_updates_cache_on_success() {
     let mut app = test_app_with_two_environments();
@@ -180,6 +197,82 @@ fn version_metadata_fetched_stores_error_on_failure() {
 }
 
 #[test]
+fn security_advisories_fetched_ignores_stale_request() {
+    let mut app = test_app_with_two_environments();
+    let baseline = sample_security_advisories();
+    app.main_state_mut()
+        .available_versions
+        .security_fetch
+        .request_seq = 6;
+    app.main_state_mut().available_versions.security_advisories = Some(baseline.clone());
+
+    app.handle_security_advisories_fetched(5, Ok(sample_security_advisories()));
+
+    let state = app.main_state();
+    assert_eq!(
+        state
+            .available_versions
+            .security_advisories
+            .as_ref()
+            .expect("baseline advisories should remain")
+            .get("163")
+            .and_then(|advisory| advisory.cve.first())
+            .map(String::as_str),
+        baseline
+            .get("163")
+            .and_then(|advisory| advisory.cve.first())
+            .map(String::as_str)
+    );
+}
+
+#[test]
+fn security_advisories_fetched_stores_data_on_success() {
+    let mut app = test_app_with_two_environments();
+    let state = app.main_state_mut();
+    state.available_versions.security_fetch.request_seq = 10;
+    state.available_versions.security_advisories = None;
+    state.available_versions.security_fetch.error = Some(AppError::version_fetch_failed(
+        "Security advisories",
+        "old error",
+    ));
+
+    app.handle_security_advisories_fetched(10, Ok(sample_security_advisories()));
+
+    let state = app.main_state();
+    assert!(state.available_versions.security_advisories.is_some());
+    assert!(state.available_versions.security_fetch.error.is_none());
+    assert!(state.available_versions.security_last_checked_at.is_some());
+}
+
+#[test]
+fn security_advisories_fetched_stores_error_on_failure() {
+    let mut app = test_app_with_two_environments();
+    app.main_state_mut()
+        .available_versions
+        .security_fetch
+        .request_seq = 11;
+    app.main_state_mut().available_versions.security_advisories = None;
+
+    app.handle_security_advisories_fetched(
+        11,
+        Err(AppError::version_fetch_failed(
+            "Security advisories",
+            "security advisories failed",
+        )),
+    );
+
+    let state = app.main_state();
+    assert!(matches!(
+        state.available_versions.security_fetch.error,
+        Some(AppError::VersionFetchFailed {
+            resource: "Security advisories",
+            ref details
+        }) if details == &crate::error::AppErrorDetail::from("security advisories failed")
+    ));
+    assert!(state.available_versions.security_last_checked_at.is_some());
+}
+
+#[test]
 fn app_update_checked_sets_update_on_success() {
     let mut app = test_app_with_two_environments();
     let update = versi_core::AppUpdate {
@@ -312,6 +405,28 @@ fn fetch_version_metadata_cancels_previous_token() {
         state
             .available_versions
             .metadata_fetch
+            .cancel_token
+            .is_some()
+    );
+}
+
+#[test]
+fn fetch_security_advisories_cancels_previous_token() {
+    let mut app = test_app_with_two_environments();
+    let old_token = CancellationToken::new();
+    app.main_state_mut()
+        .available_versions
+        .security_fetch
+        .cancel_token = Some(old_token.clone());
+
+    let _ = app.handle_fetch_security_advisories();
+
+    assert!(old_token.is_cancelled());
+    let state = app.main_state();
+    assert!(
+        state
+            .available_versions
+            .security_fetch
             .cancel_token
             .is_some()
     );

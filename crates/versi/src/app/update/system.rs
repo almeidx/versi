@@ -8,6 +8,7 @@ use crate::state::{AppState, AppUpdateState};
 use super::super::{Versi, platform};
 
 const APP_UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60 * 6);
+const SECURITY_ADVISORY_CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60 * 24);
 
 impl Versi {
     pub(super) fn dispatch_system(&mut self, message: Message) -> super::DispatchResult {
@@ -87,21 +88,35 @@ impl Versi {
             }
         }
 
-        let should_check_updates = if let AppState::Main(state) = &mut self.state {
-            let timeout = self.settings.toast_timeout_secs;
-            state.toasts.retain(|t| !t.is_expired(timeout));
-            self.settings.app_update_behavior != AppUpdateBehavior::DoNotCheck
-                && state.should_check_for_app_updates(APP_UPDATE_CHECK_INTERVAL)
-                && matches!(
-                    state.app_update_state,
-                    AppUpdateState::Idle | AppUpdateState::Failed(_)
+        let (should_check_updates, should_check_security_advisories) =
+            if let AppState::Main(state) = &mut self.state {
+                let timeout = self.settings.toast_timeout_secs;
+                state.toasts.retain(|t| !t.is_expired(timeout));
+                (
+                    self.settings.app_update_behavior != AppUpdateBehavior::DoNotCheck
+                        && state.should_check_for_app_updates(APP_UPDATE_CHECK_INTERVAL)
+                        && matches!(
+                            state.app_update_state,
+                            AppUpdateState::Idle | AppUpdateState::Failed(_)
+                        ),
+                    state.should_check_for_security_advisories(SECURITY_ADVISORY_CHECK_INTERVAL),
                 )
-        } else {
-            false
-        };
+            } else {
+                (false, false)
+            };
 
-        if should_check_updates {
-            return self.handle_check_for_app_update();
+        if should_check_updates || should_check_security_advisories {
+            let app_update_task = if should_check_updates {
+                self.handle_check_for_app_update()
+            } else {
+                Task::none()
+            };
+            let security_task = if should_check_security_advisories {
+                self.handle_fetch_security_advisories()
+            } else {
+                Task::none()
+            };
+            return Task::batch([app_update_task, security_task]);
         }
 
         Task::none()
@@ -269,5 +284,40 @@ mod tests {
 
         let state = app.main_state();
         assert!(!state.app_update_check_in_flight);
+    }
+
+    #[test]
+    fn tick_starts_security_advisory_fetch_when_due() {
+        let mut app = test_app_with_two_environments();
+
+        let _ = app.dispatch_system(Message::Tick);
+
+        let state = app.main_state();
+        assert!(
+            state
+                .available_versions
+                .security_fetch
+                .cancel_token
+                .is_some()
+        );
+    }
+
+    #[test]
+    fn tick_skips_security_advisory_fetch_when_recently_checked() {
+        let mut app = test_app_with_two_environments();
+        app.main_state_mut()
+            .available_versions
+            .security_last_checked_at = Some(std::time::Instant::now());
+
+        let _ = app.dispatch_system(Message::Tick);
+
+        let state = app.main_state();
+        assert!(
+            state
+                .available_versions
+                .security_fetch
+                .cancel_token
+                .is_none()
+        );
     }
 }

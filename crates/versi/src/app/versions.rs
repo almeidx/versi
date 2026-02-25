@@ -51,6 +51,18 @@ impl Versi {
         fetch_handlers::handle_version_metadata_fetched(self, request_seq, result);
     }
 
+    pub(super) fn handle_fetch_security_advisories(&mut self) -> Task<Message> {
+        fetch_handlers::handle_fetch_security_advisories(self)
+    }
+
+    pub(super) fn handle_security_advisories_fetched(
+        &mut self,
+        request_seq: u64,
+        result: Result<std::collections::HashMap<String, versi_core::SecurityAdvisory>, AppError>,
+    ) {
+        fetch_handlers::handle_security_advisories_fetched(self, request_seq, result);
+    }
+
     pub(super) fn handle_check_for_app_update(&mut self) -> Task<Message> {
         update_checks::handle_check_for_app_update(self)
     }

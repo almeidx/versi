@@ -5,7 +5,8 @@ use std::time::{Duration, Instant};
 use chrono::{DateTime, Utc};
 use tokio_util::sync::CancellationToken;
 use versi_backend::{BackendUpdate, InstallProgress, NodeVersion, RemoteVersion, VersionManager};
-use versi_core::{AppUpdate, ReleaseSchedule, VersionMeta};
+use versi_core::{AppUpdate, ReleaseSchedule, SecurityAdvisory, VersionMeta};
+use versi_platform::EnvironmentId;
 
 use crate::backend_kind::BackendKind;
 use crate::error::AppError;
@@ -51,6 +52,7 @@ pub struct MainState {
     pub refresh_rotation: f32,
     pub active_filters: HashSet<SearchFilter>,
     pub banner_stats: BannerStats,
+    pub security_findings_by_version: HashMap<String, VersionSecurityFinding>,
     pub context_menu: Option<ContextMenu>,
     pub cursor_position: iced::Point,
 }
@@ -71,8 +73,29 @@ pub enum AppUpdateState {
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct BannerStats {
-    pub updatable_major_count: usize,
-    pub eol_installed_count: usize,
+    pub updatable_majors: usize,
+    pub eol_installed: usize,
+    pub vulnerable_installed: usize,
+    pub vulnerable_advisory: usize,
+    pub vulnerable_eol: usize,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct VersionSecurityFinding {
+    pub advisory_ids: Vec<String>,
+    pub is_eol: bool,
+}
+
+impl VersionSecurityFinding {
+    #[must_use]
+    pub fn is_vulnerable(&self) -> bool {
+        self.is_eol || !self.advisory_ids.is_empty()
+    }
+
+    #[must_use]
+    pub fn has_advisory_match(&self) -> bool {
+        !self.advisory_ids.is_empty()
+    }
 }
 
 impl std::fmt::Debug for MainState {
@@ -126,6 +149,7 @@ impl MainState {
             refresh_rotation: 0.0,
             active_filters: HashSet::new(),
             banner_stats: BannerStats::default(),
+            security_findings_by_version: HashMap::new(),
             context_menu: None,
             cursor_position: iced::Point::ORIGIN,
         }
@@ -171,10 +195,66 @@ impl MainState {
                     .sum::<usize>()
             });
 
+        self.recompute_security_findings();
+        let vulnerable_installed_count = self
+            .security_findings_by_version
+            .values()
+            .filter(|finding| finding.is_vulnerable())
+            .count();
+        let vulnerable_advisory_count = self
+            .security_findings_by_version
+            .values()
+            .filter(|finding| finding.has_advisory_match())
+            .count();
+        let vulnerable_eol_count = self
+            .security_findings_by_version
+            .values()
+            .filter(|finding| finding.is_eol)
+            .count();
+
         self.banner_stats = BannerStats {
-            updatable_major_count,
-            eol_installed_count,
+            updatable_majors: updatable_major_count,
+            eol_installed: eol_installed_count,
+            vulnerable_installed: vulnerable_installed_count,
+            vulnerable_advisory: vulnerable_advisory_count,
+            vulnerable_eol: vulnerable_eol_count,
         };
+    }
+
+    fn recompute_security_findings(&mut self) {
+        let env = self.active_environment();
+        let platform = environment_platform(&env.id);
+        let advisories = self.available_versions.security_advisories.as_ref();
+        let schedule = self.available_versions.schedule.as_ref();
+        let mut findings = HashMap::new();
+
+        for version in &env.installed_versions {
+            let version_label = version.version.to_string();
+            let mut advisory_ids = Vec::new();
+
+            if let Some(advisory_index) = advisories {
+                for (advisory_id, advisory) in advisory_index {
+                    if advisory.affects_version_on_platform(&version_label, platform) {
+                        advisory_ids.push(advisory_id.clone());
+                    }
+                }
+            }
+
+            advisory_ids.sort_unstable();
+            let is_eol = schedule
+                .is_some_and(|release_schedule| !release_schedule.is_active(version.version.major));
+
+            let finding = VersionSecurityFinding {
+                advisory_ids,
+                is_eol,
+            };
+
+            if finding.is_vulnerable() {
+                findings.insert(version_label, finding);
+            }
+        }
+
+        self.security_findings_by_version = findings;
     }
 
     pub fn remove_toast(&mut self, id: usize) {
@@ -235,6 +315,23 @@ impl MainState {
                 Instant::now().saturating_duration_since(last_checked_at) >= interval
             })
     }
+
+    pub fn should_check_for_security_advisories(&self, interval: Duration) -> bool {
+        if self
+            .available_versions
+            .security_fetch
+            .cancel_token
+            .is_some()
+        {
+            return false;
+        }
+
+        self.available_versions
+            .security_last_checked_at
+            .is_none_or(|last_checked_at| {
+                Instant::now().saturating_duration_since(last_checked_at) >= interval
+            })
+    }
 }
 
 /// Tracks the request lifecycle for a cancellable async fetch.
@@ -288,6 +385,9 @@ pub struct VersionCache {
     pub schedule_fetch: FetchState,
     pub metadata: Option<HashMap<String, VersionMeta>>,
     pub metadata_fetch: FetchState,
+    pub security_advisories: Option<HashMap<String, SecurityAdvisory>>,
+    pub security_fetch: FetchState,
+    pub security_last_checked_at: Option<Instant>,
     pub loaded_from_disk: bool,
     pub disk_cached_at: Option<DateTime<Utc>>,
     pub search_index: RemoteVersionSearchIndex,
@@ -305,6 +405,9 @@ impl VersionCache {
             schedule_fetch: FetchState::new(),
             metadata: None,
             metadata_fetch: FetchState::new(),
+            security_advisories: None,
+            security_fetch: FetchState::new(),
+            security_last_checked_at: None,
             loaded_from_disk: false,
             disk_cached_at: None,
             search_index: RemoteVersionSearchIndex::default(),
@@ -353,14 +456,37 @@ pub enum NetworkStatus {
     Stale,
 }
 
+fn environment_platform(environment_id: &EnvironmentId) -> &'static str {
+    match environment_id {
+        EnvironmentId::Native => {
+            #[cfg(target_os = "windows")]
+            {
+                "win32"
+            }
+            #[cfg(target_os = "macos")]
+            {
+                "darwin"
+            }
+            #[cfg(all(unix, not(target_os = "macos")))]
+            {
+                "linux"
+            }
+        }
+        EnvironmentId::Wsl { .. } => "linux",
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use std::path::PathBuf;
+    use std::time::{Duration, Instant};
 
-    use super::{MainState, NetworkStatus, SearchFilter, VersionCache};
+    use super::{MainState, NetworkStatus, SearchFilter, VersionCache, VersionSecurityFinding};
     use crate::backend_kind::BackendKind;
     use crate::state::EnvironmentState;
     use versi_backend::{NodeVersion, RemoteVersion};
+    use versi_core::SecurityAdvisory;
     use versi_platform::EnvironmentId;
 
     #[test]
@@ -544,7 +670,74 @@ mod tests {
 
         state.recompute_banner_stats();
 
-        assert_eq!(state.banner_stats.updatable_major_count, 1);
-        assert_eq!(state.banner_stats.eol_installed_count, 2);
+        assert_eq!(state.banner_stats.updatable_majors, 1);
+        assert_eq!(state.banner_stats.eol_installed, 2);
+        assert_eq!(state.banner_stats.vulnerable_installed, 2);
+        assert_eq!(state.banner_stats.vulnerable_advisory, 0);
+        assert_eq!(state.banner_stats.vulnerable_eol, 2);
+    }
+
+    #[test]
+    fn recompute_banner_stats_marks_advisory_vulnerabilities() {
+        let mut state = main_state_with_native_env();
+        state
+            .active_environment_mut()
+            .update_versions(vec![installed(NodeVersion::new(22, 21, 1), true)]);
+        state.available_versions.security_advisories = Some(HashMap::from([(
+            "163".to_string(),
+            SecurityAdvisory {
+                cve: vec!["CVE-2026-21637".to_string()],
+                vulnerable: "20.x || 22.x || 24.x || 25.x".to_string(),
+                patched: "^20.20.0 || ^22.22.0 || ^24.13.0 || ^25.3.0".to_string(),
+                severity: "medium".to_string(),
+                reference:
+                    "https://nodejs.org/en/blog/vulnerability/december-2025-security-releases"
+                        .to_string(),
+                description: "TLS callback exception handling".to_string(),
+                overview: "overview".to_string(),
+                affected_environments: vec!["all".to_string()],
+            },
+        )]));
+
+        state.recompute_banner_stats();
+
+        assert_eq!(state.banner_stats.vulnerable_installed, 1);
+        assert_eq!(state.banner_stats.vulnerable_advisory, 1);
+        assert_eq!(state.banner_stats.vulnerable_eol, 0);
+        assert_eq!(
+            state.security_findings_by_version.get("v22.21.1"),
+            Some(&VersionSecurityFinding {
+                advisory_ids: vec!["163".to_string()],
+                is_eol: false
+            })
+        );
+    }
+
+    #[test]
+    fn should_check_for_security_advisories_respects_interval_and_in_flight_state() {
+        let mut state = main_state_with_native_env();
+
+        assert!(state.should_check_for_security_advisories(Duration::from_secs(60)));
+
+        state.available_versions.security_last_checked_at = Some(Instant::now());
+        assert!(!state.should_check_for_security_advisories(Duration::from_secs(60)));
+
+        state.available_versions.security_last_checked_at =
+            Instant::now().checked_sub(Duration::from_secs(120));
+        assert!(state.should_check_for_security_advisories(Duration::from_secs(60)));
+
+        state.available_versions.security_fetch.cancel_token =
+            Some(tokio_util::sync::CancellationToken::new());
+        assert!(!state.should_check_for_security_advisories(Duration::from_secs(60)));
+    }
+
+    #[test]
+    fn environment_platform_for_wsl_is_linux() {
+        let platform = super::environment_platform(&EnvironmentId::Wsl {
+            distro: "Ubuntu".to_string(),
+            backend_path: "/home/user/.nvm/nvm.sh".to_string(),
+        });
+
+        assert_eq!(platform, "linux");
     }
 }

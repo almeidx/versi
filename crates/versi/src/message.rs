@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use versi_backend::{BackendUpdate, InstallProgress, InstalledVersion, RemoteVersion};
-use versi_core::{AppUpdate, ReleaseSchedule, VersionMeta};
+use versi_core::{AppUpdate, ReleaseSchedule, SecurityAdvisory, VersionMeta};
 use versi_platform::EnvironmentId;
 use versi_shell::ShellType;
 
@@ -171,9 +171,14 @@ pub enum Message {
 
     FetchReleaseSchedule,
     FetchVersionMetadata,
+    FetchSecurityAdvisories,
     VersionMetadataFetched {
         request_seq: u64,
         result: Box<Result<HashMap<String, VersionMeta>, AppError>>,
+    },
+    SecurityAdvisoriesFetched {
+        request_seq: u64,
+        result: Box<Result<HashMap<String, SecurityAdvisory>, AppError>>,
     },
     ShowVersionDetail(String),
 

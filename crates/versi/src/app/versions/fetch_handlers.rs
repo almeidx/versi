@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 use iced::Task;
 use log::debug;
 
-use versi_core::{fetch_release_schedule, fetch_version_metadata};
+use versi_core::{fetch_release_schedule, fetch_security_advisories, fetch_version_metadata};
 
 use crate::error::AppError;
 use crate::message::Message;
@@ -13,7 +13,7 @@ use super::super::Versi;
 use super::super::async_helpers::{retry_with_delays, run_with_timeout};
 use super::cache_save::{
     enqueue_cache_save_release_schedule, enqueue_cache_save_remote_versions,
-    enqueue_cache_save_version_metadata,
+    enqueue_cache_save_security_advisories, enqueue_cache_save_version_metadata,
 };
 
 pub(super) fn handle_fetch_remote_versions(app: &mut Versi) -> Task<Message> {
@@ -227,5 +227,70 @@ pub(super) fn handle_version_metadata_fetched(
                 state.available_versions.metadata_fetch.error = Some(error);
             }
         }
+    }
+}
+
+pub(super) fn handle_fetch_security_advisories(app: &mut Versi) -> Task<Message> {
+    if let AppState::Main(state) = &mut app.state {
+        let (cancel_token, request_seq) = state.available_versions.security_fetch.start();
+        state.available_versions.security_fetch.error = None;
+        let client = app.http_client.clone();
+        let retry_delays = app.settings.retry_delays_secs.clone();
+
+        return Task::perform(
+            async move {
+                tokio::select! {
+                    () = cancel_token.cancelled() => {
+                        Err(AppError::operation_cancelled("Security advisories fetch"))
+                    }
+                    result = retry_with_delays("Security advisories fetch", &retry_delays, || {
+                        let client = client.clone();
+                        async move {
+                            fetch_security_advisories(&client)
+                                .await
+                                .map_err(|error| {
+                                    AppError::version_fetch_failed("Security advisories", error)
+                                })
+                        }
+                    }) => result
+                }
+            },
+            move |result| Message::SecurityAdvisoriesFetched {
+                request_seq,
+                result: Box::new(result),
+            },
+        );
+    }
+    Task::none()
+}
+
+pub(super) fn handle_security_advisories_fetched(
+    app: &mut Versi,
+    request_seq: u64,
+    result: Result<std::collections::HashMap<String, versi_core::SecurityAdvisory>, AppError>,
+) {
+    if let AppState::Main(state) = &mut app.state {
+        if !state.available_versions.security_fetch.accept(request_seq) {
+            debug!(
+                "Ignoring stale security advisories response: request_seq={} current_seq={}",
+                request_seq, state.available_versions.security_fetch.request_seq
+            );
+            return;
+        }
+
+        state.available_versions.security_last_checked_at = Some(Instant::now());
+        match result {
+            Ok(advisories) => {
+                state.available_versions.security_advisories = Some(advisories.clone());
+                state.available_versions.security_fetch.error = None;
+                enqueue_cache_save_security_advisories(advisories);
+            }
+            Err(error) => {
+                debug!("Security advisories fetch failed: {error}");
+                state.available_versions.security_fetch.error = Some(error);
+            }
+        }
+
+        state.recompute_banner_stats();
     }
 }

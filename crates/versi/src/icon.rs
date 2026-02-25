@@ -51,6 +51,17 @@ pub fn check(size: f32) -> svg::Svg<'static, Theme> {
     themed_icon(include_bytes!("../../../assets/icons/check.svg"), size)
 }
 
+pub fn warning(size: f32) -> svg::Svg<'static, Theme> {
+    svg(svg::Handle::from_memory(include_bytes!(
+        "../../../assets/icons/warning.svg"
+    )))
+    .width(Length::Fixed(size))
+    .height(Length::Fixed(size))
+    .style(|theme: &Theme, _status| svg::Style {
+        color: Some(theme.palette().warning),
+    })
+}
+
 pub fn chevron_down(size: f32) -> svg::Svg<'static, Theme> {
     themed_icon(
         include_bytes!("../../../assets/icons/chevron-down.svg"),

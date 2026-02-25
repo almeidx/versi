@@ -89,6 +89,12 @@ impl From<versi_core::ScheduleError> for AppErrorDetail {
     }
 }
 
+impl From<versi_core::SecurityAdvisoryError> for AppErrorDetail {
+    fn from(value: versi_core::SecurityAdvisoryError) -> Self {
+        Self::Message(value.to_string())
+    }
+}
+
 impl From<versi_core::UpdateError> for AppErrorDetail {
     fn from(value: versi_core::UpdateError) -> Self {
         Self::Message(value.to_string())

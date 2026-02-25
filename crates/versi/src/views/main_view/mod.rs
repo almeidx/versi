@@ -33,6 +33,7 @@ pub fn view<'a>(
         install_progress: &state.install_progress,
         hovered_version: hovered,
         metadata: state.available_versions.metadata.as_ref(),
+        security_findings: &state.security_findings_by_version,
         installed_set: &env.installed_set,
     };
     let version_list = version_list::view(

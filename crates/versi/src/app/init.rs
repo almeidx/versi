@@ -191,11 +191,12 @@ impl Versi {
         }
     }
 
-    fn build_post_init_tasks(&mut self) -> [Task<Message>; 5] {
+    fn build_post_init_tasks(&mut self) -> [Task<Message>; 6] {
         [
             self.handle_fetch_remote_versions(),
             self.handle_fetch_release_schedule(),
             self.handle_fetch_version_metadata(),
+            self.handle_fetch_security_advisories(),
             self.handle_check_for_app_update(),
             self.handle_check_for_backend_update(),
         ]
@@ -264,6 +265,9 @@ fn load_disk_cache_into_state(main_state: &mut MainState) {
             }
             if let Some(metadata) = disk_cache.version_metadata {
                 main_state.available_versions.metadata = Some(metadata);
+            }
+            if let Some(advisories) = disk_cache.security_advisories {
+                main_state.available_versions.security_advisories = Some(advisories);
             }
         }
         Ok(None) => {}

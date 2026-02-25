@@ -12,7 +12,7 @@ use versi_backend::{InstalledVersion, NodeVersion, RemoteVersion, VersionGroup};
 use versi_core::{ReleaseSchedule, VersionMeta};
 
 use crate::message::Message;
-use crate::state::{EnvironmentState, OperationQueue, SearchFilter};
+use crate::state::{EnvironmentState, OperationQueue, SearchFilter, VersionSecurityFinding};
 use crate::theme::styles;
 use crate::version_query::{matches_version_query_case_insensitive, passes_release_filters};
 
@@ -25,6 +25,7 @@ pub struct VersionListContext<'a> {
     pub install_progress: &'a HashMap<String, versi_backend::InstallProgress>,
     pub hovered_version: &'a Option<String>,
     pub metadata: Option<&'a HashMap<String, VersionMeta>>,
+    pub security_findings: &'a HashMap<String, VersionSecurityFinding>,
     pub installed_set: &'a HashSet<NodeVersion>,
 }
 

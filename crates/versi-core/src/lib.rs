@@ -4,6 +4,7 @@
 //! concrete backend implementations:
 //! - Release schedule loading and querying.
 //! - Version metadata fetching.
+//! - Security advisory fetching and matching helpers.
 //! - App update discovery and update payload types.
 //! - Small platform command helpers (for example window-hiding adapters).
 
@@ -12,6 +13,7 @@ pub mod commands;
 mod install_script;
 mod metadata;
 mod schedule;
+mod security;
 mod update;
 
 /// Extension trait that normalizes "hide window" behavior on supported command
@@ -23,5 +25,7 @@ pub use install_script::{InstallScriptError, download_install_script_verified};
 pub use metadata::{MetadataError, VersionMeta, fetch_version_metadata};
 /// Node release schedule model and fetch helper.
 pub use schedule::{ReleaseSchedule, ScheduleError, fetch_release_schedule};
+/// Node security advisories model and fetch helper.
+pub use security::{SecurityAdvisory, SecurityAdvisoryError, fetch_security_advisories};
 /// App update model, GitHub release mapping, and version comparison helpers.
 pub use update::{AppUpdate, GitHubRelease, UpdateError, check_for_update, is_newer_version};
