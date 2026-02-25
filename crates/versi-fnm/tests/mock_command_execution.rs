@@ -9,9 +9,20 @@ use versi_backend::{BackendError, VersionManager};
 use versi_fnm::FnmBackend;
 
 fn write_executable(path: &Path, content: &str) {
-    fs::write(path, content).expect("write mock fnm executable");
+    let tmp_path = path.with_file_name(format!(
+        ".{}.tmp-{}",
+        path.file_name()
+            .expect("mock executable file name")
+            .to_string_lossy(),
+        std::process::id()
+    ));
+
+    // Write + chmod on a temporary path, then rename atomically to avoid
+    // transient ETXTBSY ("Text file busy") when the file is executed on Linux.
+    fs::write(&tmp_path, content).expect("write mock fnm executable");
     let perms = fs::Permissions::from_mode(0o755);
-    fs::set_permissions(path, perms).expect("set mock fnm executable permissions");
+    fs::set_permissions(&tmp_path, perms).expect("set mock fnm executable permissions");
+    fs::rename(&tmp_path, path).expect("atomically publish mock fnm executable");
 }
 
 fn mock_fnm_script(log_path: &Path) -> String {
