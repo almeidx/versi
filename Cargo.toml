@@ -21,7 +21,7 @@ tokio = { version = "1.49.0", default-features = false, features = ["rt-multi-th
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 thiserror = "2.0.18"
-chrono = { version = "0.4.43", default-features = false, features = ["std", "now", "serde"] }
+chrono = { version = "0.4.44", default-features = false, features = ["std", "now", "serde"] }
 dirs = "6.0"
 which = "8.0.0"
 reqwest = { version = "0.13.2", default-features = false, features = ["rustls", "json", "stream"] }
@@ -30,7 +30,7 @@ async-trait = "0.1.89"
 log = "0.4.29"
 simplelog = { version = "0.12.2", default-features = false, features = ["termcolor"] }
 zip = { version = "8.1.0", default-features = false, features = ["deflate"] }
-tempfile = "3.25.0"
+tempfile = "3.26.0"
 self-replace = "1.5"
 futures-util = "0.3.32"
 tokio-util = { version = "0.7.18", default-features = false, features = ["rt"] }
