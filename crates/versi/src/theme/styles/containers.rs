@@ -25,6 +25,13 @@ pub fn card_container(theme: &Theme) -> container::Style {
     }
 }
 
+pub fn page_background_overlay(theme: &Theme) -> container::Style {
+    container::Style {
+        background: Some(Background::Color(theme.palette().background)),
+        ..Default::default()
+    }
+}
+
 pub fn modal_container(theme: &Theme) -> container::Style {
     let palette = theme.palette();
     let is_dark = palette.background.r < 0.5;

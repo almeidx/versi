@@ -326,7 +326,16 @@ fn version_detail_view<'a>(
         .spacing(16),
     );
 
-    scrollable(content.width(Length::Fill)).into()
+    scrollable(
+        content.width(Length::Fill).padding(
+            iced::Padding::default().right(crate::theme::tokens::SCROLL_CONTENT_RIGHT_INSET),
+        ),
+    )
+    .direction(iced::widget::scrollable::Direction::Vertical(
+        styles::overlay_scrollbar(),
+    ))
+    .style(styles::overlay_scrollable)
+    .into()
 }
 
 fn append_metadata_section<'a>(

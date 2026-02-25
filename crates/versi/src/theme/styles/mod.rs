@@ -1,10 +1,12 @@
 mod badges;
 mod buttons;
 mod containers;
+mod scrollables;
 
 pub use badges::*;
 pub use buttons::*;
 pub use containers::*;
+pub use scrollables::*;
 
 pub(crate) fn lighten(color: iced::Color, amount: f32) -> iced::Color {
     iced::Color {

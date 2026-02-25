@@ -8,6 +8,7 @@ use crate::theme::styles;
 use crate::widgets::helpers::nav_icons;
 
 pub fn view(state: &MainState, has_tabs: bool) -> Element<'_, Message> {
+    let content_padding = super::content_padding(has_tabs).right(crate::theme::tokens::INSET_RIGHT);
     let header = row![
         text("About").size(14),
         Space::new().width(Length::Fill),
@@ -50,16 +51,20 @@ pub fn view(state: &MainState, has_tabs: bool) -> Element<'_, Message> {
     .spacing(4)
     .width(Length::Fill);
 
-    column![
-        container(header).padding(iced::Padding::new(0.0).right(crate::theme::tokens::INSET_RIGHT)),
-        Space::new().height(12),
-        scrollable(
-            content.padding(iced::Padding::default().right(crate::theme::tokens::INSET_RIGHT))
-        )
-        .height(Length::Fill),
-    ]
-    .spacing(0)
-    .padding(super::content_padding(has_tabs))
+    let scroll_content = column![header, Space::new().height(12), content]
+        .spacing(0)
+        .padding(content_padding)
+        .width(Length::Fill);
+
+    scrollable(
+        container(scroll_content).padding(
+            iced::Padding::new(0.0).right(crate::theme::tokens::SCROLL_CONTENT_RIGHT_INSET),
+        ),
+    )
+    .direction(iced::widget::scrollable::Direction::Vertical(
+        styles::overlay_scrollbar(),
+    ))
+    .style(styles::overlay_scrollable)
     .width(Length::Fill)
     .height(Length::Fill)
     .into()

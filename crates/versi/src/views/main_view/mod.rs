@@ -6,20 +6,43 @@ pub mod search;
 pub mod tabs;
 
 use iced::Element;
-use iced::widget::{column, container, mouse_area};
+use iced::Length;
+use iced::widget::{Space, column, container, mouse_area, row, scrollable};
 
 use crate::message::Message;
 use crate::settings::AppSettings;
 use crate::state::MainState;
+use crate::theme::styles;
 use crate::widgets::{toast_container, version_list};
+
+fn top_section(state: &MainState) -> iced::widget::Column<'_, Message> {
+    let header = header::header_view(state);
+    let search_bar = search::search_bar_view(state);
+
+    let mut section = column![header, search_bar].spacing(12);
+
+    if !state.search_query.is_empty() {
+        section = section.push(search::filter_chips_view(&state.active_filters));
+    }
+
+    if let Some(progress_banner) = banners::bulk_operation_progress_banner(state) {
+        section = section.push(progress_banner);
+    }
+
+    if state.search_query.is_empty()
+        && let Some(banner_content) = banners::contextual_banners(state)
+    {
+        section = section.push(banner_content);
+    }
+
+    section
+}
 
 pub fn view<'a>(
     state: &'a MainState,
     settings: &'a AppSettings,
     has_tabs: bool,
 ) -> Element<'a, Message> {
-    let header = header::header_view(state);
-    let search_bar = search::search_bar_view(state);
     let hovered = if state.modal.is_some() {
         &None
     } else {
@@ -46,35 +69,56 @@ pub fn view<'a>(
         &ctx,
     );
 
-    let right_inset = iced::Padding::new(0.0).right(crate::theme::tokens::INSET_RIGHT);
-    let mut content_column = column![
-        container(header).padding(right_inset),
-        container(search_bar).padding(right_inset),
+    let content_padding =
+        crate::views::content_padding(has_tabs).right(crate::theme::tokens::INSET_RIGHT);
+    let top_content_right_inset =
+        content_padding.right + crate::theme::tokens::SCROLL_CONTENT_RIGHT_INSET;
+    let top_overlay_right_inset =
+        (top_content_right_inset - styles::OVERLAY_SCROLLBAR_LANE_WIDTH).max(0.0);
+
+    let scroll_top_section = container(top_section(state)).padding(iced::Padding {
+        top: 0.0,
+        right: crate::theme::tokens::SCROLL_CONTENT_RIGHT_INSET,
+        bottom: 12.0,
+        left: 0.0,
+    });
+
+    let scroll_content = column![
+        scroll_top_section,
+        container(version_list).padding(
+            iced::Padding::new(0.0).right(crate::theme::tokens::SCROLL_CONTENT_RIGHT_INSET)
+        ),
     ]
-    .spacing(12);
+    .spacing(0)
+    .padding(content_padding)
+    .width(Length::Fill);
 
-    if !state.search_query.is_empty() {
-        let chips = search::filter_chips_view(&state.active_filters);
-        content_column = content_column.push(container(chips).padding(right_inset));
-    }
+    let main_scrollable = scrollable(scroll_content)
+        .direction(iced::widget::scrollable::Direction::Vertical(
+            styles::overlay_scrollbar(),
+        ))
+        .style(styles::overlay_scrollable)
+        .width(Length::Fill)
+        .height(Length::Fill);
 
-    if let Some(progress_banner) = banners::bulk_operation_progress_banner(state) {
-        content_column = content_column.push(container(progress_banner).padding(right_inset));
-    }
+    let fixed_top_overlay = iced::widget::opaque(row![
+        container(top_section(state))
+            .padding(iced::Padding {
+                top: content_padding.top,
+                right: top_overlay_right_inset,
+                bottom: 12.0,
+                left: content_padding.left,
+            })
+            .style(styles::page_background_overlay)
+            .width(Length::Fill),
+        Space::new().width(Length::Fixed(styles::OVERLAY_SCROLLBAR_LANE_WIDTH)),
+    ]);
 
-    if state.search_query.is_empty()
-        && let Some(banner_content) = banners::contextual_banners(state)
-    {
-        content_column = content_column.push(container(banner_content).padding(right_inset));
-    }
+    let main_content = iced::widget::stack![main_scrollable, fixed_top_overlay]
+        .width(Length::Fill)
+        .height(Length::Fill);
 
-    content_column = content_column.push(version_list);
-
-    let main_content = content_column.padding(crate::views::content_padding(has_tabs));
-
-    let main_column = column![main_content].spacing(0);
-
-    let with_cursor_tracking: Element<Message> = mouse_area(main_column)
+    let with_cursor_tracking: Element<Message> = mouse_area(main_content)
         .on_move(Message::VersionListCursorMoved)
         .into();
 

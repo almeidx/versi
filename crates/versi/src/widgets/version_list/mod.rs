@@ -5,7 +5,7 @@ mod item;
 
 use std::collections::{HashMap, HashSet};
 
-use iced::widget::{Space, button, column, container, scrollable, text};
+use iced::widget::{Space, button, column, container, text};
 use iced::{Alignment, Element, Length};
 
 use versi_backend::{InstalledVersion, NodeVersion, RemoteVersion, VersionGroup};
@@ -163,13 +163,7 @@ pub fn view<'a>(
         return empty_versions_view(search_query);
     }
 
-    scrollable(
-        column(content_items)
-            .spacing(12)
-            .padding(iced::Padding::new(0.0).right(crate::theme::tokens::SCROLLBAR_GUTTER)),
-    )
-    .height(Length::Fill)
-    .into()
+    column(content_items).spacing(12).width(Length::Fill).into()
 }
 
 fn loading_or_error_view(env: &EnvironmentState) -> Option<Element<'_, Message>> {

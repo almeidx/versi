@@ -16,7 +16,11 @@ pub fn view<'a>(
     has_tabs: bool,
     is_system_dark: bool,
 ) -> Element<'a, Message> {
-    let header = settings_header(state);
+    let content_padding = super::content_padding(has_tabs).right(crate::theme::tokens::INSET_RIGHT);
+    let top_content_right_inset =
+        content_padding.right + crate::theme::tokens::SCROLL_CONTENT_RIGHT_INSET;
+    let top_overlay_right_inset =
+        (top_content_right_inset - styles::OVERLAY_SCROLLBAR_LANE_WIDTH).max(0.0);
     let capabilities = state.backend.capabilities();
     let shell_opts = settings.shell_options_for(state.backend_name);
 
@@ -33,19 +37,43 @@ pub fn view<'a>(
     .spacing(4)
     .width(Length::Fill);
 
-    column![
-        container(header).padding(iced::Padding::new(0.0).right(crate::theme::tokens::INSET_RIGHT)),
-        Space::new().height(12),
-        scrollable(
-            content.padding(iced::Padding::default().right(crate::theme::tokens::INSET_RIGHT))
-        )
-        .height(Length::Fill),
-    ]
-    .spacing(0)
-    .padding(super::content_padding(has_tabs))
-    .width(Length::Fill)
-    .height(Length::Fill)
-    .into()
+    let scroll_header = container(settings_header(state)).padding(iced::Padding {
+        top: 0.0,
+        right: crate::theme::tokens::SCROLL_CONTENT_RIGHT_INSET,
+        bottom: 12.0,
+        left: 0.0,
+    });
+
+    let scroll_content = column![scroll_header, content]
+        .spacing(0)
+        .padding(content_padding)
+        .width(Length::Fill);
+
+    let main_scrollable = scrollable(scroll_content)
+        .direction(iced::widget::scrollable::Direction::Vertical(
+            styles::overlay_scrollbar(),
+        ))
+        .style(styles::overlay_scrollable)
+        .width(Length::Fill)
+        .height(Length::Fill);
+
+    let fixed_header_overlay = iced::widget::opaque(row![
+        container(settings_header(state))
+            .padding(iced::Padding {
+                top: content_padding.top,
+                right: top_overlay_right_inset,
+                bottom: 12.0,
+                left: content_padding.left,
+            })
+            .style(styles::page_background_overlay)
+            .width(Length::Fill),
+        Space::new().width(Length::Fixed(styles::OVERLAY_SCROLLBAR_LANE_WIDTH)),
+    ]);
+
+    iced::widget::stack![main_scrollable, fixed_header_overlay]
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .into()
 }
 
 fn settings_header(state: &MainState) -> iced::widget::Row<'_, Message> {

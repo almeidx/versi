@@ -26,7 +26,7 @@ pub mod tokens {
     pub const ONBOARDING_MAX_WIDTH: f32 = 600.0;
 
     pub const INSET_RIGHT: f32 = 24.0;
-    pub const SCROLLBAR_GUTTER: f32 = 32.0;
+    pub const SCROLL_CONTENT_RIGHT_INSET: f32 = 8.0;
     pub const MODAL_PADDING: f32 = 28.0;
     pub const ONBOARDING_PADDING: f32 = 48.0;
     pub const GROUP_INDENT: f32 = 24.0;
