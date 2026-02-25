@@ -79,7 +79,9 @@ pub(super) fn modal_overlay<'a>(
             .width(Length::Fill)
             .height(Length::Fill),
     )
-    .on_press(Message::CloseModal);
+    .on_press(Message::CloseModal)
+    .on_scroll(|_| Message::NoOp)
+    .interaction(iced::mouse::Interaction::Idle);
 
     let mut modal_shell = container(modal_content)
         .style(styles::modal_container)
@@ -89,7 +91,10 @@ pub(super) fn modal_overlay<'a>(
         modal_shell = modal_shell.max_height(VERSION_DETAIL_MODAL_MAX_HEIGHT);
     }
 
-    let modal_container = mouse_area(modal_shell).on_press(Message::NoOp);
+    let modal_container = mouse_area(modal_shell)
+        .on_press(Message::NoOp)
+        .on_scroll(|_| Message::NoOp)
+        .interaction(iced::mouse::Interaction::Idle);
 
     let modal_layer = container(modal_container)
         .center_x(Length::Fill)
