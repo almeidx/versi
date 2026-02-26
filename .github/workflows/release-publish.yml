@@ -77,13 +77,13 @@ jobs:
           cd dist/x64 && zip -r "../versi-${VERSION}-macos-x64.zip" "Versi.app" "install.sh" && cd -
 
       - name: Upload ARM64 artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: versi-macos-arm64
           path: dist/versi-${{ needs.version.outputs.version }}-macos-arm64.zip
 
       - name: Upload x64 artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: versi-macos-x64
           path: dist/versi-${{ needs.version.outputs.version }}-macos-x64.zip
@@ -123,7 +123,7 @@ jobs:
           cd dist/pkg && zip "../versi-${VERSION}-linux-x64.zip" versi dev.almeidx.versi.desktop versi.png install.sh && cd -
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: versi-linux-x64
           path: dist/versi-${{ needs.version.outputs.version }}-linux-x64.zip
@@ -163,7 +163,7 @@ jobs:
           cd dist/pkg && zip "../versi-${VERSION}-linux-arm64.zip" versi dev.almeidx.versi.desktop versi.png install.sh && cd -
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: versi-linux-arm64
           path: dist/versi-${{ needs.version.outputs.version }}-linux-arm64.zip
@@ -222,7 +222,7 @@ jobs:
           wix build wix/main.wxs -ext WixToolset.UI.wixext -o "dist/versi-${VERSION}-windows-x64.msi"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: versi-windows-x64
           path: dist/versi-${{ needs.version.outputs.version }}-windows-x64.msi
@@ -251,7 +251,7 @@ jobs:
           git push origin "$TAG"
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
 
