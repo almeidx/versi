@@ -25,10 +25,6 @@ fn top_section(state: &MainState) -> iced::widget::Column<'_, Message> {
         section = section.push(search::filter_chips_view(&state.active_filters));
     }
 
-    if let Some(progress_banner) = banners::bulk_operation_progress_banner(state) {
-        section = section.push(progress_banner);
-    }
-
     if state.search_query.is_empty()
         && let Some(banner_content) = banners::contextual_banners(state)
     {
@@ -36,6 +32,37 @@ fn top_section(state: &MainState) -> iced::widget::Column<'_, Message> {
     }
 
     section
+}
+
+fn with_bulk_progress_overlay<'a>(
+    state: &'a MainState,
+    main_content: Element<'a, Message>,
+    content_padding: iced::Padding,
+    overlay_right_inset: f32,
+) -> Element<'a, Message> {
+    if let Some(progress_banner) = banners::bulk_operation_progress_banner(state) {
+        let bottom_overlay = container(row![
+            container(progress_banner)
+                .padding(iced::Padding {
+                    top: 0.0,
+                    right: overlay_right_inset,
+                    bottom: content_padding.bottom,
+                    left: content_padding.left,
+                })
+                .width(Length::Fill),
+            Space::new().width(Length::Fixed(styles::OVERLAY_SCROLLBAR_LANE_WIDTH)),
+        ])
+        .align_y(iced::alignment::Vertical::Bottom)
+        .width(Length::Fill)
+        .height(Length::Fill);
+
+        iced::widget::stack![main_content, bottom_overlay]
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into()
+    } else {
+        main_content
+    }
 }
 
 pub fn view<'a>(
@@ -71,10 +98,9 @@ pub fn view<'a>(
 
     let content_padding =
         crate::views::content_padding(has_tabs).right(crate::theme::tokens::INSET_RIGHT);
-    let top_content_right_inset =
+    let content_right_inset =
         content_padding.right + crate::theme::tokens::SCROLL_CONTENT_RIGHT_INSET;
-    let top_overlay_right_inset =
-        (top_content_right_inset - styles::OVERLAY_SCROLLBAR_LANE_WIDTH).max(0.0);
+    let overlay_right_inset = (content_right_inset - styles::OVERLAY_SCROLLBAR_LANE_WIDTH).max(0.0);
 
     let scroll_top_section = container(top_section(state)).padding(iced::Padding {
         top: 0.0,
@@ -105,7 +131,7 @@ pub fn view<'a>(
         container(top_section(state))
             .padding(iced::Padding {
                 top: content_padding.top,
-                right: top_overlay_right_inset,
+                right: overlay_right_inset,
                 bottom: 12.0,
                 left: content_padding.left,
             })
@@ -118,7 +144,14 @@ pub fn view<'a>(
         .width(Length::Fill)
         .height(Length::Fill);
 
-    let with_cursor_tracking: Element<Message> = mouse_area(main_content)
+    let with_bulk_progress_overlay = with_bulk_progress_overlay(
+        state,
+        main_content.into(),
+        content_padding,
+        overlay_right_inset,
+    );
+
+    let with_cursor_tracking: Element<Message> = mouse_area(with_bulk_progress_overlay)
         .on_move(Message::VersionListCursorMoved)
         .into();
 
