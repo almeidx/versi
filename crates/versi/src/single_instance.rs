@@ -6,6 +6,7 @@ pub enum AcquireError {
     AlreadyRunning,
     #[error("failed to resolve application paths: {0}")]
     Paths(#[from] versi_platform::AppPathsError),
+    #[cfg(not(windows))]
     #[error("{context}: {source}")]
     Io {
         context: &'static str,
@@ -18,6 +19,7 @@ pub enum AcquireError {
 }
 
 impl AcquireError {
+    #[cfg(not(windows))]
     fn io(context: &'static str, source: std::io::Error) -> Self {
         Self::Io { context, source }
     }
