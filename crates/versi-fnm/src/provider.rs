@@ -68,7 +68,8 @@ impl BackendProvider for FnmProvider {
             .clone()
             .unwrap_or_else(|| std::path::PathBuf::from("fnm"));
         let data_dir = detection.data_dir.clone().or_else(detect_fnm_dir);
-        let backend = FnmBackend::new(path, detection.version.clone(), data_dir.clone());
+        let backend = FnmBackend::new(path, detection.version.clone(), data_dir.clone())
+            .with_in_path(detection.in_path);
         let backend = if let Some(dir) = data_dir {
             backend.with_fnm_dir(dir)
         } else {
@@ -82,7 +83,7 @@ impl BackendProvider for FnmProvider {
         distro: String,
         backend_path: String,
     ) -> Arc<dyn VersionManager> {
-        Arc::new(FnmBackend::with_wsl(distro, backend_path))
+        Arc::new(FnmBackend::with_wsl(distro, backend_path).with_in_path(false))
     }
 
     fn wsl_search_paths(&self) -> &'static [&'static str] {
@@ -122,7 +123,7 @@ mod tests {
             found: true,
             path: Some(PathBuf::from("/opt/homebrew/bin/fnm")),
             version: Some("1.38.0".to_string()),
-            in_path: false,
+            in_path: true,
             data_dir: Some(PathBuf::from("/tmp/fnm-data")),
         };
 
@@ -132,6 +133,7 @@ mod tests {
         assert_eq!(info.path, PathBuf::from("/opt/homebrew/bin/fnm"));
         assert_eq!(info.version.as_deref(), Some("1.38.0"));
         assert_eq!(info.data_dir, Some(PathBuf::from("/tmp/fnm-data")));
+        assert!(info.in_path);
     }
 
     #[test]
@@ -149,6 +151,7 @@ mod tests {
         let info = manager.backend_info();
 
         assert_eq!(info.path, PathBuf::from("fnm"));
+        assert!(!info.in_path);
     }
 
     #[test]
@@ -160,6 +163,7 @@ mod tests {
         let info = manager.backend_info();
 
         assert_eq!(info.path, PathBuf::from("/usr/bin/fnm"));
+        assert!(!info.in_path);
     }
 
     #[test]

@@ -68,11 +68,10 @@ impl BackendProvider for VoltaProvider {
             .clone()
             .unwrap_or_else(|| std::path::PathBuf::from("volta"));
         let volta_home = detection.data_dir.clone().or_else(detect_volta_home);
-        Arc::new(VoltaBackend::new(
-            path,
-            detection.version.clone(),
-            volta_home,
-        ))
+        Arc::new(
+            VoltaBackend::new(path, detection.version.clone(), volta_home)
+                .with_in_path(detection.in_path),
+        )
     }
 
     fn create_manager_for_wsl(
@@ -80,7 +79,7 @@ impl BackendProvider for VoltaProvider {
         distro: String,
         backend_path: String,
     ) -> Arc<dyn VersionManager> {
-        Arc::new(VoltaBackend::with_wsl(distro, backend_path))
+        Arc::new(VoltaBackend::with_wsl(distro, backend_path).with_in_path(false))
     }
 
     fn wsl_search_paths(&self) -> &'static [&'static str] {
@@ -130,6 +129,7 @@ mod tests {
         assert_eq!(info.path, PathBuf::from("/usr/local/bin/volta"));
         assert_eq!(info.version.as_deref(), Some("2.0.2"));
         assert_eq!(info.data_dir, Some(PathBuf::from("/home/user/.volta")));
+        assert!(info.in_path);
     }
 
     #[test]
@@ -147,6 +147,7 @@ mod tests {
         let info = manager.backend_info();
 
         assert_eq!(info.path, PathBuf::from("volta"));
+        assert!(!info.in_path);
     }
 
     #[test]
@@ -157,6 +158,7 @@ mod tests {
         let info = manager.backend_info();
 
         assert_eq!(info.path, PathBuf::from("/usr/bin/volta"));
+        assert!(!info.in_path);
     }
 
     #[test]

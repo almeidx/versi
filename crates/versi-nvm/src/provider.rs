@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -32,6 +32,34 @@ fn variant_from_detection(detection: &BackendDetection) -> NvmVariant {
     }
 }
 
+fn same_binary_path(path: &Path, which_path: &Path) -> bool {
+    match (
+        std::fs::canonicalize(path),
+        std::fs::canonicalize(which_path),
+    ) {
+        (Ok(lhs), Ok(rhs)) => lhs == rhs,
+        _ => {
+            if cfg!(windows) {
+                path.to_string_lossy()
+                    .eq_ignore_ascii_case(&which_path.to_string_lossy())
+            } else {
+                path == which_path
+            }
+        }
+    }
+}
+
+fn detection_in_path(detection: &crate::detection::NvmDetection) -> bool {
+    match detection.variant {
+        NvmVariant::Unix | NvmVariant::NotFound => false,
+        NvmVariant::Windows => detection.nvm_exe.as_ref().is_some_and(|path| {
+            which::which("nvm")
+                .ok()
+                .is_some_and(|which_path| same_binary_path(path, &which_path))
+        }),
+    }
+}
+
 #[async_trait]
 impl BackendProvider for NvmProvider {
     fn name(&self) -> &'static str {
@@ -52,11 +80,12 @@ impl BackendProvider for NvmProvider {
 
     async fn detect(&self) -> BackendDetection {
         let detection = detect_nvm().await;
-        let path = detection.nvm_dir.clone().or(detection.nvm_exe);
+        let in_path = detection_in_path(&detection);
+        let path = detection.nvm_dir.clone().or(detection.nvm_exe.clone());
 
         BackendDetection {
             found: detection.found,
-            in_path: detection.found,
+            in_path,
             version: detection.version,
             data_dir: detection.nvm_dir,
             path,
@@ -103,7 +132,7 @@ impl BackendProvider for NvmProvider {
 
         let client = NvmClient { environment };
 
-        Arc::new(NvmBackend::new(client, version))
+        Arc::new(NvmBackend::new(client, version).with_in_path(detection.in_path))
     }
 
     fn create_manager_for_wsl(
@@ -121,7 +150,7 @@ impl BackendProvider for NvmProvider {
         };
 
         let client = NvmClient::wsl(distro, nvm_dir);
-        Arc::new(NvmBackend::new(client, None))
+        Arc::new(NvmBackend::new(client, None).with_in_path(false))
     }
 
     fn wsl_search_paths(&self) -> &'static [&'static str] {
@@ -135,8 +164,8 @@ mod tests {
 
     use versi_backend::{BackendDetection, BackendProvider};
 
-    use super::{NvmProvider, variant_from_detection};
-    use crate::detection::NvmVariant;
+    use super::{NvmProvider, detection_in_path, variant_from_detection};
+    use crate::detection::{NvmDetection, NvmVariant};
 
     #[test]
     fn variant_from_detection_unix_when_data_dir_set() {
@@ -175,6 +204,32 @@ mod tests {
     }
 
     #[test]
+    fn detection_in_path_is_false_for_unix_detection() {
+        let detection = NvmDetection {
+            found: true,
+            nvm_dir: Some(PathBuf::from("/home/user/.nvm")),
+            nvm_exe: None,
+            version: Some("0.40.1".to_string()),
+            variant: NvmVariant::Unix,
+        };
+
+        assert!(!detection_in_path(&detection));
+    }
+
+    #[test]
+    fn detection_in_path_is_false_for_not_found_detection() {
+        let detection = NvmDetection {
+            found: false,
+            nvm_dir: None,
+            nvm_exe: None,
+            version: None,
+            variant: NvmVariant::NotFound,
+        };
+
+        assert!(!detection_in_path(&detection));
+    }
+
+    #[test]
     fn provider_metadata_is_stable() {
         let provider = NvmProvider::new();
 
@@ -201,6 +256,7 @@ mod tests {
         assert_eq!(info.path, PathBuf::from("/custom/.nvm/nvm.sh"));
         assert_eq!(info.data_dir, Some(PathBuf::from("/custom/.nvm")));
         assert_eq!(info.version.as_deref(), Some("0.40.1"));
+        assert!(info.in_path);
     }
 
     #[test]
@@ -218,6 +274,7 @@ mod tests {
             manager.backend_info().data_dir,
             Some(PathBuf::from("/home/user/.nvm"))
         );
+        assert!(!manager.backend_info().in_path);
     }
 
     #[test]

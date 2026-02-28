@@ -54,6 +54,7 @@ impl Versi {
         if let Some(task) = self.build_active_environment_load_task(
             &result.environments,
             &backend_path,
+            result.backend_in_path,
             backend_dir.as_ref(),
         ) {
             tasks.push(task);
@@ -100,13 +101,14 @@ impl Versi {
         let backend_dir = result.backend_dir.clone();
 
         self.backend_path.clone_from(&backend_path);
+        self.backend_in_path = result.backend_in_path;
         self.backend_dir.clone_from(&backend_dir);
 
         let detection = BackendDetection {
             found: true,
             path: Some(backend_path.clone()),
             version: result.backend_version.clone(),
-            in_path: true,
+            in_path: result.backend_in_path,
             data_dir: backend_dir.clone(),
         };
         let backend = self.provider.create_manager(&detection);
@@ -117,6 +119,7 @@ impl Versi {
         &mut self,
         environments: &[EnvironmentInfo],
         backend_path: &Path,
+        backend_in_path: bool,
         backend_dir: Option<&PathBuf>,
     ) -> Option<Task<Message>> {
         let active_env = environments.first()?;
@@ -128,13 +131,14 @@ impl Versi {
             return None;
         }
 
-        self.build_environment_load_task(active_env, backend_path, backend_dir)
+        self.build_environment_load_task(active_env, backend_path, backend_in_path, backend_dir)
     }
 
     fn build_environment_load_task(
         &mut self,
         env_info: &EnvironmentInfo,
         backend_path: &Path,
+        backend_in_path: bool,
         backend_dir: Option<&PathBuf>,
     ) -> Option<Task<Message>> {
         let env_id = env_info.id.clone();
@@ -144,7 +148,13 @@ impl Versi {
             .cloned()
             .unwrap_or_else(|| self.provider.clone());
 
-        let backend = create_backend_for_environment(&env_id, backend_path, backend_dir, &provider);
+        let backend = create_backend_for_environment(
+            &env_id,
+            backend_path,
+            backend_in_path,
+            backend_dir,
+            &provider,
+        );
         let request_seq = self.mark_environment_loading(&env_id)?;
 
         let fetch_timeout = std::time::Duration::from_secs(self.settings.fetch_timeout_secs);
@@ -309,6 +319,7 @@ pub(super) async fn initialize(
     InitResult {
         backend_found: detection.found,
         backend_path: detection.path.clone(),
+        backend_in_path: detection.in_path,
         backend_dir: detection.data_dir.clone(),
         backend_version: detection.version.clone(),
         environments,
@@ -362,6 +373,7 @@ fn no_backend_init_result(
     InitResult {
         backend_found: false,
         backend_path: None,
+        backend_in_path: false,
         backend_dir: None,
         backend_version: None,
         environments: vec![EnvironmentInfo {
@@ -548,6 +560,7 @@ async fn get_wsl_backend_version(distro: &str, backend_path: &str) -> Option<Str
 pub(super) fn create_backend_for_environment(
     env_id: &EnvironmentId,
     detected_path: &Path,
+    detected_in_path: bool,
     detected_dir: Option<&PathBuf>,
     provider: &Arc<dyn BackendProvider>,
 ) -> Arc<dyn VersionManager> {
@@ -557,7 +570,7 @@ pub(super) fn create_backend_for_environment(
                 found: true,
                 path: Some(detected_path.to_path_buf()),
                 version: None,
-                in_path: true,
+                in_path: detected_in_path,
                 data_dir: detected_dir.cloned(),
             };
             provider.create_manager(&detection)
@@ -662,6 +675,7 @@ mod tests {
         let init = crate::message::InitResult {
             backend_found: true,
             backend_path: Some(PathBuf::from("fnm")),
+            backend_in_path: false,
             backend_dir: None,
             backend_version: Some("1.38.0".to_string()),
             environments: vec![
@@ -702,6 +716,7 @@ mod tests {
         let manager = create_backend_for_environment(
             &EnvironmentId::Native,
             PathBuf::from("/custom/fnm").as_path(),
+            false,
             Some(&PathBuf::from("/custom/fnm-dir")),
             &provider,
         );
@@ -724,6 +739,7 @@ mod tests {
         let manager = create_backend_for_environment(
             &env,
             PathBuf::from("ignored").as_path(),
+            false,
             None,
             &provider,
         );
@@ -751,6 +767,7 @@ mod tests {
         let init_result = crate::message::InitResult {
             backend_found: true,
             backend_path: Some(PathBuf::from("fnm")),
+            backend_in_path: false,
             backend_dir: None,
             backend_version: Some("1.0.0".to_string()),
             environments: vec![

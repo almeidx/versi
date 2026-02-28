@@ -178,6 +178,7 @@ impl Versi {
             let new_backend = create_backend_for_environment(
                 &env_id,
                 &self.backend_path,
+                self.backend_in_path,
                 self.backend_dir.as_ref(),
                 &env_provider,
             );
@@ -285,6 +286,7 @@ impl Versi {
             let backend = create_backend_for_environment(
                 &target_env_id,
                 &self.backend_path,
+                self.backend_in_path,
                 self.backend_dir.as_ref(),
                 &env_provider,
             );

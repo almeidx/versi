@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use log::debug;
 use versi_backend::{InstalledVersion, NodeVersion, RemoteVersion};
 
@@ -151,35 +153,74 @@ pub fn parse_unix_remote(output: &str) -> Vec<RemoteVersion> {
 }
 
 pub fn parse_windows_remote(output: &str) -> Vec<RemoteVersion> {
-    let mut versions = Vec::new();
-    let mut in_table = false;
+    let mut versions: Vec<RemoteVersion> = Vec::new();
+    let mut index_by_version: HashMap<NodeVersion, usize> = HashMap::new();
+    let mut lts_column = None;
+
+    let mut upsert = |version: NodeVersion, is_lts: bool| {
+        if let Some(index) = index_by_version.get(&version).copied() {
+            if is_lts {
+                versions[index].lts_codename = Some("LTS".to_string());
+            }
+            return;
+        }
+
+        let index = versions.len();
+        versions.push(RemoteVersion {
+            version: version.clone(),
+            lts_codename: is_lts.then(|| "LTS".to_string()),
+            is_latest: false,
+        });
+        index_by_version.insert(version, index);
+    };
 
     for line in output.lines() {
         let trimmed = line.trim();
-
-        if trimmed.contains("CURRENT") || trimmed.contains("LTS") || trimmed.contains("OLD") {
-            in_table = true;
+        if trimmed.is_empty() {
             continue;
         }
 
-        if !in_table || trimmed.is_empty() {
+        if !trimmed.contains('|') {
+            for token in trimmed.split_whitespace() {
+                let version_str = token.trim_start_matches('v');
+                let Ok(version) = version_str.parse::<NodeVersion>() else {
+                    continue;
+                };
+                upsert(version, false);
+            }
             continue;
         }
 
-        let columns: Vec<&str> = trimmed.split_whitespace().collect();
+        let columns = trimmed
+            .split('|')
+            .map(str::trim)
+            .filter(|column| !column.is_empty())
+            .collect::<Vec<_>>();
         if columns.is_empty() {
             continue;
         }
 
-        for col in &columns {
-            let version_str = col.trim_start_matches('v');
-            if let Ok(version) = version_str.parse::<NodeVersion>() {
-                versions.push(RemoteVersion {
-                    version,
-                    lts_codename: None,
-                    is_latest: false,
-                });
-            }
+        if columns
+            .iter()
+            .all(|column| column.chars().all(|ch| ch == '-'))
+        {
+            continue;
+        }
+
+        if let Some(position) = columns
+            .iter()
+            .position(|column| column.eq_ignore_ascii_case("LTS"))
+        {
+            lts_column = Some(position);
+            continue;
+        }
+
+        for (index, column) in columns.iter().enumerate() {
+            let version_str = column.trim_start_matches('v');
+            let Ok(version) = version_str.parse::<NodeVersion>() else {
+                continue;
+            };
+            upsert(version, lts_column == Some(index));
         }
     }
 
@@ -266,5 +307,27 @@ mod tests {
         assert!(majors.contains(&21));
         assert!(majors.contains(&20));
         assert!(majors.contains(&18));
+        assert!(versions.iter().any(
+            |v| v.version.to_string() == "v20.11.1" && v.lts_codename.as_deref() == Some("LTS")
+        ));
+    }
+
+    #[test]
+    fn test_parse_windows_remote_deduplicates_versions() {
+        let output =
+            "| CURRENT | LTS |\n|---------|-----|\n| 21.6.1 | 20.11.1 |\n| 21.6.1 | 20.11.1 |\n";
+        let versions = parse_windows_remote(output);
+
+        assert_eq!(versions.len(), 2);
+    }
+
+    #[test]
+    fn test_parse_windows_remote_upgrades_duplicate_to_lts_when_seen_later() {
+        let output = "21.6.1\n| CURRENT | LTS |\n|---------|-----|\n| 21.6.1 | 21.6.1 |\n";
+        let versions = parse_windows_remote(output);
+
+        assert_eq!(versions.len(), 1);
+        assert_eq!(versions[0].version.to_string(), "v21.6.1");
+        assert_eq!(versions[0].lts_codename.as_deref(), Some("LTS"));
     }
 }

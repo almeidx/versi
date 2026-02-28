@@ -41,6 +41,12 @@ impl NvmBackend {
             client,
         }
     }
+
+    #[must_use]
+    pub fn with_in_path(mut self, in_path: bool) -> Self {
+        self.info.in_path = in_path;
+        self
+    }
 }
 
 #[async_trait]

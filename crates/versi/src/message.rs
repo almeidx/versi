@@ -200,6 +200,7 @@ pub enum Message {
 pub struct InitResult {
     pub backend_found: bool,
     pub backend_path: Option<PathBuf>,
+    pub backend_in_path: bool,
     pub backend_dir: Option<PathBuf>,
     pub backend_version: Option<String>,
     pub environments: Vec<EnvironmentInfo>,

@@ -78,7 +78,7 @@ pub(super) fn handle_check_for_backend_update(app: &mut Versi) -> Task<Message> 
             found: true,
             path: Some(app.backend_path.clone()),
             version: Some(version.clone()),
-            in_path: true,
+            in_path: app.backend_in_path,
             data_dir: app.backend_dir.clone(),
         };
         return Task::perform(

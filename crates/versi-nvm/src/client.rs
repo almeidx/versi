@@ -180,8 +180,12 @@ impl NvmClient {
                     }
                 }
                 Err(e) => {
-                    log::debug!("nvm alias default failed, assuming no default: {e}");
-                    Ok(None)
+                    if is_missing_default_alias_error(&e) {
+                        log::debug!("nvm alias default missing, assuming no default: {e}");
+                        Ok(None)
+                    } else {
+                        Err(e)
+                    }
                 }
             }
         }
@@ -261,6 +265,21 @@ fn strip_ansi(s: &str) -> String {
     result
 }
 
+fn is_missing_default_alias_error(error: &BackendError) -> bool {
+    match error {
+        BackendError::CommandFailed { stderr } => is_missing_default_alias_message(stderr),
+        _ => false,
+    }
+}
+
+fn is_missing_default_alias_message(message: &str) -> bool {
+    let lower = message.to_ascii_lowercase();
+    lower.contains("default -> n/a")
+        || lower.contains("alias default -> n/a")
+        || lower.contains("default is not set")
+        || lower.contains("default alias is not set")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -303,5 +322,23 @@ mod tests {
             NvmEnvironment::Wsl { ref distro, ref nvm_dir }
             if distro == "Debian" && nvm_dir == "/home/user/.nvm"
         ));
+    }
+
+    #[test]
+    fn missing_default_alias_error_detection_accepts_known_patterns() {
+        let missing = BackendError::CommandFailed {
+            stderr: "alias default -> N/A".to_string(),
+        };
+
+        assert!(is_missing_default_alias_error(&missing));
+    }
+
+    #[test]
+    fn missing_default_alias_error_detection_rejects_unrelated_failures() {
+        let unrelated = BackendError::CommandFailed {
+            stderr: "nvm: command not found".to_string(),
+        };
+
+        assert!(!is_missing_default_alias_error(&unrelated));
     }
 }

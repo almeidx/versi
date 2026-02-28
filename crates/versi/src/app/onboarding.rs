@@ -309,6 +309,7 @@ mod tests {
             pending_show: false,
             window_visible: true,
             backend_path: PathBuf::from("fnm"),
+            backend_in_path: true,
             backend_dir: None,
             window_size: None,
             window_position: None,

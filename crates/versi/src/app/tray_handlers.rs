@@ -124,6 +124,7 @@ impl Versi {
             state.backend = create_backend_for_environment(
                 env_id,
                 &self.backend_path,
+                self.backend_in_path,
                 self.backend_dir.as_ref(),
                 &env_provider,
             );

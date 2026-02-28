@@ -51,10 +51,16 @@ impl VoltaBackend {
                 path: PathBuf::from(&volta_path),
                 version: None,
                 data_dir: volta_home,
-                in_path: true,
+                in_path: false,
             },
             environment: Environment::Wsl { distro, volta_path },
         }
+    }
+
+    #[must_use]
+    pub fn with_in_path(mut self, in_path: bool) -> Self {
+        self.info.in_path = in_path;
+        self
     }
 
     fn build_command(&self, args: &[&str]) -> Command {
@@ -313,6 +319,7 @@ mod tests {
 
         assert_eq!(info.path, PathBuf::from("/home/user/.volta/bin/volta"));
         assert_eq!(info.data_dir, Some(PathBuf::from("/home/user/.volta")));
+        assert!(!info.in_path);
     }
 
     #[test]

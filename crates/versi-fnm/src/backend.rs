@@ -76,6 +76,12 @@ impl FnmBackend {
     }
 
     #[must_use]
+    pub fn with_in_path(mut self, in_path: bool) -> Self {
+        self.info.in_path = in_path;
+        self
+    }
+
+    #[must_use]
     pub fn with_wsl(distro: String, fnm_path: String) -> Self {
         Self {
             info: BackendInfo {
@@ -83,7 +89,7 @@ impl FnmBackend {
                 path: PathBuf::from(&fnm_path),
                 version: None,
                 data_dir: None,
-                in_path: true,
+                in_path: false,
             },
             fnm_dir: None,
             node_dist_mirror: None,

@@ -178,6 +178,7 @@ fn window_events_subscription() -> Subscription<Message> {
     })
 }
 
+#[allow(clippy::struct_excessive_bools)]
 pub struct Versi {
     pub(crate) state: AppState,
     pub(crate) settings: AppSettings,
@@ -186,6 +187,7 @@ pub struct Versi {
     pub(crate) pending_show: bool,
     pub(crate) window_visible: bool,
     pub(crate) backend_path: PathBuf,
+    pub(crate) backend_in_path: bool,
     pub(crate) backend_dir: Option<PathBuf>,
     pub(crate) window_size: Option<iced::Size>,
     pub(crate) window_position: Option<iced::Point>,
@@ -240,6 +242,7 @@ impl Versi {
             pending_show: false,
             window_visible: !should_minimize,
             backend_path: PathBuf::from(active_provider.name()),
+            backend_in_path: false,
             backend_dir: None,
             window_size: None,
             window_position: None,
@@ -482,6 +485,7 @@ fn test_app_with_two_environments() -> Versi {
         pending_show: false,
         window_visible: true,
         backend_path: PathBuf::from("fnm"),
+        backend_in_path: true,
         backend_dir: None,
         window_size: None,
         window_position: None,

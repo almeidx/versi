@@ -168,37 +168,39 @@ async fn get_volta_version(path: &Path) -> Option<String> {
 
 pub(crate) async fn install_volta() -> Result<(), BackendError> {
     #[cfg(unix)]
-    let status = Command::new("bash")
-        .args(["-c", "curl https://get.volta.sh | bash"])
-        .hide_window()
-        .status()
-        .await
-        .map_err(BackendError::from)?;
+    {
+        Err(BackendError::install_failed(
+            "unsupported platform flow",
+            "Automatic Volta installation is disabled for security. Please install manually from https://docs.volta.sh/guide/getting-started.",
+        ))
+    }
 
     #[cfg(windows)]
-    let status = Command::new("winget")
-        .args([
-            "install",
-            "--id",
-            "Volta.Volta",
-            "--source",
-            "winget",
-            "--silent",
-            "--accept-source-agreements",
-            "--accept-package-agreements",
-        ])
-        .hide_window()
-        .status()
-        .await
-        .map_err(BackendError::from)?;
+    {
+        let status = Command::new("winget")
+            .args([
+                "install",
+                "--id",
+                "Volta.Volta",
+                "--source",
+                "winget",
+                "--silent",
+                "--accept-source-agreements",
+                "--accept-package-agreements",
+            ])
+            .hide_window()
+            .status()
+            .await
+            .map_err(BackendError::from)?;
 
-    if status.success() {
-        Ok(())
-    } else {
-        Err(BackendError::install_failed(
-            "run installer command",
-            "volta installation command failed",
-        ))
+        if status.success() {
+            Ok(())
+        } else {
+            Err(BackendError::install_failed(
+                "run installer command",
+                "volta installation command failed",
+            ))
+        }
     }
 }
 
@@ -207,7 +209,9 @@ mod tests {
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use super::{get_common_volta_paths, select_volta_home};
+    use versi_backend::BackendError;
+
+    use super::{get_common_volta_paths, install_volta, select_volta_home};
 
     fn temp_path(name: &str) -> PathBuf {
         let nonce = SystemTime::now()
@@ -262,5 +266,19 @@ mod tests {
         };
 
         assert!(paths.contains(&home.join(".volta").join("bin").join("volta")));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn install_volta_is_manual_only_on_unix() {
+        let result = install_volta().await;
+
+        assert!(matches!(
+            result,
+            Err(BackendError::InstallFailed {
+                phase: "unsupported platform flow",
+                details
+            }) if details.contains("install manually")
+        ));
     }
 }

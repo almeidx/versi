@@ -49,6 +49,12 @@ impl AsdfBackend {
     }
 
     #[must_use]
+    pub fn with_in_path(mut self, in_path: bool) -> Self {
+        self.info.in_path = in_path;
+        self
+    }
+
+    #[must_use]
     pub fn with_wsl(distro: String, asdf_path: String) -> Self {
         Self {
             info: BackendInfo {
@@ -56,7 +62,7 @@ impl AsdfBackend {
                 path: PathBuf::from(&asdf_path),
                 version: None,
                 data_dir: None,
-                in_path: true,
+                in_path: false,
             },
             asdf_data_dir: None,
             environment: Environment::Wsl { distro, asdf_path },
