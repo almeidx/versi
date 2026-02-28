@@ -6,9 +6,9 @@ use tokio::process::Command;
 use which::which;
 
 use versi_backend::BackendError;
+use versi_core::HideWindow;
 #[cfg(unix)]
 use versi_core::download_install_script_unverified;
-use versi_core::HideWindow;
 
 #[cfg(unix)]
 const VOLTA_INSTALL_SCRIPT_URL: &str = "https://get.volta.sh";

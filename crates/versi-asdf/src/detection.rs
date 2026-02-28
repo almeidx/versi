@@ -265,10 +265,7 @@ pub(crate) async fn install_asdf() -> Result<(), versi_backend::BackendError> {
 
     Err(versi_backend::BackendError::install_failed(
         "run installer command",
-        format!(
-            "all asdf install attempts failed: {}",
-            failures.join("; ")
-        ),
+        format!("all asdf install attempts failed: {}", failures.join("; ")),
     ))
 }
 
