@@ -179,11 +179,42 @@ fn install_backend_step(
                 .spacing(8)
                 .align_y(Alignment::Center),
         );
+    } else if state.confirming_unsafe_install {
+        content = content.push(
+            column![
+                Space::new().height(16),
+                text("No checksum verification will be performed.")
+                    .size(14)
+                    .color(crate::theme::tokens::DANGER),
+                text("This may expose you to supply-chain risk.")
+                    .size(14)
+                    .color(crate::theme::tokens::DANGER),
+                text("Continue only if you trust the source.")
+                    .size(14)
+                    .color(crate::theme::tokens::DANGER),
+                Space::new().height(12),
+                row![
+                    button(text("Cancel").size(14))
+                        .on_press(Message::OnboardingCancelInstallBackend)
+                        .style(styles::secondary_button)
+                        .padding([10, 18]),
+                    button(text("Install Anyway").size(14))
+                        .on_press(Message::OnboardingConfirmInstallBackend)
+                        .style(styles::danger_button)
+                        .padding([10, 18]),
+                ]
+                .spacing(10),
+            ]
+            .spacing(6),
+        );
     } else if let Some(error) = &state.install_error {
         content = content.push(
             column![
                 text("Installation failed:").size(16),
                 text(error.to_string()).size(14),
+                text("Installer downloads are not checksum-verified.")
+                    .size(12)
+                    .color(crate::theme::tokens::TEXT_MUTED),
                 Space::new().height(16),
                 button(text("Retry"))
                     .on_press(Message::OnboardingInstallBackend)
@@ -195,6 +226,9 @@ fn install_backend_step(
         content = content.push(
             column![
                 Space::new().height(24),
+                text("Installer downloads are not checksum-verified.")
+                    .size(12)
+                    .color(crate::theme::tokens::TEXT_MUTED),
                 button(text(format!("Install {backend_name}")).size(16))
                     .on_press(Message::OnboardingInstallBackend)
                     .style(styles::primary_button)
@@ -280,7 +314,9 @@ fn navigation_buttons(state: &OnboardingState) -> Element<'_, Message> {
     let can_proceed = match state.step {
         OnboardingStep::Welcome => true,
         OnboardingStep::SelectBackend => state.selected_backend.is_some(),
-        OnboardingStep::InstallBackend => !state.backend_installing,
+        OnboardingStep::InstallBackend => {
+            !state.backend_installing && !state.confirming_unsafe_install
+        }
         OnboardingStep::ConfigureShell => state.detected_shells.iter().any(|s| s.configured),
     };
 

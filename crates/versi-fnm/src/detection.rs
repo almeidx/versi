@@ -3,12 +3,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::process::Command;
 use which::which;
 
-use versi_core::{HideWindow, download_install_script_verified};
+use versi_core::{HideWindow, download_install_script_unverified};
 
 const FNM_INSTALL_SCRIPT_URL: &str =
     "https://raw.githubusercontent.com/Schniz/fnm/v1.38.1/.ci/install.sh";
-const FNM_INSTALL_SCRIPT_SHA256: &str =
-    "68c59dc37cf88d35cf73f6a204db19a28c67e61283b673d33376922584a06f88";
 
 #[derive(Debug, Clone)]
 pub struct FnmDetection {
@@ -150,12 +148,7 @@ pub(crate) async fn install_fnm() -> Result<(), versi_backend::BackendError> {
     let status = {
         let script_path = temp_script_path("fnm-install", "sh");
         let result = async {
-            download_install_script(
-                FNM_INSTALL_SCRIPT_URL,
-                FNM_INSTALL_SCRIPT_SHA256,
-                &script_path,
-            )
-            .await?;
+            download_install_script(FNM_INSTALL_SCRIPT_URL, &script_path).await?;
             Command::new("bash")
                 .arg(&script_path)
                 .hide_window()
@@ -172,12 +165,7 @@ pub(crate) async fn install_fnm() -> Result<(), versi_backend::BackendError> {
     let status = {
         let script_path = temp_script_path("fnm-install", "ps1");
         let result = async {
-            download_install_script(
-                FNM_INSTALL_SCRIPT_URL,
-                FNM_INSTALL_SCRIPT_SHA256,
-                &script_path,
-            )
-            .await?;
+            download_install_script(FNM_INSTALL_SCRIPT_URL, &script_path).await?;
             Command::new("powershell")
                 .args([
                     "-NoProfile",
@@ -215,15 +203,14 @@ fn temp_script_path(prefix: &str, ext: &str) -> PathBuf {
 
 async fn download_install_script(
     url: &str,
-    expected_sha256: &str,
     path: &std::path::Path,
 ) -> Result<(), versi_backend::BackendError> {
-    download_install_script_verified(url, expected_sha256, path)
+    download_install_script_unverified(url, path)
         .await
         .map_err(|error| {
             versi_backend::BackendError::install_failed(
                 "download installer script",
-                format!("failed to download/verify installer script: {error}"),
+                format!("failed to download installer script: {error}"),
             )
         })?;
 

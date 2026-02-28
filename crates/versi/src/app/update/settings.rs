@@ -68,6 +68,13 @@ impl Versi {
                 Ok(Task::none())
             }
             Message::OnboardingInstallBackend => Ok(self.handle_onboarding_install_backend()),
+            Message::OnboardingConfirmInstallBackend => {
+                Ok(self.handle_onboarding_confirm_install_backend())
+            }
+            Message::OnboardingCancelInstallBackend => {
+                self.handle_onboarding_cancel_install_backend();
+                Ok(Task::none())
+            }
             Message::OnboardingBackendInstallResult(result) => {
                 Ok(self.handle_onboarding_backend_install_result(result))
             }

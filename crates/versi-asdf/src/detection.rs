@@ -1,17 +1,62 @@
 use std::path::{Path, PathBuf};
+#[cfg(unix)]
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
-use sha2::{Digest, Sha256};
 use tokio::process::Command;
 use which::which;
 
-use versi_core::{GitHubRelease, HideWindow};
+#[cfg(unix)]
+use versi_core::GitHubRelease;
+use versi_core::HideWindow;
 
+#[cfg(unix)]
 const ASDF_RELEASES_API: &str = "https://api.github.com/repos/asdf-vm/asdf/releases/latest";
+#[cfg(unix)]
 const ASDF_NODEJS_PLUGIN_URL: &str = "https://github.com/asdf-vm/asdf-nodejs.git";
+
+#[cfg(any(test, windows))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct InstallerAttempt {
+    label: &'static str,
+    program: &'static str,
+    args: &'static [&'static str],
+}
+
+#[cfg(any(test, windows))]
+const ASDF_WINDOWS_INSTALL_ATTEMPTS: [InstallerAttempt; 3] = [
+    InstallerAttempt {
+        label: "winget",
+        program: "winget",
+        args: &[
+            "install",
+            "--id",
+            "asdf-vm.asdf",
+            "--source",
+            "winget",
+            "--silent",
+            "--accept-source-agreements",
+            "--accept-package-agreements",
+        ],
+    },
+    InstallerAttempt {
+        label: "scoop",
+        program: "scoop",
+        args: &["install", "asdf"],
+    },
+    InstallerAttempt {
+        label: "choco",
+        program: "choco",
+        args: &["install", "asdf", "-y"],
+    },
+];
+
+#[cfg(any(test, windows))]
+fn asdf_windows_install_attempts() -> &'static [InstallerAttempt] {
+    &ASDF_WINDOWS_INSTALL_ATTEMPTS
+}
 
 #[derive(Debug, Clone)]
 pub struct AsdfDetection {
@@ -187,7 +232,6 @@ async fn has_nodejs_plugin(asdf_path: &Path, asdf_data_dir: Option<&Path>) -> bo
 #[cfg(unix)]
 struct ReleaseAssetInfo {
     download_url: String,
-    expected_sha256: String,
 }
 
 #[cfg(unix)]
@@ -196,7 +240,6 @@ pub(crate) async fn install_asdf() -> Result<(), versi_backend::BackendError> {
     let release = fetch_latest_release(&client).await?;
     let asset = select_release_asset(&release)?;
     let archive_bytes = download_release_asset(&client, &asset.download_url).await?;
-    verify_checksum(&archive_bytes, &asset.expected_sha256)?;
 
     let temp_dir = temp_install_dir();
     let install_result = async {
@@ -210,11 +253,30 @@ pub(crate) async fn install_asdf() -> Result<(), versi_backend::BackendError> {
     install_result
 }
 
-#[cfg(not(unix))]
+#[cfg(windows)]
+pub(crate) async fn install_asdf() -> Result<(), versi_backend::BackendError> {
+    let mut failures = Vec::new();
+    for attempt in asdf_windows_install_attempts() {
+        match run_windows_installer_attempt(attempt).await {
+            Ok(()) => return Ok(()),
+            Err(error) => failures.push(error),
+        }
+    }
+
+    Err(versi_backend::BackendError::install_failed(
+        "run installer command",
+        format!(
+            "all asdf install attempts failed: {}",
+            failures.join("; ")
+        ),
+    ))
+}
+
+#[cfg(not(any(unix, windows)))]
 pub(crate) async fn install_asdf() -> Result<(), versi_backend::BackendError> {
     Err(versi_backend::BackendError::install_failed(
         "unsupported platform flow",
-        "Automatic asdf installation is only supported on Unix. Please install asdf manually from https://asdf-vm.com/guide/getting-started.html and run `asdf plugin add nodejs https://github.com/asdf-vm/asdf-nodejs.git`.",
+        "Automatic asdf installation is unsupported on this platform.",
     ))
 }
 
@@ -271,16 +333,8 @@ fn select_release_asset(
             )
         })?;
 
-    let expected_sha256 = parse_sha256_digest(asset.digest.as_deref()).ok_or_else(|| {
-        versi_backend::BackendError::install_failed(
-            "verify asdf asset digest",
-            format!("missing/invalid SHA-256 digest for asset {}", asset.name),
-        )
-    })?;
-
     Ok(ReleaseAssetInfo {
         download_url: asset.browser_download_url.clone(),
-        expected_sha256,
     })
 }
 
@@ -419,32 +473,6 @@ fn expected_archive_name(release_version: &str) -> Result<String, versi_backend:
 }
 
 #[cfg(unix)]
-fn parse_sha256_digest(digest: Option<&str>) -> Option<String> {
-    let digest = digest?;
-    let (algorithm, hash) = digest.split_once(':')?;
-    if !algorithm.eq_ignore_ascii_case("sha256") {
-        return None;
-    }
-    if hash.len() != 64 || !hash.chars().all(|ch| ch.is_ascii_hexdigit()) {
-        return None;
-    }
-    Some(hash.to_ascii_lowercase())
-}
-
-#[cfg(unix)]
-fn verify_checksum(bytes: &[u8], expected_sha256: &str) -> Result<(), versi_backend::BackendError> {
-    let actual_sha256 = format!("{:x}", Sha256::digest(bytes));
-    if actual_sha256 == expected_sha256 {
-        return Ok(());
-    }
-
-    Err(versi_backend::BackendError::install_failed(
-        "verify asdf archive",
-        format!("checksum mismatch (expected {expected_sha256}, got {actual_sha256})"),
-    ))
-}
-
-#[cfg(unix)]
 fn temp_install_dir() -> PathBuf {
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -483,13 +511,35 @@ async fn ensure_nodejs_plugin(
     }
 }
 
+#[cfg(windows)]
+async fn run_windows_installer_attempt(attempt: &InstallerAttempt) -> Result<(), String> {
+    let status = Command::new(attempt.program)
+        .args(attempt.args)
+        .hide_window()
+        .status()
+        .await;
+
+    match status {
+        Ok(status) if status.success() => Ok(()),
+        Ok(status) => Err(format!(
+            "{} exited with status {}",
+            attempt.label,
+            status
+                .code()
+                .map_or_else(|| "unknown".to_string(), |code| code.to_string())
+        )),
+        Err(error) => Err(format!("{} failed to start: {error}", attempt.label)),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::{
-        build_detection, get_common_asdf_paths, normalize_asdf_version, select_asdf_data_dir,
+        asdf_windows_install_attempts, build_detection, get_common_asdf_paths,
+        normalize_asdf_version, select_asdf_data_dir,
     };
 
     fn temp_path(name: &str) -> PathBuf {
@@ -560,5 +610,15 @@ mod tests {
 
         assert!(detected.found);
         assert!(!plugin_missing.found);
+    }
+
+    #[test]
+    fn windows_install_attempts_are_ordered_by_preference() {
+        let attempts = asdf_windows_install_attempts();
+
+        assert_eq!(attempts.len(), 3);
+        assert_eq!(attempts[0].program, "winget");
+        assert_eq!(attempts[1].program, "scoop");
+        assert_eq!(attempts[2].program, "choco");
     }
 }

@@ -9,6 +9,7 @@ use crate::error::AppError;
 pub struct OnboardingState {
     pub step: OnboardingStep,
     pub backend_installing: bool,
+    pub confirming_unsafe_install: bool,
     pub install_error: Option<AppError>,
     pub detected_shells: Vec<ShellConfigStatus>,
     pub available_backends: Vec<BackendOption>,
@@ -20,6 +21,7 @@ impl OnboardingState {
         Self {
             step: OnboardingStep::Welcome,
             backend_installing: false,
+            confirming_unsafe_install: false,
             install_error: None,
             detected_shells: Vec::new(),
             available_backends: Vec::new(),
@@ -38,6 +40,7 @@ mod tests {
 
         assert_eq!(state.step, OnboardingStep::Welcome);
         assert!(!state.backend_installing);
+        assert!(!state.confirming_unsafe_install);
         assert!(state.install_error.is_none());
         assert!(state.detected_shells.is_empty());
         assert!(state.available_backends.is_empty());

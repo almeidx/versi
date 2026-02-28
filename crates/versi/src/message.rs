@@ -138,6 +138,8 @@ pub enum Message {
     OnboardingBack,
     OnboardingSelectBackend(BackendKind),
     OnboardingInstallBackend,
+    OnboardingConfirmInstallBackend,
+    OnboardingCancelInstallBackend,
     OnboardingBackendInstallResult(Result<(), AppError>),
     OnboardingConfigureShell(ShellType),
     OnboardingShellConfigResult(Result<(), AppError>),

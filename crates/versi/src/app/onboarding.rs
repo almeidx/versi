@@ -10,6 +10,7 @@ use super::Versi;
 impl Versi {
     pub(super) fn handle_onboarding_next(&mut self) -> Task<Message> {
         if let AppState::Onboarding(state) = &mut self.state {
+            state.confirming_unsafe_install = false;
             state.step = match state.step {
                 OnboardingStep::Welcome => {
                     if state.available_backends.len() > 1 {
@@ -28,6 +29,7 @@ impl Versi {
 
     pub(super) fn handle_onboarding_back(&mut self) {
         if let AppState::Onboarding(state) = &mut self.state {
+            state.confirming_unsafe_install = false;
             state.step = match state.step {
                 OnboardingStep::Welcome | OnboardingStep::SelectBackend => OnboardingStep::Welcome,
                 OnboardingStep::InstallBackend => {
@@ -56,7 +58,15 @@ impl Versi {
 
     pub(super) fn handle_onboarding_install_backend(&mut self) -> Task<Message> {
         if let AppState::Onboarding(state) = &mut self.state {
+            state.confirming_unsafe_install = true;
+        }
+        Task::none()
+    }
+
+    pub(super) fn handle_onboarding_confirm_install_backend(&mut self) -> Task<Message> {
+        if let AppState::Onboarding(state) = &mut self.state {
             state.backend_installing = true;
+            state.confirming_unsafe_install = false;
             state.install_error = None;
 
             let provider = self.provider.clone();
@@ -74,12 +84,19 @@ impl Versi {
         Task::none()
     }
 
+    pub(super) fn handle_onboarding_cancel_install_backend(&mut self) {
+        if let AppState::Onboarding(state) = &mut self.state {
+            state.confirming_unsafe_install = false;
+        }
+    }
+
     pub(super) fn handle_onboarding_backend_install_result(
         &mut self,
         result: Result<(), AppError>,
     ) -> Task<Message> {
         if let AppState::Onboarding(state) = &mut self.state {
             state.backend_installing = false;
+            state.confirming_unsafe_install = false;
             match result {
                 Ok(()) => {
                     state.step = OnboardingStep::ConfigureShell;
@@ -353,10 +370,55 @@ mod tests {
     }
 
     #[test]
+    fn onboarding_install_backend_opens_confirmation_prompt() {
+        let mut app = test_onboarding_app(1);
+        if let AppState::Onboarding(state) = &mut app.state {
+            state.install_error = Some(AppError::backend_install_failed("fnm", "old error"));
+        }
+
+        let _ = app.handle_onboarding_install_backend();
+
+        let state = app.onboarding_state();
+        assert!(state.confirming_unsafe_install);
+        assert!(!state.backend_installing);
+        assert!(state.install_error.is_some());
+    }
+
+    #[test]
+    fn onboarding_cancel_install_backend_closes_confirmation_prompt() {
+        let mut app = test_onboarding_app(1);
+        if let AppState::Onboarding(state) = &mut app.state {
+            state.confirming_unsafe_install = true;
+        }
+
+        app.handle_onboarding_cancel_install_backend();
+
+        let state = app.onboarding_state();
+        assert!(!state.confirming_unsafe_install);
+    }
+
+    #[test]
+    fn onboarding_confirm_install_backend_starts_install_and_clears_error() {
+        let mut app = test_onboarding_app(1);
+        if let AppState::Onboarding(state) = &mut app.state {
+            state.confirming_unsafe_install = true;
+            state.install_error = Some(AppError::backend_install_failed("fnm", "old error"));
+        }
+
+        let _ = app.handle_onboarding_confirm_install_backend();
+
+        let state = app.onboarding_state();
+        assert!(state.backend_installing);
+        assert!(!state.confirming_unsafe_install);
+        assert!(state.install_error.is_none());
+    }
+
+    #[test]
     fn onboarding_backend_install_result_updates_flags_and_step() {
         let mut app = test_onboarding_app(1);
         if let AppState::Onboarding(state) = &mut app.state {
             state.backend_installing = true;
+            state.confirming_unsafe_install = true;
             state.step = OnboardingStep::InstallBackend;
             state.install_error = Some(AppError::backend_install_failed("fnm", "old error"));
         }
@@ -364,17 +426,20 @@ mod tests {
         let _ = app.handle_onboarding_backend_install_result(Ok(()));
         let state = app.onboarding_state();
         assert!(!state.backend_installing);
+        assert!(!state.confirming_unsafe_install);
         assert_eq!(state.step, OnboardingStep::ConfigureShell);
 
         let mut app = test_onboarding_app(1);
         if let AppState::Onboarding(state) = &mut app.state {
             state.backend_installing = true;
+            state.confirming_unsafe_install = true;
         }
         let _ = app.handle_onboarding_backend_install_result(Err(
             AppError::backend_install_failed("fnm", "install failed"),
         ));
         let state = app.onboarding_state();
         assert!(!state.backend_installing);
+        assert!(!state.confirming_unsafe_install);
         assert_eq!(
             state.install_error,
             Some(AppError::BackendInstallFailed {

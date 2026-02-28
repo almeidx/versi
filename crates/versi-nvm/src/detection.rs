@@ -4,7 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::process::Command;
 
 #[cfg(unix)]
-use versi_core::download_install_script_verified;
+use versi_core::download_install_script_unverified;
 use versi_platform::HideWindow;
 
 use crate::client::{NvmClient, NvmEnvironment};
@@ -12,9 +12,47 @@ use crate::client::{NvmClient, NvmEnvironment};
 #[cfg(unix)]
 const NVM_INSTALL_SCRIPT_URL: &str =
     "https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh";
-#[cfg(unix)]
-const NVM_INSTALL_SCRIPT_SHA256: &str =
-    "4b7412c49960c7d31e8df72da90c1fb5b8cccb419ac99537b737028d497aba4f";
+
+#[cfg(any(test, windows))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct InstallerAttempt {
+    label: &'static str,
+    program: &'static str,
+    args: &'static [&'static str],
+}
+
+#[cfg(any(test, windows))]
+const NVM_WINDOWS_INSTALL_ATTEMPTS: [InstallerAttempt; 3] = [
+    InstallerAttempt {
+        label: "winget",
+        program: "winget",
+        args: &[
+            "install",
+            "--id",
+            "CoreyButler.NVMforWindows",
+            "--source",
+            "winget",
+            "--silent",
+            "--accept-source-agreements",
+            "--accept-package-agreements",
+        ],
+    },
+    InstallerAttempt {
+        label: "choco",
+        program: "choco",
+        args: &["install", "nvm", "-y"],
+    },
+    InstallerAttempt {
+        label: "scoop",
+        program: "scoop",
+        args: &["install", "nvm"],
+    },
+];
+
+#[cfg(any(test, windows))]
+fn nvm_windows_install_attempts() -> &'static [InstallerAttempt] {
+    &NVM_WINDOWS_INSTALL_ATTEMPTS
+}
 
 #[derive(Debug, Clone)]
 pub struct NvmDetection {
@@ -174,12 +212,7 @@ pub async fn install_nvm() -> Result<(), versi_backend::BackendError> {
     {
         let script_path = temp_script_path("nvm-install", "sh");
         let result = async {
-            download_install_script(
-                NVM_INSTALL_SCRIPT_URL,
-                NVM_INSTALL_SCRIPT_SHA256,
-                &script_path,
-            )
-            .await?;
+            download_install_script(NVM_INSTALL_SCRIPT_URL, &script_path).await?;
             Command::new("bash")
                 .arg(&script_path)
                 .hide_window()
@@ -203,9 +236,20 @@ pub async fn install_nvm() -> Result<(), versi_backend::BackendError> {
 
     #[cfg(windows)]
     {
+        let mut failures = Vec::new();
+        for attempt in nvm_windows_install_attempts() {
+            match run_windows_installer_attempt(attempt).await {
+                Ok(()) => return Ok(()),
+                Err(error) => failures.push(error),
+            }
+        }
+
         Err(versi_backend::BackendError::install_failed(
-            "unsupported platform flow",
-            "Automatic nvm-windows installation is not supported. Please install manually from https://github.com/coreybutler/nvm-windows/releases",
+            "run installer command",
+            format!(
+                "all nvm-windows install attempts failed: {}",
+                failures.join("; ")
+            ),
         ))
     }
 }
@@ -221,15 +265,14 @@ fn temp_script_path(prefix: &str, ext: &str) -> PathBuf {
 #[cfg(unix)]
 async fn download_install_script(
     url: &str,
-    expected_sha256: &str,
     path: &std::path::Path,
 ) -> Result<(), versi_backend::BackendError> {
-    download_install_script_verified(url, expected_sha256, path)
+    download_install_script_unverified(url, path)
         .await
         .map_err(|error| {
             versi_backend::BackendError::install_failed(
                 "download installer script",
-                format!("failed to download/verify installer script: {error}"),
+                format!("failed to download installer script: {error}"),
             )
         })?;
 
@@ -240,6 +283,27 @@ async fn download_install_script(
     }
 
     Ok(())
+}
+
+#[cfg(windows)]
+async fn run_windows_installer_attempt(attempt: &InstallerAttempt) -> Result<(), String> {
+    let status = Command::new(attempt.program)
+        .args(attempt.args)
+        .hide_window()
+        .status()
+        .await;
+
+    match status {
+        Ok(status) if status.success() => Ok(()),
+        Ok(status) => Err(format!(
+            "{} exited with status {}",
+            attempt.label,
+            status
+                .code()
+                .map_or_else(|| "unknown".to_string(), |code| code.to_string())
+        )),
+        Err(error) => Err(format!("{} failed to start: {error}", attempt.label)),
+    }
 }
 
 #[cfg(test)]
@@ -300,5 +364,15 @@ mod tests {
             variant: NvmVariant::Unix,
         };
         assert!(detect_nvm_environment(&detection).is_none());
+    }
+
+    #[test]
+    fn windows_install_attempts_are_ordered_by_preference() {
+        let attempts = nvm_windows_install_attempts();
+
+        assert_eq!(attempts.len(), 3);
+        assert_eq!(attempts[0].program, "winget");
+        assert_eq!(attempts[1].program, "choco");
+        assert_eq!(attempts[2].program, "scoop");
     }
 }

@@ -1,10 +1,17 @@
 use std::path::{Path, PathBuf};
+#[cfg(unix)]
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use tokio::process::Command;
 use which::which;
 
 use versi_backend::BackendError;
+#[cfg(unix)]
+use versi_core::download_install_script_unverified;
 use versi_core::HideWindow;
+
+#[cfg(unix)]
+const VOLTA_INSTALL_SCRIPT_URL: &str = "https://get.volta.sh";
 
 #[derive(Debug, Clone)]
 pub struct VoltaDetection {
@@ -169,10 +176,28 @@ async fn get_volta_version(path: &Path) -> Option<String> {
 pub(crate) async fn install_volta() -> Result<(), BackendError> {
     #[cfg(unix)]
     {
-        Err(BackendError::install_failed(
-            "unsupported platform flow",
-            "Automatic Volta installation is disabled for security. Please install manually from https://docs.volta.sh/guide/getting-started.",
-        ))
+        let script_path = temp_script_path("volta-install", "sh");
+        let result = async {
+            download_install_script(VOLTA_INSTALL_SCRIPT_URL, &script_path).await?;
+            Command::new("bash")
+                .arg(&script_path)
+                .hide_window()
+                .status()
+                .await
+                .map_err(BackendError::from)
+        }
+        .await;
+        let _ = tokio::fs::remove_file(&script_path).await;
+        let status = result?;
+
+        if status.success() {
+            Ok(())
+        } else {
+            Err(BackendError::install_failed(
+                "run installer script",
+                "volta installation script failed",
+            ))
+        }
     }
 
     #[cfg(windows)]
@@ -204,14 +229,43 @@ pub(crate) async fn install_volta() -> Result<(), BackendError> {
     }
 }
 
+#[cfg(unix)]
+fn temp_script_path(prefix: &str, ext: &str) -> PathBuf {
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |duration| duration.as_nanos());
+    std::env::temp_dir().join(format!("{prefix}-{}-{nonce}.{ext}", std::process::id()))
+}
+
+#[cfg(unix)]
+async fn download_install_script(
+    url: &str,
+    path: &std::path::Path,
+) -> Result<(), versi_backend::BackendError> {
+    download_install_script_unverified(url, path)
+        .await
+        .map_err(|error| {
+            versi_backend::BackendError::install_failed(
+                "download installer script",
+                format!("failed to download installer script: {error}"),
+            )
+        })?;
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700));
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use versi_backend::BackendError;
-
-    use super::{get_common_volta_paths, install_volta, select_volta_home};
+    use super::{get_common_volta_paths, select_volta_home};
 
     fn temp_path(name: &str) -> PathBuf {
         let nonce = SystemTime::now()
@@ -269,16 +323,19 @@ mod tests {
     }
 
     #[cfg(unix)]
-    #[tokio::test]
-    async fn install_volta_is_manual_only_on_unix() {
-        let result = install_volta().await;
+    #[test]
+    fn temp_script_path_uses_requested_extension() {
+        let path = super::temp_script_path("volta-install-test", "sh");
+        let file_name = path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default();
 
-        assert!(matches!(
-            result,
-            Err(BackendError::InstallFailed {
-                phase: "unsupported platform flow",
-                details
-            }) if details.contains("install manually")
-        ));
+        assert!(file_name.contains("volta-install-test-"));
+        assert!(
+            std::path::Path::new(file_name)
+                .extension()
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("sh"))
+        );
     }
 }

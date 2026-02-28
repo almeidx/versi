@@ -47,7 +47,30 @@ pub async fn download_install_script_verified(
     expected_sha256: &str,
     path: &Path,
 ) -> Result<(), InstallScriptError> {
-    let client = reqwest::Client::builder()
+    let client = build_download_client()?;
+
+    let script = download_with_retries(&client, url).await?;
+    verify_checksum(&script, expected_sha256)?;
+    write_script(path, &script).await
+}
+
+/// Download an installer script with timeout/retry policy and no checksum
+/// verification.
+///
+/// # Errors
+/// Returns an error if the HTTP request fails, the server responds with a
+/// non-success status, or writing the script to disk fails.
+pub async fn download_install_script_unverified(
+    url: &str,
+    path: &Path,
+) -> Result<(), InstallScriptError> {
+    let client = build_download_client()?;
+    let script = download_with_retries(&client, url).await?;
+    write_script(path, &script).await
+}
+
+fn build_download_client() -> Result<reqwest::Client, InstallScriptError> {
+    reqwest::Client::builder()
         .timeout(INSTALL_SCRIPT_TIMEOUT)
         .connect_timeout(INSTALL_SCRIPT_CONNECT_TIMEOUT)
         .user_agent(format!(
@@ -55,18 +78,16 @@ pub async fn download_install_script_verified(
             env!("CARGO_PKG_VERSION")
         ))
         .build()
-        .map_err(InstallScriptError::ClientBuild)?;
+        .map_err(InstallScriptError::ClientBuild)
+}
 
-    let script = download_with_retries(&client, url).await?;
-    verify_checksum(&script, expected_sha256)?;
-
+async fn write_script(path: &Path, script: &[u8]) -> Result<(), InstallScriptError> {
     tokio::fs::write(path, &script)
         .await
         .map_err(|source| InstallScriptError::Write {
             path: path.display().to_string(),
             source,
         })?;
-
     Ok(())
 }
 
