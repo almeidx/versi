@@ -58,6 +58,7 @@ impl VersionManager for NvmBackend {
             supports_auto_switch: false,
             supports_corepack: false,
             supports_resolve_engines: false,
+            supports_uninstall: true,
         }
     }
 
@@ -147,6 +148,7 @@ mod tests {
         assert!(!caps.supports_auto_switch);
         assert!(!caps.supports_corepack);
         assert!(!caps.supports_resolve_engines);
+        assert!(caps.supports_uninstall);
     }
 
     #[test]
@@ -155,5 +157,6 @@ mod tests {
         assert!(!caps.supports_shell_integration);
         assert!(caps.supports_lts_filter);
         assert!(caps.supports_use_version);
+        assert!(caps.supports_uninstall);
     }
 }

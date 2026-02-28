@@ -450,6 +450,10 @@ fn available_updates_banner(state: &MainState) -> Option<Element<'_, Message>> {
 }
 
 fn eol_cleanup_banner(state: &MainState) -> Option<Element<'_, Message>> {
+    if !state.backend.capabilities().supports_uninstall {
+        return None;
+    }
+
     let eol_count = state.banner_stats.eol_installed;
 
     if eol_count == 0 {

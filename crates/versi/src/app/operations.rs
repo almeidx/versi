@@ -62,6 +62,10 @@ fn is_already_default_version(state: &MainState, version: &str) -> bool {
         .is_some_and(|dv| dv == &version)
 }
 
+fn supports_uninstall(state: &MainState) -> bool {
+    state.backend.capabilities().supports_uninstall
+}
+
 fn error_text(error: Option<AppError>) -> String {
     error.map_or_else(|| "unknown error".to_string(), |e| e.to_string())
 }
@@ -286,6 +290,10 @@ impl Versi {
 
     pub(super) fn handle_uninstall(&mut self, version: String) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
+            if !supports_uninstall(state) {
+                return Task::none();
+            }
+
             if should_confirm_default_uninstall(state, &version) {
                 state.modal = Some(Modal::ConfirmUninstallDefault {
                     version: version.clone(),
@@ -311,6 +319,10 @@ impl Versi {
         if let AppState::Main(state) = &mut self.state {
             state.modal = None;
 
+            if !supports_uninstall(state) {
+                return Task::none();
+            }
+
             if enqueue_exclusive_if_busy(
                 state,
                 Operation::Uninstall {
@@ -327,6 +339,10 @@ impl Versi {
 
     pub(super) fn start_uninstall_internal(&mut self, version: String) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
+            if !supports_uninstall(state) {
+                return Task::none();
+            }
+
             state.operation_queue.start_exclusive(Operation::Uninstall {
                 version: version.clone(),
             });
@@ -488,7 +504,14 @@ impl Versi {
 
     fn task_for_exclusive_request(&mut self, request: Operation) -> Task<Message> {
         match request {
-            Operation::Uninstall { version } => self.start_uninstall_internal(version),
+            Operation::Uninstall { version } => {
+                if let AppState::Main(state) = &self.state
+                    && !supports_uninstall(state)
+                {
+                    return Task::none();
+                }
+                self.start_uninstall_internal(version)
+            }
             Operation::SetDefault { version } => self.start_set_default_internal(version),
             Operation::Install { .. } => Task::none(),
         }
@@ -497,10 +520,14 @@ impl Versi {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+    use std::sync::Arc;
+
     use versi_backend::InstallProgress;
 
     use super::super::test_app_with_two_environments;
     use super::*;
+    use crate::backend_kind::BackendKind;
 
     #[test]
     fn close_modal_clears_existing_modal() {
@@ -582,6 +609,27 @@ mod tests {
             state.operation_queue.pending.front(),
             Some(Operation::Uninstall { version }) if version == "v20.11.0"
         ));
+    }
+
+    #[test]
+    fn uninstall_is_noop_when_backend_does_not_support_uninstall() {
+        let mut app = test_app_with_two_environments();
+        let state = app.main_state_mut();
+        state.backend = Arc::new(versi_volta::VoltaBackend::new(
+            PathBuf::from("volta"),
+            Some("2.0.2".to_string()),
+            None,
+        ));
+        state.backend_name = BackendKind::Volta;
+        state.active_environment_mut().default_version =
+            Some("v20.11.0".parse().expect("default version should parse"));
+
+        let _ = app.handle_uninstall("v20.11.0".to_string());
+
+        let state = app.main_state();
+        assert!(state.modal.is_none());
+        assert!(state.operation_queue.exclusive_op.is_none());
+        assert!(state.operation_queue.pending.is_empty());
     }
 
     #[test]

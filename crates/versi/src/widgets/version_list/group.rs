@@ -46,8 +46,8 @@ fn group_header_badges(
     badges
 }
 
-fn show_bulk_actions(is_expanded: bool, version_count: usize) -> bool {
-    is_expanded && version_count > 1
+fn show_bulk_actions(is_expanded: bool, version_count: usize, supports_uninstall: bool) -> bool {
+    supports_uninstall && is_expanded && version_count > 1
 }
 
 pub(super) fn version_group_view<'a>(
@@ -78,7 +78,7 @@ pub(super) fn version_group_view<'a>(
     let header: Element<Message> = row![
         header_button,
         Space::new().width(Length::Fill),
-        group_header_actions(group, update_available),
+        group_header_actions(group, update_available, ctx.supports_uninstall),
     ]
     .align_y(Alignment::Center)
     .into();
@@ -152,6 +152,7 @@ fn group_header_row(
 fn group_header_actions(
     group: &VersionGroup,
     update_available: Option<String>,
+    supports_uninstall: bool,
 ) -> Element<'_, Message> {
     let mut actions = row![].spacing(8).align_y(Alignment::Center);
 
@@ -165,7 +166,7 @@ fn group_header_actions(
         );
     }
 
-    if show_bulk_actions(group.is_expanded, group.versions.len()) {
+    if show_bulk_actions(group.is_expanded, group.versions.len(), supports_uninstall) {
         actions = actions.push(
             button(text("Keep Latest").size(10))
                 .on_press(Message::RequestBulkUninstallMajorExceptLatest { major: group.major })
@@ -260,8 +261,9 @@ mod tests {
 
     #[test]
     fn bulk_actions_require_expanded_group_with_multiple_versions() {
-        assert!(!show_bulk_actions(false, 5));
-        assert!(!show_bulk_actions(true, 1));
-        assert!(show_bulk_actions(true, 2));
+        assert!(!show_bulk_actions(false, 5, true));
+        assert!(!show_bulk_actions(true, 1, true));
+        assert!(!show_bulk_actions(true, 2, false));
+        assert!(show_bulk_actions(true, 2, true));
     }
 }

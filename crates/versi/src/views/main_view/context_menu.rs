@@ -8,6 +8,7 @@ use crate::theme::styles;
 pub(super) fn context_menu_overlay<'a>(
     content: Element<'a, Message>,
     menu: &ContextMenu,
+    supports_uninstall: bool,
 ) -> Element<'a, Message> {
     let backdrop = mouse_area(
         container(Space::new().width(Length::Fill).height(Length::Fill))
@@ -30,14 +31,16 @@ pub(super) fn context_menu_overlay<'a>(
                     .into(),
             );
         }
-        items.push(
-            button(text("Uninstall").size(13))
-                .on_press(Message::RequestUninstall(menu.version.clone()))
-                .style(styles::context_menu_item_danger)
-                .padding([6, 12])
-                .width(Length::Fill)
-                .into(),
-        );
+        if supports_uninstall {
+            items.push(
+                button(text("Uninstall").size(13))
+                    .on_press(Message::RequestUninstall(menu.version.clone()))
+                    .style(styles::context_menu_item_danger)
+                    .padding([6, 12])
+                    .width(Length::Fill)
+                    .into(),
+            );
+        }
     } else {
         items.push(
             button(text("Install").size(13))
@@ -49,12 +52,14 @@ pub(super) fn context_menu_overlay<'a>(
         );
     }
 
-    items.push(
-        container(Space::new().width(Length::Fill).height(1))
-            .style(styles::context_menu_separator)
-            .width(Length::Fill)
-            .into(),
-    );
+    if !items.is_empty() {
+        items.push(
+            container(Space::new().width(Length::Fill).height(1))
+                .style(styles::context_menu_separator)
+                .width(Length::Fill)
+                .into(),
+        );
+    }
 
     items.push(
         button(text("Copy Version Number").size(13))

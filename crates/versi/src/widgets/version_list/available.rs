@@ -40,6 +40,7 @@ fn resolve_version_row_action(
     activity: RowActivity,
     install_state: InstallState,
     hover_state: HoverState,
+    supports_uninstall: bool,
 ) -> VersionRowAction {
     if activity == RowActivity::Active {
         return VersionRowAction::Installing;
@@ -48,7 +49,7 @@ fn resolve_version_row_action(
         return VersionRowAction::Queued;
     }
     if install_state == InstallState::Installed {
-        return if hover_state == HoverState::Hovered {
+        return if hover_state == HoverState::Hovered && supports_uninstall {
             VersionRowAction::Uninstall
         } else {
             VersionRowAction::Installed
@@ -215,7 +216,8 @@ pub(super) fn available_version_row<'a>(
     } else {
         HoverState::NotHovered
     };
-    let action = resolve_version_row_action(activity, install_state, hover_state);
+    let action =
+        resolve_version_row_action(activity, install_state, hover_state, ctx.supports_uninstall);
     let has_security = meta.is_some_and(|m| m.security);
     let install_progress = ctx.install_progress.get(&version_label);
     let action_button = action_button(action, &version_label, install_progress);
@@ -278,7 +280,8 @@ mod tests {
             resolve_version_row_action(
                 RowActivity::Active,
                 InstallState::Installed,
-                HoverState::Hovered
+                HoverState::Hovered,
+                true,
             ),
             VersionRowAction::Installing
         );
@@ -286,7 +289,8 @@ mod tests {
             resolve_version_row_action(
                 RowActivity::Pending,
                 InstallState::Installed,
-                HoverState::Hovered
+                HoverState::Hovered,
+                true,
             ),
             VersionRowAction::Queued
         );
@@ -298,7 +302,8 @@ mod tests {
             resolve_version_row_action(
                 RowActivity::Idle,
                 InstallState::Installed,
-                HoverState::Hovered
+                HoverState::Hovered,
+                true,
             ),
             VersionRowAction::Uninstall
         );
@@ -306,7 +311,8 @@ mod tests {
             resolve_version_row_action(
                 RowActivity::Idle,
                 InstallState::Installed,
-                HoverState::NotHovered
+                HoverState::NotHovered,
+                true,
             ),
             VersionRowAction::Installed
         );
@@ -318,9 +324,23 @@ mod tests {
             resolve_version_row_action(
                 RowActivity::Idle,
                 InstallState::NotInstalled,
-                HoverState::NotHovered
+                HoverState::NotHovered,
+                true,
             ),
             VersionRowAction::Install
+        );
+    }
+
+    #[test]
+    fn row_action_keeps_installed_label_when_uninstall_not_supported() {
+        assert_eq!(
+            resolve_version_row_action(
+                RowActivity::Idle,
+                InstallState::Installed,
+                HoverState::Hovered,
+                false,
+            ),
+            VersionRowAction::Installed
         );
     }
 

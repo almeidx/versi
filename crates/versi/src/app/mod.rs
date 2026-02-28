@@ -220,10 +220,12 @@ impl Versi {
 
         let fnm_provider: Arc<dyn BackendProvider> = Arc::new(versi_fnm::FnmProvider::new());
         let nvm_provider: Arc<dyn BackendProvider> = Arc::new(versi_nvm::NvmProvider::new());
+        let volta_provider: Arc<dyn BackendProvider> = Arc::new(versi_volta::VoltaProvider::new());
 
         let mut providers: HashMap<BackendKind, Arc<dyn BackendProvider>> = HashMap::new();
         providers.insert(BackendKind::Fnm, fnm_provider.clone());
         providers.insert(BackendKind::Nvm, nvm_provider.clone());
+        providers.insert(BackendKind::Volta, volta_provider);
 
         let preferred = settings.preferred_backend.unwrap_or(BackendKind::DEFAULT);
         let active_provider = providers.get(&preferred).cloned().unwrap_or(fnm_provider);
@@ -441,10 +443,12 @@ impl Versi {
 fn test_app_with_two_environments() -> Versi {
     let fnm_provider: Arc<dyn BackendProvider> = Arc::new(versi_fnm::FnmProvider::new());
     let nvm_provider: Arc<dyn BackendProvider> = Arc::new(versi_nvm::NvmProvider::new());
+    let volta_provider: Arc<dyn BackendProvider> = Arc::new(versi_volta::VoltaProvider::new());
 
     let mut providers: HashMap<BackendKind, Arc<dyn BackendProvider>> = HashMap::new();
     providers.insert(BackendKind::Fnm, fnm_provider.clone());
     providers.insert(BackendKind::Nvm, nvm_provider.clone());
+    providers.insert(BackendKind::Volta, volta_provider);
 
     let detection = BackendDetection {
         found: true,

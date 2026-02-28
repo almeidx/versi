@@ -208,6 +208,10 @@ impl Versi {
     }
 
     fn uninstall_hovered_version(&mut self) -> Task<Message> {
+        if !self.uninstall_supported() {
+            return Task::none();
+        }
+
         if let Some((version, is_installed)) = self.hovered_version_for_action()
             && is_installed
         {
@@ -226,6 +230,14 @@ impl Versi {
     fn keyboard_list_mode_active(&self) -> bool {
         if let AppState::Main(state) = &self.state {
             state.keyboard_list_mode
+        } else {
+            false
+        }
+    }
+
+    fn uninstall_supported(&self) -> bool {
+        if let AppState::Main(state) = &self.state {
+            state.backend.capabilities().supports_uninstall
         } else {
             false
         }
@@ -273,11 +285,15 @@ impl Versi {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+    use std::sync::Arc;
+
     use versi_backend::{InstalledVersion, NodeVersion, RemoteVersion};
     use versi_platform::EnvironmentId;
 
     use super::super::super::test_app_with_two_environments;
     use super::*;
+    use crate::backend_kind::BackendKind;
     use crate::state::{MainViewKind, Modal, Operation};
 
     fn installed(version: &str, is_default: bool) -> InstalledVersion {
@@ -511,6 +527,29 @@ mod tests {
             state.operation_queue.exclusive_op,
             Some(Operation::Uninstall { ref version }) if version == "v24.1.0"
         ));
+    }
+
+    #[test]
+    fn uninstall_hovered_version_is_noop_when_backend_does_not_support_uninstall() {
+        let mut app = test_app_with_two_environments();
+        let state = app.main_state_mut();
+        state.backend = Arc::new(versi_volta::VoltaBackend::new(
+            PathBuf::from("volta"),
+            Some("2.0.2".to_string()),
+            None,
+        ));
+        state.backend_name = BackendKind::Volta;
+        state
+            .active_environment_mut()
+            .update_versions(vec![installed("v24.1.0", false)]);
+        state.view = MainViewKind::Versions;
+        state.modal = None;
+        state.hovered_version = Some("v24.1.0".to_string());
+
+        let _ = app.dispatch_navigation(Message::UninstallHoveredVersion);
+
+        let state = app.main_state();
+        assert!(state.operation_queue.exclusive_op.is_none());
     }
 
     #[test]

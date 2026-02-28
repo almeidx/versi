@@ -9,6 +9,10 @@ use crate::state::{
 
 use super::Versi;
 
+fn supports_uninstall(state: &MainState) -> bool {
+    state.backend.capabilities().supports_uninstall
+}
+
 fn unique_versions_in_order(versions: impl IntoIterator<Item = String>) -> Vec<String> {
     let mut seen = std::collections::HashSet::new();
     let mut deduped = Vec::new();
@@ -158,6 +162,10 @@ impl Versi {
 
     pub(super) fn handle_request_bulk_uninstall_eol(&mut self) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
+            if !supports_uninstall(state) {
+                return Task::none();
+            }
+
             if state.bulk_run.is_some() {
                 return Task::none();
             }
@@ -185,6 +193,10 @@ impl Versi {
 
     pub(super) fn handle_request_bulk_uninstall_major(&mut self, major: u32) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
+            if !supports_uninstall(state) {
+                return Task::none();
+            }
+
             if state.bulk_run.is_some() {
                 return Task::none();
             }
@@ -220,6 +232,7 @@ impl Versi {
 
     pub(super) fn handle_confirm_bulk_uninstall_eol(&mut self) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state
+            && supports_uninstall(state)
             && let Some(Modal::ConfirmBulkUninstallEOL { versions }) = state.modal.take()
         {
             let started = start_bulk_run(
@@ -237,6 +250,7 @@ impl Versi {
 
     pub(super) fn handle_confirm_bulk_uninstall_major(&mut self, major: u32) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state
+            && supports_uninstall(state)
             && let Some(Modal::ConfirmBulkUninstallMajor { major: m, versions }) =
                 state.modal.take()
             && m == major
@@ -259,6 +273,10 @@ impl Versi {
         major: u32,
     ) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
+            if !supports_uninstall(state) {
+                return Task::none();
+            }
+
             if state.bulk_run.is_some() {
                 return Task::none();
             }
@@ -285,6 +303,7 @@ impl Versi {
         major: u32,
     ) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state
+            && supports_uninstall(state)
             && let Some(Modal::ConfirmBulkUninstallMajorExceptLatest {
                 major: m, versions, ..
             }) = state.modal.take()
@@ -306,10 +325,16 @@ impl Versi {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+    use std::sync::Arc;
+
     use chrono::Utc;
     use versi_backend::{InstalledVersion, RemoteVersion};
 
+    use super::super::test_app_with_two_environments;
     use super::{compute_major_updates, versions_for_major, versions_to_uninstall_except_latest};
+    use crate::backend_kind::BackendKind;
+    use crate::state::Modal;
 
     fn installed(version: &str) -> InstalledVersion {
         InstalledVersion {
@@ -382,5 +407,33 @@ mod tests {
     fn uninstall_except_latest_returns_none_for_single_version() {
         let installed = vec![installed("v22.9.0")];
         assert!(versions_to_uninstall_except_latest(&installed, 22).is_none());
+    }
+
+    #[test]
+    fn request_bulk_uninstall_eol_is_noop_when_uninstall_is_not_supported() {
+        let mut app = test_app_with_two_environments();
+        let state = app.main_state_mut();
+        state.backend = Arc::new(versi_volta::VoltaBackend::new(
+            PathBuf::from("volta"),
+            Some("2.0.2".to_string()),
+            None,
+        ));
+        state.backend_name = BackendKind::Volta;
+        state.banner_stats.eol_installed = 2;
+
+        let _ = app.handle_request_bulk_uninstall_eol();
+
+        let state = app.main_state();
+        assert!(
+            !state
+                .operation_queue
+                .pending
+                .iter()
+                .any(|op| { matches!(op, crate::state::Operation::Uninstall { .. }) })
+        );
+        assert!(!matches!(
+            state.modal,
+            Some(Modal::ConfirmBulkUninstallEOL { .. })
+        ));
     }
 }

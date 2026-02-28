@@ -7,6 +7,7 @@ Versi is a native GUI application for managing Node.js versions.
 The app is backend-agnostic and currently ships with:
 - [fnm](https://github.com/Schniz/fnm) backend (`versi-fnm`)
 - [nvm](https://github.com/nvm-sh/nvm) backend (`versi-nvm`)
+- [Volta](https://github.com/volta-cli/volta) backend (`versi-volta`)
 
 Adding a new backend requires implementing `BackendProvider` and `VersionManager` from `versi-backend` and wiring the provider into the app initialization path.
 
@@ -96,6 +97,13 @@ versi/
 │   │       ├── update.rs         # nvm update checking
 │   │       ├── version.rs        # nvm output parsing
 │   │       └── error.rs          # Error types
+│   ├── versi-volta/              # Volta backend implementation
+│   │   └── src/
+│   │       ├── provider.rs       # VoltaProvider - implements BackendProvider
+│   │       ├── backend.rs        # VoltaBackend - implements VersionManager
+│   │       ├── detection.rs      # volta detection
+│   │       ├── update.rs         # volta update checking
+│   │       └── version.rs        # volta output parsing
 │   ├── versi-shell/              # Shell detection & configuration (backend-agnostic)
 │   │   └── src/
 │   │       ├── detect.rs         # Shell detection
@@ -127,7 +135,7 @@ The application follows Iced's Elm-style architecture:
 - **Theming**: Dynamic light/dark themes based on system preference
 - **Operation Queue**: Installs run concurrently (`active_installs: Vec<Operation>`), while uninstall and set-default are exclusive (`exclusive_op: Option<Operation>`). Pending operations are queued and drained when capacity is available.
 - **System Tray**: Optional background tray icon with version switching support
-- **Backend Abstraction**: The app resolves backend providers (`fnm`/`nvm`) through `BackendProvider` and uses `VersionManager` trait objects. GUI/shell/platform crates avoid coupling to backend implementation details.
+- **Backend Abstraction**: The app resolves backend providers (`fnm`/`nvm`/`volta`) through `BackendProvider` and uses `VersionManager` trait objects. GUI/shell/platform crates avoid coupling to backend implementation details.
 
 ## Development Commands
 
@@ -184,6 +192,7 @@ cargo clippy --workspace --all-targets --all-features -- -D warnings
 5. `crates/versi-backend/src/traits.rs` - `BackendProvider` and `VersionManager` trait definitions
 6. `crates/versi-fnm/src/provider.rs` - `FnmProvider` (concrete backend implementation)
 7. `crates/versi-nvm/src/provider.rs` - `NvmProvider` (concrete backend implementation)
+8. `crates/versi-volta/src/provider.rs` - `VoltaProvider` (concrete backend implementation)
 
 ## Common Tasks
 
@@ -266,6 +275,13 @@ The GUI interacts with backends exclusively through the `BackendProvider` and `V
 - `nvm alias default <version>` - Set default version
 - `nvm current` - Get currently active version
 
+**Key Volta commands used (in `versi-volta`):**
+- `volta list node --format plain` - Get installed Node runtimes
+- `volta fetch node@<version>` - Fetch a Node runtime
+- `volta install node@<version>` - Set global default Node runtime
+- `volta list --current node --format plain` - Get active Node runtime
+- `volta list --default node --format plain` - Get default Node runtime
+
 ## Platform-Specific Notes
 
 ### macOS
@@ -283,7 +299,7 @@ The GUI interacts with backends exclusively through the `BackendProvider` and `V
 - Lists all WSL distros via `wsl.exe --list --verbose`
 - Separately checks which distros are running via `wsl.exe --list --running --quiet`
 - Only checks for the backend in running distros (avoids booting non-running distros)
-- Detects backend paths using backend-specific search paths (e.g., `~/.local/share/fnm/fnm`, `~/.nvm/nvm.sh`)
+- Detects backend paths using backend-specific search paths (e.g., `~/.local/share/fnm/fnm`, `~/.nvm/nvm.sh`, `~/.volta/bin/volta`)
 - Shows all distros as tabs; non-running or backend-less distros appear disabled with reason
 - Commands executed directly via `wsl.exe -d <distro> /path/to/backend ...` (no shell needed)
 - Shell detection in settings is environment-aware: shows Linux shells (bash/zsh/fish) for WSL environments

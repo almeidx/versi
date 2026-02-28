@@ -16,6 +16,7 @@ versi-backend = { path = "../versi-backend" }
 versi-core = { path = "../versi-core" }
 versi-fnm = { path = "../versi-fnm" }
 versi-nvm = { path = "../versi-nvm" }
+versi-volta = { path = "../versi-volta" }
 versi-shell = { path = "../versi-shell" }
 versi-platform = { path = "../versi-platform" }
 

@@ -578,19 +578,20 @@ mod tests {
     }
 
     #[test]
-    fn backend_shell_options_deserialization_ignores_unknown_backends() {
+    fn backend_shell_options_deserialization_keeps_known_backends() {
         let value = json!({
             "backend_shell_options": {
                 "fnm": { "use_on_cd": true, "resolve_engines": true, "corepack_enabled": false },
                 "nvm": { "use_on_cd": false, "resolve_engines": false, "corepack_enabled": true },
-                "volta": { "use_on_cd": true, "resolve_engines": true, "corepack_enabled": true }
+                "volta": { "use_on_cd": true, "resolve_engines": true, "corepack_enabled": true },
+                "unknown-backend": { "use_on_cd": true, "resolve_engines": false, "corepack_enabled": false }
             }
         });
 
         let settings: AppSettings =
             serde_json::from_value(value).expect("settings JSON should deserialize");
 
-        assert_eq!(settings.backend_shell_options.len(), 2);
+        assert_eq!(settings.backend_shell_options.len(), 3);
         assert!(
             settings
                 .backend_shell_options
@@ -600,6 +601,11 @@ mod tests {
             settings
                 .backend_shell_options
                 .contains_key(&BackendKind::Nvm)
+        );
+        assert!(
+            settings
+                .backend_shell_options
+                .contains_key(&BackendKind::Volta)
         );
     }
 
@@ -614,11 +620,20 @@ mod tests {
                 corepack_enabled: true,
             },
         );
+        settings.backend_shell_options.insert(
+            BackendKind::Volta,
+            ShellOptions {
+                use_on_cd: true,
+                resolve_engines: false,
+                corepack_enabled: false,
+            },
+        );
 
         let value = serde_json::to_value(settings).expect("settings should serialize");
         let backend_options = &value["backend_shell_options"];
 
         assert!(backend_options.get("fnm").is_some());
+        assert!(backend_options.get("volta").is_some());
         assert!(backend_options.get("nvm").is_none());
     }
 

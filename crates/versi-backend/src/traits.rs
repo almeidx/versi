@@ -49,7 +49,7 @@ pub trait BackendProvider: Send + Sync {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct ManagerCapabilities {
     pub supports_lts_filter: bool,
@@ -58,6 +58,7 @@ pub struct ManagerCapabilities {
     pub supports_auto_switch: bool,
     pub supports_corepack: bool,
     pub supports_resolve_engines: bool,
+    pub supports_uninstall: bool,
 }
 
 #[derive(Debug, Clone)]

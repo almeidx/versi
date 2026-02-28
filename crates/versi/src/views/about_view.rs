@@ -46,12 +46,13 @@ pub fn view(state: &MainState, has_tabs: bool) -> Element<'_, Message> {
         text(format!("Detected in this session: {backend_summary}"))
             .size(12)
             .color(crate::theme::tokens::TEXT_MUTED),
-        text("Versi is backend-agnostic and currently supports fnm and nvm.")
+        text("Versi is backend-agnostic and currently supports fnm, nvm, and Volta.")
             .size(12)
             .color(crate::theme::tokens::TEXT_MUTED),
         row![
             link_button("fnm", "https://github.com/Schniz/fnm"),
             link_button("nvm", "https://github.com/nvm-sh/nvm"),
+            link_button("Volta", "https://github.com/volta-cli/volta"),
         ]
         .spacing(8),
         Space::new().height(10),
@@ -125,9 +126,13 @@ mod tests {
 
     #[test]
     fn detected_backends_summary_sorts_and_deduplicates_names() {
-        let names =
-            detected_backends_summary(&[BackendKind::Nvm, BackendKind::Fnm, BackendKind::Nvm]);
+        let names = detected_backends_summary(&[
+            BackendKind::Nvm,
+            BackendKind::Volta,
+            BackendKind::Fnm,
+            BackendKind::Nvm,
+        ]);
 
-        assert_eq!(names, "fnm, nvm");
+        assert_eq!(names, "fnm, nvm, volta");
     }
 }

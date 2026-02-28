@@ -19,6 +19,7 @@ use crate::version_query::{matches_version_query_case_insensitive, passes_releas
 use filters::search_available_versions;
 
 pub struct VersionListContext<'a> {
+    pub supports_uninstall: bool,
     pub schedule: Option<&'a ReleaseSchedule>,
     pub search_index: Option<&'a crate::version_query::RemoteVersionSearchIndex>,
     pub operation_queue: &'a OperationQueue,

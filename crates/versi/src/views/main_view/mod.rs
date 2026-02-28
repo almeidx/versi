@@ -75,8 +75,10 @@ pub fn view<'a>(
     } else {
         &state.hovered_version
     };
+    let capabilities = state.backend.capabilities();
     let env = state.active_environment();
     let ctx = version_list::VersionListContext {
+        supports_uninstall: capabilities.supports_uninstall,
         schedule: state.available_versions.schedule.as_ref(),
         search_index: Some(&state.available_versions.search_index),
         operation_queue: &state.operation_queue,
@@ -156,7 +158,11 @@ pub fn view<'a>(
         .into();
 
     let with_context_menu: Element<Message> = if let Some(menu) = &state.context_menu {
-        context_menu::context_menu_overlay(with_cursor_tracking, menu)
+        context_menu::context_menu_overlay(
+            with_cursor_tracking,
+            menu,
+            capabilities.supports_uninstall,
+        )
     } else {
         with_cursor_tracking
     };

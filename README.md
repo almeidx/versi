@@ -2,14 +2,14 @@
 
 Versi is a native desktop app for managing Node.js versions.
 
-It currently supports multiple backends (`fnm` and `nvm`) through a backend-agnostic architecture, so backend-specific behavior is isolated from the GUI and platform layers.
+It currently supports multiple backends (`fnm`, `nvm`, and `volta`) through a backend-agnostic architecture, so backend-specific behavior is isolated from the GUI and platform layers.
 
 ![Versi screenshot](assets/screenshot.png)
 
 ## Features
 
 - Manage installed Node.js versions with install, uninstall, set-default, and use actions
-- Backend selection and detection during onboarding (`fnm` and `nvm`)
+- Backend selection and detection during onboarding (`fnm`, `nvm`, and `volta`)
 - Bulk operations: update majors, remove EOL versions, keep only latest per major
 - Shell integration setup and verification
 - Environment-aware management (native + WSL on Windows)
@@ -82,7 +82,7 @@ Manual install:
   sudo apt-get install -y libgtk-3-dev libayatana-appindicator3-dev
   ```
 
-You do not need `fnm`/`nvm` installed to build. At runtime, Versi will detect configured backends and guide setup via onboarding.
+You do not need `fnm`/`nvm`/`volta` installed to build. At runtime, Versi will detect configured backends and guide setup via onboarding.
 
 ### Build Steps
 
@@ -116,6 +116,7 @@ versi/
 ├── crates/versi-core/     # Shared logic (updates, schedule, metadata)
 ├── crates/versi-fnm/      # fnm backend implementation
 ├── crates/versi-nvm/      # nvm backend implementation
+├── crates/versi-volta/    # Volta backend implementation
 ├── crates/versi-shell/    # Shell detection/config helpers
 └── crates/versi-platform/ # Platform abstractions
 ```
@@ -155,7 +156,7 @@ For contributor and agent-facing details, see [AGENTS.md](AGENTS.md).
 
 ## Runtime Requirements
 
-- At least one backend available (`fnm` or `nvm`) for version management
+- At least one backend available (`fnm`, `nvm`, or `volta`) for version management
 - Shell integration configured for full command-line behavior
 
 ## Contributing
@@ -173,4 +174,5 @@ GNU General Public License v3.0. See [LICENSE](LICENSE).
 
 - [fnm](https://github.com/Schniz/fnm)
 - [nvm](https://github.com/nvm-sh/nvm)
+- [Volta](https://github.com/volta-cli/volta)
 - [Iced](https://iced.rs/)

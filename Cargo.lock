@@ -5383,6 +5383,7 @@ dependencies = [
  "versi-nvm",
  "versi-platform",
  "versi-shell",
+ "versi-volta",
  "windows 0.62.2",
  "windows-sys 0.61.2",
  "winresource",
@@ -5474,6 +5475,22 @@ dependencies = [
  "tokio",
  "versi-backend",
  "versi-platform",
+ "which",
+]
+
+[[package]]
+name = "versi-volta"
+version = "0.11.0"
+dependencies = [
+ "async-trait",
+ "dirs",
+ "log",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "versi-backend",
+ "versi-core",
  "which",
 ]
 

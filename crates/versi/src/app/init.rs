@@ -496,9 +496,13 @@ fn unavailable_wsl_environment(
 
 #[cfg(windows)]
 fn determine_wsl_backend(path: &str, default_name: BackendKind) -> BackendKind {
-    if path.contains("nvm") {
+    let normalized = path.to_ascii_lowercase();
+
+    if normalized.contains("volta") {
+        BackendKind::Volta
+    } else if normalized.contains("nvm") {
         BackendKind::Nvm
-    } else if path.contains("fnm") {
+    } else if normalized.contains("fnm") {
         BackendKind::Fnm
     } else {
         default_name
@@ -519,10 +523,11 @@ async fn get_wsl_backend_version(distro: &str, backend_path: &str) -> Option<Str
 
     if output.status.success() {
         let version_str = String::from_utf8_lossy(&output.stdout);
-        let version = version_str
-            .trim()
+        let trimmed = version_str.trim();
+        let version = trimmed
             .strip_prefix("fnm ")
-            .unwrap_or(version_str.trim())
+            .or_else(|| trimmed.strip_prefix("volta "))
+            .unwrap_or(trimmed)
             .to_string();
         debug!("WSL {} backend version: {}", distro, version);
         Some(version)
@@ -617,6 +622,15 @@ mod tests {
             choose_backend_detection(&detections, BackendKind::Nvm).expect("expected backend");
 
         assert_eq!(chosen.0, BackendKind::Fnm);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn determine_wsl_backend_recognizes_volta_paths() {
+        assert_eq!(
+            super::determine_wsl_backend("/home/user/.volta/bin/volta", BackendKind::Fnm),
+            BackendKind::Volta
+        );
     }
 
     #[test]

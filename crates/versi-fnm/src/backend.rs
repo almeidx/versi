@@ -492,6 +492,7 @@ impl VersionManager for FnmBackend {
             supports_auto_switch: true,
             supports_corepack: true,
             supports_resolve_engines: true,
+            supports_uninstall: true,
         }
     }
 
@@ -615,6 +616,7 @@ mod tests {
         assert!(capabilities.supports_auto_switch);
         assert!(capabilities.supports_corepack);
         assert!(capabilities.supports_resolve_engines);
+        assert!(capabilities.supports_uninstall);
     }
 
     #[test]

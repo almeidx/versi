@@ -71,13 +71,17 @@ pub(super) fn version_item_view<'a>(
         is_busy || !show_actions,
         &version_str,
     );
-    let row_content = push_uninstall_button(
-        row_content,
-        danger_style,
-        is_uninstalling,
-        is_busy || !show_actions,
-        &version_str,
-    );
+    let row_content = if ctx.supports_uninstall {
+        push_uninstall_button(
+            row_content,
+            danger_style,
+            is_uninstalling,
+            is_busy || !show_actions,
+            &version_str,
+        )
+    } else {
+        row_content
+    };
 
     let row_style = if is_hovered {
         styles::version_row_hovered

@@ -522,6 +522,7 @@ fn engine_selector<'a>(settings: &'a AppSettings, state: &'a MainState) -> Eleme
     let preferred = settings.preferred_backend.unwrap_or(BackendKind::DEFAULT);
     let fnm_detected = state.detected_backends.contains(&BackendKind::Fnm);
     let nvm_detected = state.detected_backends.contains(&BackendKind::Nvm);
+    let volta_detected = state.detected_backends.contains(&BackendKind::Volta);
 
     row![
         engine_button(
@@ -533,6 +534,11 @@ fn engine_selector<'a>(settings: &'a AppSettings, state: &'a MainState) -> Eleme
             BackendKind::Nvm,
             preferred == BackendKind::Nvm,
             nvm_detected
+        ),
+        engine_button(
+            BackendKind::Volta,
+            preferred == BackendKind::Volta,
+            volta_detected
         ),
     ]
     .spacing(8)
