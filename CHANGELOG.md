@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.12.0] - 2026-02-28
+
+- fix(windows): default wgpu to low power preference to prevent startup hang
+- chore: run formatter
+- chore: remove unwanted changes from changelog
+- feat(onboarding): add unsafe backend auto-install flows
+- Align backend behavior and tests across managers
+- feat: add asdf backend (nodejs plugin)
+- feat: add volta backend support
+- deps: Update Rust crate objc2 to 0.6.4 (#81)
+- deps: Update GitHub Artifact Actions (#80)
+- fix: warning on non-windows
+- Redesign and center About page content
+- Move bulk progress banner to bottom overlay
+
+
 ## [0.11.0] - 2026-02-25
 
 - feat: add overlay scrollbars and sticky section headers
