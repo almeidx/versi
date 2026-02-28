@@ -45,6 +45,12 @@ fn main() -> iced::Result {
 
     log::info!("Versi {} starting", env!("CARGO_PKG_VERSION"));
 
+    #[cfg(windows)]
+    if std::env::var_os("WGPU_POWER_PREF").is_none() {
+        // SAFETY: no other threads exist yet; the tray and iced threads start later.
+        unsafe { std::env::set_var("WGPU_POWER_PREF", "low") };
+    }
+
     #[cfg(target_os = "linux")]
     {
         if let Err(e) = gtk::init() {
