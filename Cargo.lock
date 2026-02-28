@@ -5353,7 +5353,7 @@ dependencies = [
 
 [[package]]
 name = "versi"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "chrono",
  "crossbeam-channel",
@@ -5393,7 +5393,7 @@ dependencies = [
 
 [[package]]
 name = "versi-asdf"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "async-trait",
  "dirs",
@@ -5409,7 +5409,7 @@ dependencies = [
 
 [[package]]
 name = "versi-backend"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -5421,7 +5421,7 @@ dependencies = [
 
 [[package]]
 name = "versi-core"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "chrono",
  "futures-util",
@@ -5440,7 +5440,7 @@ dependencies = [
 
 [[package]]
 name = "versi-fnm"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "async-trait",
  "dirs",
@@ -5455,7 +5455,7 @@ dependencies = [
 
 [[package]]
 name = "versi-nvm"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "async-trait",
  "dirs",
@@ -5471,7 +5471,7 @@ dependencies = [
 
 [[package]]
 name = "versi-platform"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "dirs",
  "log",
@@ -5482,7 +5482,7 @@ dependencies = [
 
 [[package]]
 name = "versi-shell"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "dirs",
  "log",
@@ -5497,7 +5497,7 @@ dependencies = [
 
 [[package]]
 name = "versi-volta"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "async-trait",
  "dirs",
