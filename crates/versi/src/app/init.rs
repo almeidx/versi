@@ -494,7 +494,7 @@ fn unavailable_wsl_environment(
     }
 }
 
-#[cfg(windows)]
+#[cfg(any(windows, test))]
 fn determine_wsl_backend(path: &str, default_name: BackendKind) -> BackendKind {
     let normalized = path.to_ascii_lowercase();
 
@@ -502,11 +502,25 @@ fn determine_wsl_backend(path: &str, default_name: BackendKind) -> BackendKind {
         BackendKind::Volta
     } else if normalized.contains("nvm") {
         BackendKind::Nvm
+    } else if normalized.contains("asdf") {
+        BackendKind::Asdf
     } else if normalized.contains("fnm") {
         BackendKind::Fnm
     } else {
         default_name
     }
+}
+
+#[cfg(any(windows, test))]
+fn normalize_backend_version_output(version_str: &str) -> String {
+    let trimmed = version_str.trim();
+    trimmed
+        .strip_prefix("fnm ")
+        .or_else(|| trimmed.strip_prefix("volta "))
+        .or_else(|| trimmed.strip_prefix("asdf "))
+        .unwrap_or(trimmed)
+        .trim_start_matches('v')
+        .to_string()
 }
 
 #[cfg(windows)]
@@ -523,12 +537,7 @@ async fn get_wsl_backend_version(distro: &str, backend_path: &str) -> Option<Str
 
     if output.status.success() {
         let version_str = String::from_utf8_lossy(&output.stdout);
-        let trimmed = version_str.trim();
-        let version = trimmed
-            .strip_prefix("fnm ")
-            .or_else(|| trimmed.strip_prefix("volta "))
-            .unwrap_or(trimmed)
-            .to_string();
+        let version = normalize_backend_version_output(&version_str);
         debug!("WSL {} backend version: {}", distro, version);
         Some(version)
     } else {
@@ -571,7 +580,8 @@ mod tests {
     use super::super::test_app_with_two_environments;
     use super::{
         build_environment_states, choose_backend_detection, collect_detected_backends,
-        create_backend_for_environment, native_environment, no_backend_init_result,
+        create_backend_for_environment, determine_wsl_backend, native_environment,
+        no_backend_init_result, normalize_backend_version_output,
     };
     use crate::backend_kind::BackendKind;
     use crate::message::EnvironmentInfo;
@@ -770,5 +780,37 @@ mod tests {
         let state = app.main_state();
         assert!(state.environments[0].loading);
         assert!(!state.environments[1].loading);
+    }
+
+    #[test]
+    fn determine_wsl_backend_recognizes_known_backend_paths() {
+        assert_eq!(
+            determine_wsl_backend("/home/user/.asdf/bin/asdf", BackendKind::Fnm),
+            BackendKind::Asdf
+        );
+        assert_eq!(
+            determine_wsl_backend("/home/user/.nvm/nvm.sh", BackendKind::Fnm),
+            BackendKind::Nvm
+        );
+        assert_eq!(
+            determine_wsl_backend("/home/user/.local/share/fnm/fnm", BackendKind::Nvm),
+            BackendKind::Fnm
+        );
+    }
+
+    #[test]
+    fn determine_wsl_backend_uses_default_for_unknown_paths() {
+        assert_eq!(
+            determine_wsl_backend("/opt/custom/node-manager", BackendKind::Asdf),
+            BackendKind::Asdf
+        );
+    }
+
+    #[test]
+    fn normalize_backend_version_output_handles_prefixes() {
+        assert_eq!(normalize_backend_version_output("asdf 0.18.0"), "0.18.0");
+        assert_eq!(normalize_backend_version_output("fnm 1.38.1"), "1.38.1");
+        assert_eq!(normalize_backend_version_output("v1.2.3"), "1.2.3");
+        assert_eq!(normalize_backend_version_output("1.2.3"), "1.2.3");
     }
 }

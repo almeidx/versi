@@ -224,15 +224,58 @@ mod tests {
     fn test_onboarding_app(backend_count: usize) -> Versi {
         let fnm_provider: Arc<dyn BackendProvider> = Arc::new(versi_fnm::FnmProvider::new());
         let nvm_provider: Arc<dyn BackendProvider> = Arc::new(versi_nvm::NvmProvider::new());
+        let asdf_provider: Arc<dyn BackendProvider> = Arc::new(versi_asdf::AsdfProvider::new());
         let volta_provider: Arc<dyn BackendProvider> = Arc::new(versi_volta::VoltaProvider::new());
 
         let mut providers: HashMap<BackendKind, Arc<dyn BackendProvider>> = HashMap::new();
         providers.insert(BackendKind::Fnm, fnm_provider.clone());
         providers.insert(BackendKind::Nvm, nvm_provider);
+        providers.insert(BackendKind::Asdf, asdf_provider);
         providers.insert(BackendKind::Volta, volta_provider);
 
         let mut onboarding = OnboardingState::new();
-        onboarding.available_backends = if backend_count > 1 {
+        onboarding.available_backends = if backend_count > 3 {
+            vec![
+                BackendOption {
+                    kind: BackendKind::Fnm,
+                    display_name: "fnm",
+                    detected: true,
+                },
+                BackendOption {
+                    kind: BackendKind::Nvm,
+                    display_name: "nvm",
+                    detected: true,
+                },
+                BackendOption {
+                    kind: BackendKind::Asdf,
+                    display_name: "asdf",
+                    detected: true,
+                },
+                BackendOption {
+                    kind: BackendKind::Volta,
+                    display_name: "volta",
+                    detected: true,
+                },
+            ]
+        } else if backend_count > 2 {
+            vec![
+                BackendOption {
+                    kind: BackendKind::Fnm,
+                    display_name: "fnm",
+                    detected: true,
+                },
+                BackendOption {
+                    kind: BackendKind::Nvm,
+                    display_name: "nvm",
+                    detected: true,
+                },
+                BackendOption {
+                    kind: BackendKind::Asdf,
+                    display_name: "asdf",
+                    detected: true,
+                },
+            ]
+        } else if backend_count > 1 {
             vec![
                 BackendOption {
                     kind: BackendKind::Fnm,

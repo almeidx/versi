@@ -370,6 +370,8 @@ mod tests {
             as std::sync::Arc<dyn versi_backend::BackendProvider>;
         let nvm_provider = std::sync::Arc::new(versi_nvm::NvmProvider::new())
             as std::sync::Arc<dyn versi_backend::BackendProvider>;
+        let asdf_provider = std::sync::Arc::new(versi_asdf::AsdfProvider::new())
+            as std::sync::Arc<dyn versi_backend::BackendProvider>;
 
         assert_eq!(
             backend_kind_from_provider(&fnm_provider),
@@ -378,6 +380,10 @@ mod tests {
         assert_eq!(
             backend_kind_from_provider(&nvm_provider),
             crate::backend_kind::BackendKind::Nvm
+        );
+        assert_eq!(
+            backend_kind_from_provider(&asdf_provider),
+            crate::backend_kind::BackendKind::Asdf
         );
     }
 }

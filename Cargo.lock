@@ -5377,6 +5377,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tray-icon",
+ "versi-asdf",
  "versi-backend",
  "versi-core",
  "versi-fnm",
@@ -5388,6 +5389,22 @@ dependencies = [
  "windows-sys 0.61.2",
  "winresource",
  "zbus",
+]
+
+[[package]]
+name = "versi-asdf"
+version = "0.11.0"
+dependencies = [
+ "async-trait",
+ "dirs",
+ "log",
+ "reqwest",
+ "sha2",
+ "tempfile",
+ "tokio",
+ "versi-backend",
+ "versi-core",
+ "which",
 ]
 
 [[package]]
