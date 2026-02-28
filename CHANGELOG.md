@@ -20,9 +20,6 @@ All notable changes to this project will be documented in this file.
 - test: add backend integration tests and CI workflow
 - Add tray tooltip version
 - Add detailed install progress
-- feat(onboarding): add unsafe backend install confirmation prompt
-- feat(installers): use no-checksum backend onboarding installers
-- feat(windows): add best-effort package-manager fallback for nvm/asdf onboarding installs
 - deps: Update Rust crate zbus to 5.14.0 (#77)
 - deps: Lock file maintenance (#76)
 
