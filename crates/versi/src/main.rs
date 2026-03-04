@@ -7,6 +7,7 @@ mod backend_kind;
 mod cache;
 mod error;
 mod format;
+mod fs_utils;
 mod icon;
 mod logging;
 mod message;

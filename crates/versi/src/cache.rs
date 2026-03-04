@@ -8,6 +8,8 @@ use versi_backend::RemoteVersion;
 use versi_core::{ReleaseSchedule, SecurityAdvisory, VersionMeta};
 use versi_platform::AppPaths;
 
+use crate::fs_utils::{quarantine_invalid_file, replace_file};
+
 #[derive(Serialize, Deserialize)]
 pub struct DiskCache {
     pub remote_versions: Vec<RemoteVersion>,
@@ -71,7 +73,7 @@ impl DiskCache {
         match Self::load_from_path(&path) {
             Ok(cache) => Ok(cache),
             Err(error @ DiskCacheLoadError::Parse { .. }) => {
-                quarantine_invalid_cache_file(&path);
+                quarantine_invalid_file(&path, "versions.json");
                 Err(error)
             }
             Err(error) => Err(error),
@@ -181,86 +183,6 @@ fn write_atomic(path: &Path, data: &[u8]) -> std::io::Result<()> {
     }
 
     Ok(())
-}
-
-fn quarantine_invalid_cache_file(path: &Path) {
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    if !path.exists() {
-        return;
-    }
-
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
-    let file_name = path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("versions.json");
-
-    for attempt in 0..5 {
-        let suffix = if attempt == 0 {
-            format!("{file_name}.corrupt-{timestamp}")
-        } else {
-            format!("{file_name}.corrupt-{timestamp}-{attempt}")
-        };
-        let backup_path = path.with_file_name(suffix);
-        if std::fs::rename(path, &backup_path).is_ok() {
-            log::warn!(
-                "Quarantined invalid cache file {} to {}",
-                path.display(),
-                backup_path.display()
-            );
-            return;
-        }
-    }
-
-    log::warn!(
-        "Failed to quarantine invalid cache file at {}",
-        path.display()
-    );
-}
-
-fn replace_file(src: &Path, dst: &Path) -> std::io::Result<()> {
-    #[cfg(target_os = "windows")]
-    {
-        use std::os::windows::ffi::OsStrExt;
-        use windows_sys::Win32::Storage::FileSystem::{
-            MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH, MoveFileExW,
-        };
-
-        let src_utf16: Vec<u16> = src
-            .as_os_str()
-            .encode_wide()
-            .chain(std::iter::once(0))
-            .collect();
-        let dst_utf16: Vec<u16> = dst
-            .as_os_str()
-            .encode_wide()
-            .chain(std::iter::once(0))
-            .collect();
-
-        // SAFETY: both paths are NUL-terminated UTF-16 buffers that live for
-        // the duration of the FFI call.
-        let moved = unsafe {
-            MoveFileExW(
-                src_utf16.as_ptr(),
-                dst_utf16.as_ptr(),
-                MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
-            )
-        };
-        if moved != 0 {
-            Ok(())
-        } else {
-            Err(std::io::Error::last_os_error())
-        }
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        std::fs::rename(src, dst)
-    }
 }
 
 #[cfg(test)]

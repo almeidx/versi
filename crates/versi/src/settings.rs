@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use versi_platform::AppPaths;
 
 use crate::backend_kind::BackendKind;
+use crate::fs_utils::{quarantine_invalid_file, replace_file};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
@@ -280,7 +281,7 @@ impl AppSettings {
                             "Failed to parse settings file at {}: {error}",
                             settings_path.display()
                         ));
-                        quarantine_invalid_settings_file(settings_path);
+                        quarantine_invalid_file(settings_path, "settings.json");
                         Self::default()
                     }
                 },
@@ -405,50 +406,6 @@ fn warn_settings_io(message: &str) {
     log::warn!("{message}");
 }
 
-fn quarantine_invalid_settings_file(settings_path: &Path) {
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
-    let file_name = settings_path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("settings.json");
-    let mut last_error = None;
-
-    for attempt in 0..5 {
-        let suffix = if attempt == 0 {
-            format!("{file_name}.corrupt-{timestamp}")
-        } else {
-            format!("{file_name}.corrupt-{timestamp}-{attempt}")
-        };
-        let backup_path = settings_path.with_file_name(suffix);
-
-        match std::fs::rename(settings_path, &backup_path) {
-            Ok(()) => {
-                warn_settings_io(&format!(
-                    "Moved invalid settings file to {}",
-                    backup_path.display()
-                ));
-                return;
-            }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return,
-            Err(error) => {
-                last_error = Some(error);
-            }
-        }
-    }
-
-    if let Some(error) = last_error {
-        warn_settings_io(&format!(
-            "Failed to quarantine invalid settings file {}: {error}",
-            settings_path.display()
-        ));
-    }
-}
-
 fn temp_settings_path(settings_path: &Path) -> PathBuf {
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -464,47 +421,6 @@ fn temp_settings_path(settings_path: &Path) -> PathBuf {
         "{file_name}.tmp-{}-{timestamp}",
         std::process::id()
     ))
-}
-
-fn replace_file(src: &Path, dst: &Path) -> Result<(), std::io::Error> {
-    #[cfg(target_os = "windows")]
-    {
-        use std::os::windows::ffi::OsStrExt;
-        use windows_sys::Win32::Storage::FileSystem::{
-            MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH, MoveFileExW,
-        };
-
-        let src_utf16: Vec<u16> = src
-            .as_os_str()
-            .encode_wide()
-            .chain(std::iter::once(0))
-            .collect();
-        let dst_utf16: Vec<u16> = dst
-            .as_os_str()
-            .encode_wide()
-            .chain(std::iter::once(0))
-            .collect();
-
-        // SAFETY: both paths are NUL-terminated UTF-16 buffers that live for
-        // the duration of the FFI call.
-        let moved = unsafe {
-            MoveFileExW(
-                src_utf16.as_ptr(),
-                dst_utf16.as_ptr(),
-                MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
-            )
-        };
-        if moved != 0 {
-            Ok(())
-        } else {
-            Err(std::io::Error::last_os_error())
-        }
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        std::fs::rename(src, dst)
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
