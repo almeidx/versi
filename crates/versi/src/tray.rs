@@ -1,7 +1,4 @@
 use std::cell::RefCell;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
 
 use iced::Subscription;
 use iced::futures::SinkExt;
@@ -19,8 +16,6 @@ thread_local! {
     static TRAY_ICON: RefCell<Option<TrayIcon>> = const { RefCell::new(None) };
 }
 
-const TRAY_EVENT_RECV_TIMEOUT: Duration = Duration::from_millis(250);
-
 #[derive(Debug, Error)]
 pub enum TrayError {
     #[cfg(target_os = "linux")]
@@ -32,54 +27,6 @@ pub enum TrayError {
     IconData(#[from] tray_icon::BadIcon),
     #[error("failed to initialize tray icon: {0}")]
     Init(#[from] tray_icon::Error),
-}
-
-struct TrayEventWorker {
-    shutdown: Arc<AtomicBool>,
-    join_handle: Option<std::thread::JoinHandle<()>>,
-}
-
-impl TrayEventWorker {
-    fn start(event_tx: tokio::sync::mpsc::Sender<TrayMessage>) -> Self {
-        let shutdown = Arc::new(AtomicBool::new(false));
-        let worker_shutdown = Arc::clone(&shutdown);
-
-        let join_handle = std::thread::spawn(move || {
-            let receiver = MenuEvent::receiver();
-            while !worker_shutdown.load(Ordering::Relaxed) {
-                match receiver.recv_timeout(TRAY_EVENT_RECV_TIMEOUT) {
-                    Ok(event) => {
-                        let id_str = event.id().as_ref();
-                        if let Some(message) = parse_menu_event(id_str) {
-                            match event_tx.try_send(message) {
-                                Ok(()) => {}
-                                Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
-                                    log::debug!("Tray event queue full; dropping event");
-                                }
-                                Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => break,
-                            }
-                        }
-                    }
-                    Err(crossbeam_channel::RecvTimeoutError::Timeout) => {}
-                    Err(crossbeam_channel::RecvTimeoutError::Disconnected) => break,
-                }
-            }
-        });
-
-        Self {
-            shutdown,
-            join_handle: Some(join_handle),
-        }
-    }
-}
-
-impl Drop for TrayEventWorker {
-    fn drop(&mut self) {
-        self.shutdown.store(true, Ordering::Relaxed);
-        if let Some(join_handle) = self.join_handle.take() {
-            let _ = join_handle.join();
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -379,7 +326,16 @@ pub fn tray_subscription() -> Subscription<Message> {
             16,
             |mut output: iced::futures::channel::mpsc::Sender<Message>| async move {
                 let (event_tx, mut event_rx) = tokio::sync::mpsc::channel(16);
-                let worker = TrayEventWorker::start(event_tx);
+
+                MenuEvent::set_event_handler(Some(move |event: MenuEvent| {
+                    let id_str = event.id().as_ref();
+                    if let Some(message) = parse_menu_event(id_str)
+                        && let Err(tokio::sync::mpsc::error::TrySendError::Full(_)) =
+                            event_tx.try_send(message)
+                    {
+                        log::debug!("Tray event queue full; dropping event");
+                    }
+                }));
 
                 while let Some(message) = event_rx.recv().await {
                     if output.send(Message::TrayEvent(message)).await.is_err() {
@@ -387,8 +343,7 @@ pub fn tray_subscription() -> Subscription<Message> {
                     }
                 }
 
-                drop(event_rx);
-                drop(worker);
+                MenuEvent::set_event_handler(None::<fn(MenuEvent)>);
             },
         )
     })

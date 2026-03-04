@@ -37,7 +37,6 @@ open.workspace = true
 log.workspace = true
 simplelog.workspace = true
 fs2.workspace = true
-crossbeam-channel.workspace = true
 thiserror.workspace = true
 rfd = "0.17.2"
 
