@@ -15,7 +15,7 @@ use crate::error::BackendError;
 /// non-zero status.
 pub fn command_output_to_result(output: &Output) -> Result<String, BackendError> {
     if output.status.success() {
-        return Ok(String::from_utf8_lossy(&output.stdout).to_string());
+        return Ok(String::from_utf8_lossy(&output.stdout).into_owned());
     }
 
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
@@ -32,15 +32,27 @@ pub fn command_output_to_result(output: &Output) -> Result<String, BackendError>
 
 #[cfg(test)]
 mod tests {
-    use std::os::unix::process::ExitStatusExt;
-    use std::process::{ExitStatus, Output};
+    use std::process::Output;
 
     use super::command_output_to_result;
     use crate::BackendError;
 
+    fn exit_status(code: i32) -> std::process::ExitStatus {
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::ExitStatusExt;
+            std::process::ExitStatus::from_raw(code << 8)
+        }
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::ExitStatusExt;
+            std::process::ExitStatus::from_raw(code as u32)
+        }
+    }
+
     fn output(code: i32, stdout: &[u8], stderr: &[u8]) -> Output {
         Output {
-            status: ExitStatus::from_raw(code << 8),
+            status: exit_status(code),
             stdout: stdout.to_vec(),
             stderr: stderr.to_vec(),
         }
