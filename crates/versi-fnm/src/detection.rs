@@ -2,7 +2,9 @@ use std::path::{Path, PathBuf};
 use tokio::process::Command;
 use which::which;
 
-use versi_core::{HideWindow, download_install_script_unverified, get_cli_version, temp_script_path};
+use versi_core::{
+    HideWindow, download_install_script_unverified, get_cli_version, temp_script_path,
+};
 
 const FNM_INSTALL_SCRIPT_URL: &str =
     "https://raw.githubusercontent.com/Schniz/fnm/v1.38.1/.ci/install.sh";

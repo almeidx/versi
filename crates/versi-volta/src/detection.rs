@@ -7,9 +7,9 @@ use versi_backend::BackendError;
 use versi_core::HideWindow;
 #[cfg(unix)]
 use versi_core::download_install_script_unverified;
+use versi_core::get_cli_version;
 #[cfg(unix)]
 use versi_core::temp_script_path;
-use versi_core::get_cli_version;
 
 #[cfg(unix)]
 const VOLTA_INSTALL_SCRIPT_URL: &str = "https://get.volta.sh";
