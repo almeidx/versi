@@ -33,6 +33,12 @@ pub enum InstallScriptError {
         #[source]
         source: std::io::Error,
     },
+    #[error("failed to set permissions on installer script {path}: {source}")]
+    SetPermissions {
+        path: String,
+        #[source]
+        source: std::io::Error,
+    },
 }
 
 #[must_use]
@@ -75,6 +81,35 @@ pub async fn download_install_script_unverified(
     let client = build_download_client()?;
     let script = download_with_retries(&client, url).await?;
     write_script(path, &script).await
+}
+
+/// Download an installer script with timeout/retry policy, no checksum
+/// verification, and (on Unix) set the file executable.
+///
+/// # Errors
+/// Returns an error if the HTTP request fails, the server responds with a
+/// non-success status, writing the script to disk fails, or setting
+/// permissions fails.
+pub async fn download_install_script(url: &str, path: &Path) -> Result<(), InstallScriptError> {
+    download_install_script_unverified(url, path).await?;
+    set_executable(path)?;
+    Ok(())
+}
+
+#[cfg(unix)]
+fn set_executable(path: &Path) -> Result<(), InstallScriptError> {
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700)).map_err(|source| {
+        InstallScriptError::SetPermissions {
+            path: path.display().to_string(),
+            source,
+        }
+    })
+}
+
+#[cfg(not(unix))]
+fn set_executable(_path: &Path) -> Result<(), InstallScriptError> {
+    Ok(())
 }
 
 fn build_download_client() -> Result<reqwest::Client, InstallScriptError> {

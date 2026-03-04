@@ -1,8 +1,10 @@
 use std::path::PathBuf;
 use tokio::process::Command;
 
+#[cfg(any(test, windows))]
+use versi_core::InstallerAttempt;
 #[cfg(unix)]
-use versi_core::download_install_script_unverified;
+use versi_core::download_install_script;
 #[cfg(unix)]
 use versi_core::temp_script_path;
 use versi_platform::HideWindow;
@@ -12,14 +14,6 @@ use crate::client::{NvmClient, NvmEnvironment};
 #[cfg(unix)]
 const NVM_INSTALL_SCRIPT_URL: &str =
     "https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh";
-
-#[cfg(any(test, windows))]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct InstallerAttempt {
-    label: &'static str,
-    program: &'static str,
-    args: &'static [&'static str],
-}
 
 #[cfg(any(test, windows))]
 const NVM_WINDOWS_INSTALL_ATTEMPTS: [InstallerAttempt; 3] = [
@@ -229,7 +223,7 @@ pub async fn install_nvm() -> Result<(), versi_backend::BackendError> {
     {
         let script_path = temp_script_path("nvm-install", "sh");
         let result = async {
-            download_install_script(NVM_INSTALL_SCRIPT_URL, &script_path).await?;
+            download_and_prepare_script(NVM_INSTALL_SCRIPT_URL, &script_path).await?;
             Command::new("bash")
                 .arg(&script_path)
                 .hide_window()
@@ -255,7 +249,7 @@ pub async fn install_nvm() -> Result<(), versi_backend::BackendError> {
     {
         let mut failures = Vec::new();
         for attempt in nvm_windows_install_attempts() {
-            match run_windows_installer_attempt(attempt).await {
+            match versi_core::run_installer_attempt(attempt).await {
                 Ok(()) => return Ok(()),
                 Err(error) => failures.push(error.to_string()),
             }
@@ -272,55 +266,16 @@ pub async fn install_nvm() -> Result<(), versi_backend::BackendError> {
 }
 
 #[cfg(unix)]
-async fn download_install_script(
+async fn download_and_prepare_script(
     url: &str,
     path: &std::path::Path,
 ) -> Result<(), versi_backend::BackendError> {
-    download_install_script_unverified(url, path)
-        .await
-        .map_err(|error| {
-            versi_backend::BackendError::install_failed(
-                "download installer script",
-                format!("failed to download installer script: {error}"),
-            )
-        })?;
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700));
-    }
-
-    Ok(())
-}
-
-#[cfg(windows)]
-async fn run_windows_installer_attempt(
-    attempt: &InstallerAttempt,
-) -> Result<(), versi_backend::BackendError> {
-    let status = Command::new(attempt.program)
-        .args(attempt.args)
-        .hide_window()
-        .status()
-        .await
-        .map_err(|error| {
-            versi_backend::BackendError::install_failed(
-                "run installer command",
-                format!("{} failed to start: {error}", attempt.label),
-            )
-        })?;
-
-    if status.success() {
-        Ok(())
-    } else {
-        let code = status
-            .code()
-            .map_or_else(|| "unknown".to_string(), |code| code.to_string());
-        Err(versi_backend::BackendError::install_failed(
-            "run installer command",
-            format!("{} exited with status {code}", attempt.label),
-        ))
-    }
+    download_install_script(url, path).await.map_err(|error| {
+        versi_backend::BackendError::install_failed(
+            "download installer script",
+            format!("failed to download installer script: {error}"),
+        )
+    })
 }
 
 #[cfg(test)]

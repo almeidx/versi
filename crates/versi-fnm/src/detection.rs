@@ -2,9 +2,7 @@ use std::path::{Path, PathBuf};
 use tokio::process::Command;
 use which::which;
 
-use versi_core::{
-    HideWindow, download_install_script_unverified, get_cli_version, temp_script_path,
-};
+use versi_core::{HideWindow, download_install_script, get_cli_version, temp_script_path};
 
 const FNM_INSTALL_SCRIPT_URL: &str =
     "https://raw.githubusercontent.com/Schniz/fnm/v1.38.1/.ci/install.sh";
@@ -131,7 +129,7 @@ pub(crate) async fn install_fnm() -> Result<(), versi_backend::BackendError> {
     let status = {
         let script_path = temp_script_path("fnm-install", "sh");
         let result = async {
-            download_install_script(FNM_INSTALL_SCRIPT_URL, &script_path).await?;
+            download_and_prepare_script(FNM_INSTALL_SCRIPT_URL, &script_path).await?;
             Command::new("bash")
                 .arg(&script_path)
                 .hide_window()
@@ -148,7 +146,7 @@ pub(crate) async fn install_fnm() -> Result<(), versi_backend::BackendError> {
     let status = {
         let script_path = temp_script_path("fnm-install", "ps1");
         let result = async {
-            download_install_script(FNM_INSTALL_SCRIPT_URL, &script_path).await?;
+            download_and_prepare_script(FNM_INSTALL_SCRIPT_URL, &script_path).await?;
             Command::new("powershell")
                 .args([
                     "-NoProfile",
@@ -177,26 +175,16 @@ pub(crate) async fn install_fnm() -> Result<(), versi_backend::BackendError> {
     }
 }
 
-async fn download_install_script(
+async fn download_and_prepare_script(
     url: &str,
     path: &std::path::Path,
 ) -> Result<(), versi_backend::BackendError> {
-    download_install_script_unverified(url, path)
-        .await
-        .map_err(|error| {
-            versi_backend::BackendError::install_failed(
-                "download installer script",
-                format!("failed to download installer script: {error}"),
-            )
-        })?;
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700));
-    }
-
-    Ok(())
+    download_install_script(url, path).await.map_err(|error| {
+        versi_backend::BackendError::install_failed(
+            "download installer script",
+            format!("failed to download installer script: {error}"),
+        )
+    })
 }
 
 #[cfg(test)]

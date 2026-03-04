@@ -16,6 +16,11 @@ mod metadata;
 mod schedule;
 mod security;
 mod update;
+mod windows_installer;
+
+#[cfg(windows)]
+pub use windows_installer::run_installer_attempt;
+pub use windows_installer::{InstallerAttempt, InstallerAttemptError};
 
 /// Extension trait that normalizes "hide window" behavior on supported command
 /// types.
@@ -24,8 +29,8 @@ pub use commands::HideWindow;
 pub use commands::get_cli_version;
 /// Installer script download helper with retry/verification policy.
 pub use install_script::{
-    InstallScriptError, download_install_script_unverified, download_install_script_verified,
-    temp_script_path,
+    InstallScriptError, download_install_script, download_install_script_unverified,
+    download_install_script_verified, temp_script_path,
 };
 /// Release metadata model and fetch helper.
 pub use metadata::{MetadataError, VersionMeta, fetch_version_metadata};
