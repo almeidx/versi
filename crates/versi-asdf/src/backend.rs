@@ -7,7 +7,7 @@ use versi_core::HideWindow;
 
 use versi_backend::{
     BackendError, BackendInfo, InstalledVersion, ManagerCapabilities, NodeVersion, RemoteVersion,
-    ShellInitOptions, VersionManager,
+    ShellInitOptions, VersionManager, command_output_to_result,
 };
 
 use crate::version::{parse_current_version, parse_installed_versions, parse_remote_versions};
@@ -148,22 +148,9 @@ impl AsdfBackend {
             trace!("asdf stderr: {}", String::from_utf8_lossy(&output.stderr));
         }
 
-        if output.status.success() {
-            Ok(String::from_utf8_lossy(&output.stdout).into_owned())
-        } else {
-            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            let details = if stderr.is_empty() {
-                stdout
-            } else if stdout.is_empty() {
-                stderr
-            } else {
-                format!("{stderr}\n{stdout}")
-            };
-
-            error!("asdf command failed: args={args:?}, details='{details}'");
-            Err(BackendError::CommandFailed { stderr: details })
-        }
+        command_output_to_result(&output).inspect_err(|err| {
+            error!("asdf command failed: args={args:?}, error='{err}'");
+        })
     }
 
     async fn run_current_version(

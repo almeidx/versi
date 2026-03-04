@@ -5,7 +5,7 @@ use tokio::process::Command;
 
 use versi_backend::{
     BackendError, BackendInfo, InstalledVersion, ManagerCapabilities, NodeVersion, RemoteVersion,
-    ShellInitOptions, VersionManager,
+    ShellInitOptions, VersionManager, command_output_to_result,
 };
 use versi_core::HideWindow;
 
@@ -92,21 +92,7 @@ impl VoltaBackend {
     async fn execute(&self, args: &[&str]) -> Result<String, BackendError> {
         info!("Executing volta command: {}", args.join(" "));
         let output = self.build_command(args).output().await?;
-
-        if output.status.success() {
-            Ok(String::from_utf8_lossy(&output.stdout).into_owned())
-        } else {
-            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            let details = if stderr.is_empty() {
-                stdout
-            } else if stdout.is_empty() {
-                stderr
-            } else {
-                format!("{stderr}\n{stdout}")
-            };
-            Err(BackendError::CommandFailed { stderr: details })
-        }
+        command_output_to_result(&output)
     }
 
     fn normalized_node_spec(version: &str) -> String {

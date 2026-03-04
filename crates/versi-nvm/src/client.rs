@@ -5,7 +5,8 @@ use crate::version::{
     parse_unix_installed, parse_unix_remote, parse_windows_installed, parse_windows_remote,
 };
 use versi_backend::{
-    BackendError, InstalledVersion, NodeVersion, RemoteVersion, sanitize_terminal_text,
+    BackendError, InstalledVersion, NodeVersion, RemoteVersion, command_output_to_result,
+    sanitize_terminal_text,
 };
 use versi_platform::HideWindow;
 
@@ -80,14 +81,7 @@ impl NvmClient {
 
     async fn execute(&self, nvm_args: &[&str]) -> Result<String, BackendError> {
         let output = self.build_nvm_command(nvm_args).output().await?;
-
-        if output.status.success() {
-            let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
-            Ok(sanitize_terminal_text(&stdout))
-        } else {
-            let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
-            Err(BackendError::CommandFailed { stderr })
-        }
+        command_output_to_result(&output).map(|stdout| sanitize_terminal_text(&stdout))
     }
 
     /// List installed Node.js versions managed by this `nvm` environment.

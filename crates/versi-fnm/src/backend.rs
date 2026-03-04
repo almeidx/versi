@@ -10,7 +10,8 @@ use versi_core::HideWindow;
 
 use versi_backend::{
     BackendError, BackendInfo, InstallProgress, InstalledVersion, ManagerCapabilities, NodeVersion,
-    RemoteVersion, ShellInitOptions, VersionManager, sanitize_terminal_text,
+    RemoteVersion, ShellInitOptions, VersionManager, command_output_to_result,
+    sanitize_terminal_text,
 };
 
 use crate::version::{parse_installed_versions, parse_remote_versions};
@@ -190,20 +191,17 @@ impl FnmBackend {
 
         debug!("fnm command exit status: {:?}", output.status);
         trace!("fnm stdout: {}", String::from_utf8_lossy(&output.stdout));
-
         if !output.stderr.is_empty() {
             trace!("fnm stderr: {}", String::from_utf8_lossy(&output.stderr));
         }
 
-        if output.status.success() {
-            let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
-            debug!("fnm command succeeded, output: {} bytes", stdout.len());
-            Ok(stdout)
-        } else {
-            let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
-            error!("fnm command failed: args={args:?}, stderr='{stderr}'");
-            Err(BackendError::CommandFailed { stderr })
-        }
+        command_output_to_result(&output)
+            .inspect(|stdout| {
+                debug!("fnm command succeeded, output: {} bytes", stdout.len());
+            })
+            .inspect_err(|err| {
+                error!("fnm command failed: args={args:?}, error='{err}'");
+            })
     }
 
     async fn execute_install_with_progress(

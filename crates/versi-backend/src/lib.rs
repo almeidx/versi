@@ -8,11 +8,14 @@
 //! - `VersionManager`: operational backend API (list/install/uninstall/default).
 //! - Shared types: version models and grouping helpers used by the GUI layer.
 
+mod command;
 mod error;
 mod text;
 mod traits;
 mod types;
 
+/// Shared command output processing.
+pub use command::command_output_to_result;
 /// Error type shared by backend providers and managers.
 pub use error::{BackendError, NetworkStage};
 /// Terminal text sanitization utilities.
