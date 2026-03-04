@@ -1,3 +1,24 @@
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CoreErrorKind {
+    AutoUpdate,
+    Metadata,
+    Schedule,
+    SecurityAdvisory,
+    UpdateCheck,
+}
+
+impl std::fmt::Display for CoreErrorKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::AutoUpdate => write!(f, "auto-update"),
+            Self::Metadata => write!(f, "metadata"),
+            Self::Schedule => write!(f, "schedule"),
+            Self::SecurityAdvisory => write!(f, "security advisory"),
+            Self::UpdateCheck => write!(f, "update check"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AppErrorDetail {
     Message(String),
@@ -7,6 +28,10 @@ pub enum AppErrorDetail {
     },
     Backend(versi_backend::BackendError),
     ShellVerification(versi_shell::VerificationError),
+    Core {
+        kind: CoreErrorKind,
+        message: String,
+    },
 }
 
 impl std::fmt::Display for AppErrorDetail {
@@ -16,6 +41,7 @@ impl std::fmt::Display for AppErrorDetail {
             Self::Io { kind, message } => write!(f, "{kind}: {message}"),
             Self::Backend(error) => write!(f, "{error}"),
             Self::ShellVerification(error) => write!(f, "{error}"),
+            Self::Core { kind, message } => write!(f, "{kind}: {message}"),
         }
     }
 }
@@ -73,31 +99,46 @@ impl From<versi_shell::WslShellConfigError> for AppErrorDetail {
 
 impl From<versi_core::auto_update::AutoUpdateError> for AppErrorDetail {
     fn from(value: versi_core::auto_update::AutoUpdateError) -> Self {
-        Self::Message(value.to_string())
+        Self::Core {
+            kind: CoreErrorKind::AutoUpdate,
+            message: value.to_string(),
+        }
     }
 }
 
 impl From<versi_core::MetadataError> for AppErrorDetail {
     fn from(value: versi_core::MetadataError) -> Self {
-        Self::Message(value.to_string())
+        Self::Core {
+            kind: CoreErrorKind::Metadata,
+            message: value.to_string(),
+        }
     }
 }
 
 impl From<versi_core::ScheduleError> for AppErrorDetail {
     fn from(value: versi_core::ScheduleError) -> Self {
-        Self::Message(value.to_string())
+        Self::Core {
+            kind: CoreErrorKind::Schedule,
+            message: value.to_string(),
+        }
     }
 }
 
 impl From<versi_core::SecurityAdvisoryError> for AppErrorDetail {
     fn from(value: versi_core::SecurityAdvisoryError) -> Self {
-        Self::Message(value.to_string())
+        Self::Core {
+            kind: CoreErrorKind::SecurityAdvisory,
+            message: value.to_string(),
+        }
     }
 }
 
 impl From<versi_core::UpdateError> for AppErrorDetail {
     fn from(value: versi_core::UpdateError) -> Self {
-        Self::Message(value.to_string())
+        Self::Core {
+            kind: CoreErrorKind::UpdateCheck,
+            message: value.to_string(),
+        }
     }
 }
 
@@ -335,7 +376,7 @@ impl std::error::Error for AppError {}
 
 #[cfg(test)]
 mod tests {
-    use super::{AppError, AppErrorDetail};
+    use super::{AppError, AppErrorDetail, CoreErrorKind};
 
     #[test]
     fn message_variant_and_display_match() {
@@ -545,5 +586,40 @@ mod tests {
             }
         ));
         assert_eq!(detail.to_string(), "permission denied: denied");
+    }
+
+    #[test]
+    fn core_detail_preserves_kind_and_message() {
+        let detail = AppErrorDetail::Core {
+            kind: CoreErrorKind::Metadata,
+            message: "connection refused".to_string(),
+        };
+        assert_eq!(
+            detail,
+            AppErrorDetail::Core {
+                kind: CoreErrorKind::Metadata,
+                message: "connection refused".to_string(),
+            }
+        );
+        assert_eq!(detail.to_string(), "metadata: connection refused");
+    }
+
+    #[test]
+    fn core_error_kind_display_covers_all_variants() {
+        assert_eq!(CoreErrorKind::AutoUpdate.to_string(), "auto-update");
+        assert_eq!(CoreErrorKind::Metadata.to_string(), "metadata");
+        assert_eq!(CoreErrorKind::Schedule.to_string(), "schedule");
+        assert_eq!(
+            CoreErrorKind::SecurityAdvisory.to_string(),
+            "security advisory"
+        );
+        assert_eq!(CoreErrorKind::UpdateCheck.to_string(), "update check");
+    }
+
+    #[test]
+    fn core_error_kind_is_copy_and_eq() {
+        let kind = CoreErrorKind::Schedule;
+        let copied = kind;
+        assert_eq!(kind, copied);
     }
 }
