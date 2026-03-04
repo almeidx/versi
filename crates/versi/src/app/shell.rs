@@ -387,4 +387,126 @@ mod tests {
             crate::backend_kind::BackendKind::Asdf
         );
     }
+
+    #[test]
+    fn shell_configured_ok_sets_configured_status() {
+        let mut app = test_app_with_two_environments();
+        app.main_state_mut().settings_state.shell_statuses = vec![ShellSetupStatus {
+            shell_name: "Zsh".to_string(),
+            shell_type: versi_shell::ShellType::Zsh,
+            status: ShellVerificationStatus::NotConfigured,
+            configuring: true,
+        }];
+
+        app.handle_shell_configured(&versi_shell::ShellType::Zsh, &Ok(()));
+
+        let status = &app.main_state().settings_state.shell_statuses[0];
+        assert!(!status.configuring);
+        assert!(matches!(status.status, ShellVerificationStatus::Configured));
+    }
+
+    #[test]
+    fn shell_configured_err_sets_error_status() {
+        let mut app = test_app_with_two_environments();
+        app.main_state_mut().settings_state.shell_statuses = vec![ShellSetupStatus {
+            shell_name: "Zsh".to_string(),
+            shell_type: versi_shell::ShellType::Zsh,
+            status: ShellVerificationStatus::NotConfigured,
+            configuring: true,
+        }];
+
+        let error = AppError::shell_config_failed("Zsh", "write config", "permission denied");
+        app.handle_shell_configured(&versi_shell::ShellType::Zsh, &Err(error));
+
+        let status = &app.main_state().settings_state.shell_statuses[0];
+        assert!(!status.configuring);
+        assert!(matches!(status.status, ShellVerificationStatus::Error));
+    }
+
+    #[test]
+    fn shell_configured_ignores_unknown_shell_type() {
+        let mut app = test_app_with_two_environments();
+        app.main_state_mut().settings_state.shell_statuses = vec![ShellSetupStatus {
+            shell_name: "Bash".to_string(),
+            shell_type: versi_shell::ShellType::Bash,
+            status: ShellVerificationStatus::NotConfigured,
+            configuring: true,
+        }];
+
+        app.handle_shell_configured(&versi_shell::ShellType::Fish, &Ok(()));
+
+        let status = &app.main_state().settings_state.shell_statuses[0];
+        assert!(status.configuring);
+        assert!(matches!(
+            status.status,
+            ShellVerificationStatus::NotConfigured
+        ));
+    }
+
+    #[test]
+    fn shell_setup_checked_with_configured_none_does_not_update_settings() {
+        let mut app = test_app_with_two_environments();
+        let original_options = app.settings.shell_options_for(app.active_backend_kind());
+        let original_use_on_cd = original_options.use_on_cd;
+
+        app.handle_shell_setup_checked(vec![(
+            versi_shell::ShellType::Bash,
+            versi_shell::VerificationResult::Configured(None),
+        )]);
+
+        let options = app.settings.shell_options_for(app.active_backend_kind());
+        assert_eq!(options.use_on_cd, original_use_on_cd);
+    }
+
+    #[test]
+    fn shell_setup_checked_uses_first_configured_options_only() {
+        let mut app = test_app_with_two_environments();
+
+        let first_options = versi_shell::ShellInitOptions {
+            use_on_cd: false,
+            resolve_engines: true,
+            corepack_enabled: false,
+        };
+        let second_options = versi_shell::ShellInitOptions {
+            use_on_cd: true,
+            resolve_engines: false,
+            corepack_enabled: true,
+        };
+
+        app.handle_shell_setup_checked(vec![
+            (
+                versi_shell::ShellType::Bash,
+                versi_shell::VerificationResult::Configured(Some(first_options)),
+            ),
+            (
+                versi_shell::ShellType::Zsh,
+                versi_shell::VerificationResult::Configured(Some(second_options)),
+            ),
+        ]);
+
+        let options = app.settings.shell_options_for(app.active_backend_kind());
+        assert!(!options.use_on_cd);
+        assert!(options.resolve_engines);
+        assert!(!options.corepack_enabled);
+    }
+
+    #[test]
+    fn shell_setup_checked_sets_shell_name_from_shell_type() {
+        let mut app = test_app_with_two_environments();
+
+        app.handle_shell_setup_checked(vec![
+            (
+                versi_shell::ShellType::Fish,
+                versi_shell::VerificationResult::NotConfigured,
+            ),
+            (
+                versi_shell::ShellType::Bash,
+                versi_shell::VerificationResult::NotConfigured,
+            ),
+        ]);
+
+        let statuses = &app.main_state().settings_state.shell_statuses;
+        assert_eq!(statuses[0].shell_name, "Fish");
+        assert_eq!(statuses[1].shell_name, "Bash");
+    }
 }
