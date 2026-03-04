@@ -253,19 +253,7 @@ impl Versi {
             system_theme_mode: iced::theme::Mode::None,
         };
 
-        let all_providers: Vec<Arc<dyn BackendProvider>> = providers.values().cloned().collect();
-        let preferred_backend = app.settings.preferred_backend;
-        let wsl_list_timeout = app.settings.wsl_list_timeout_secs;
-        let wsl_distro_timeout = app.settings.wsl_distro_timeout_secs;
-        let init_task = Task::perform(
-            init::initialize(
-                all_providers,
-                preferred_backend,
-                wsl_list_timeout,
-                wsl_distro_timeout,
-            ),
-            |result| Message::Initialized(Box::new(result)),
-        );
+        let init_task = app.build_init_task();
         let theme_task = iced::system::theme().map(Message::SystemThemeChanged);
         let tray_task = Task::done(Message::InitTray);
 
@@ -413,20 +401,8 @@ impl Versi {
                 if let Some(provider) = self.providers.get(&name) {
                     self.provider = provider.clone();
                 }
-                let all_providers = self.all_providers();
-                let preferred = self.settings.preferred_backend;
-                let wsl_list_timeout = self.settings.wsl_list_timeout_secs;
-                let wsl_distro_timeout = self.settings.wsl_distro_timeout_secs;
                 self.state = AppState::Loading;
-                return Task::perform(
-                    init::initialize(
-                        all_providers,
-                        preferred,
-                        wsl_list_timeout,
-                        wsl_distro_timeout,
-                    ),
-                    |result| Message::Initialized(Box::new(result)),
-                );
+                return self.build_init_task();
             }
         }
 
@@ -458,6 +434,22 @@ impl Versi {
         } else {
             BackendKind::from_name(self.provider.name()).unwrap_or(BackendKind::DEFAULT)
         }
+    }
+
+    fn build_init_task(&self) -> Task<Message> {
+        let all_providers = self.all_providers();
+        let preferred = self.settings.preferred_backend;
+        let wsl_list_timeout = self.settings.wsl_list_timeout_secs;
+        let wsl_distro_timeout = self.settings.wsl_distro_timeout_secs;
+        Task::perform(
+            init::initialize(
+                all_providers,
+                preferred,
+                wsl_list_timeout,
+                wsl_distro_timeout,
+            ),
+            |result| Message::Initialized(Box::new(result)),
+        )
     }
 }
 
