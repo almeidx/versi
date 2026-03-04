@@ -157,7 +157,7 @@ async fn find_backend_path(
 
     let check_cmd = search_paths
         .iter()
-        .map(|p| format!("[ -x {} ] && {{ echo {}; exit 0; }}", p, p))
+        .map(|p| format!("[ -x '{}' ] && {{ echo '{}'; exit 0; }}", p, p))
         .collect::<Vec<_>>()
         .join("; ");
 
