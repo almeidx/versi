@@ -562,6 +562,7 @@ fn normalize_backend_version_output(version_str: &str) -> String {
     let trimmed = version_str.trim();
     trimmed
         .strip_prefix("fnm ")
+        .or_else(|| trimmed.strip_prefix("nvm "))
         .or_else(|| trimmed.strip_prefix("volta "))
         .or_else(|| trimmed.strip_prefix("asdf "))
         .unwrap_or(trimmed)
@@ -877,10 +878,25 @@ mod tests {
     }
 
     #[test]
-    fn normalize_backend_version_output_handles_prefixes() {
+    fn normalize_backend_version_output_strips_each_backend_prefix() {
+        assert_eq!(normalize_backend_version_output("fnm 1.38.0"), "1.38.0");
+        assert_eq!(normalize_backend_version_output("nvm 0.40.0"), "0.40.0");
+        assert_eq!(normalize_backend_version_output("volta 2.0.0"), "2.0.0");
         assert_eq!(normalize_backend_version_output("asdf 0.18.0"), "0.18.0");
-        assert_eq!(normalize_backend_version_output("fnm 1.38.1"), "1.38.1");
-        assert_eq!(normalize_backend_version_output("v1.2.3"), "1.2.3");
-        assert_eq!(normalize_backend_version_output("1.2.3"), "1.2.3");
+    }
+
+    #[test]
+    fn normalize_backend_version_output_strips_v_prefix() {
+        assert_eq!(normalize_backend_version_output("v20.0.0"), "20.0.0");
+    }
+
+    #[test]
+    fn normalize_backend_version_output_bare_version_unchanged() {
+        assert_eq!(normalize_backend_version_output("1.38.0"), "1.38.0");
+    }
+
+    #[test]
+    fn normalize_backend_version_output_trims_whitespace() {
+        assert_eq!(normalize_backend_version_output(" 1.38.0 "), "1.38.0");
     }
 }
