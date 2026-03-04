@@ -704,4 +704,75 @@ mod tests {
         let progress = overall_bulk_progress_basis_points(&run, &install_progress);
         assert_eq!(progress, 5_000);
     }
+
+    mod format_relative_time_tests {
+        use chrono::{Duration, Utc};
+
+        use super::super::format_relative_time;
+
+        #[test]
+        fn less_than_60_seconds() {
+            let timestamp = Utc::now() - Duration::seconds(30);
+            assert_eq!(format_relative_time(timestamp), "just now");
+        }
+
+        #[test]
+        fn zero_seconds_ago() {
+            assert_eq!(format_relative_time(Utc::now()), "just now");
+        }
+
+        #[test]
+        fn boundary_59_seconds() {
+            let timestamp = Utc::now() - Duration::seconds(59);
+            assert_eq!(format_relative_time(timestamp), "just now");
+        }
+
+        #[test]
+        fn exactly_60_seconds() {
+            let timestamp = Utc::now() - Duration::seconds(60);
+            assert_eq!(format_relative_time(timestamp), "1m ago");
+        }
+
+        #[test]
+        fn five_minutes() {
+            let timestamp = Utc::now() - Duration::minutes(5);
+            assert_eq!(format_relative_time(timestamp), "5m ago");
+        }
+
+        #[test]
+        fn boundary_59_minutes() {
+            let timestamp = Utc::now() - Duration::seconds(3599);
+            assert_eq!(format_relative_time(timestamp), "59m ago");
+        }
+
+        #[test]
+        fn exactly_one_hour() {
+            let timestamp = Utc::now() - Duration::hours(1);
+            assert_eq!(format_relative_time(timestamp), "1h ago");
+        }
+
+        #[test]
+        fn multiple_hours() {
+            let timestamp = Utc::now() - Duration::hours(12);
+            assert_eq!(format_relative_time(timestamp), "12h ago");
+        }
+
+        #[test]
+        fn boundary_23_hours() {
+            let timestamp = Utc::now() - Duration::hours(23);
+            assert_eq!(format_relative_time(timestamp), "23h ago");
+        }
+
+        #[test]
+        fn exactly_one_day() {
+            let timestamp = Utc::now() - Duration::days(1);
+            assert_eq!(format_relative_time(timestamp), "1d ago");
+        }
+
+        #[test]
+        fn multiple_days() {
+            let timestamp = Utc::now() - Duration::days(7);
+            assert_eq!(format_relative_time(timestamp), "7d ago");
+        }
+    }
 }
