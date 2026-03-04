@@ -122,14 +122,25 @@ fn get_common_fnm_paths() -> Vec<PathBuf> {
 }
 
 async fn get_fnm_version(path: &PathBuf) -> Option<String> {
-    let output = Command::new(path)
+    let output = match Command::new(path)
         .arg("--version")
         .hide_window()
         .output()
         .await
-        .ok()?;
+    {
+        Ok(output) => output,
+        Err(e) => {
+            log::debug!("Failed to run fnm --version at {}: {e}", path.display());
+            return None;
+        }
+    };
 
     if !output.status.success() {
+        log::debug!(
+            "fnm --version exited with {:?} at {}",
+            output.status.code(),
+            path.display()
+        );
         return None;
     }
 

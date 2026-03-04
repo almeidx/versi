@@ -97,7 +97,13 @@ async fn detect_unix_nvm() -> Option<NvmDetection> {
     }
 
     let client = NvmClient::unix(nvm_dir.clone());
-    let version = client.version().await.ok();
+    let version = match client.version().await {
+        Ok(v) => Some(v),
+        Err(e) => {
+            log::debug!("Failed to get nvm version at {}: {e}", nvm_dir.display());
+            None
+        }
+    };
 
     Some(NvmDetection {
         found: true,
@@ -177,17 +183,28 @@ fn get_windows_nvm_paths() -> Vec<PathBuf> {
 }
 
 async fn get_windows_nvm_version(path: &PathBuf) -> Option<String> {
-    let output = Command::new(path)
+    let output = match Command::new(path)
         .arg("version")
         .hide_window()
         .output()
         .await
-        .ok()?;
+    {
+        Ok(output) => output,
+        Err(e) => {
+            log::debug!("Failed to run nvm version at {}: {e}", path.display());
+            return None;
+        }
+    };
 
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
         Some(stdout.trim().to_string())
     } else {
+        log::debug!(
+            "nvm version exited with {:?} at {}",
+            output.status.code(),
+            path.display()
+        );
         None
     }
 }
