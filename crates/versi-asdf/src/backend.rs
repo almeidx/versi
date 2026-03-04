@@ -21,7 +21,6 @@ pub enum Environment {
 #[derive(Clone)]
 pub struct AsdfBackend {
     info: BackendInfo,
-    asdf_data_dir: Option<PathBuf>,
     environment: Environment,
 }
 
@@ -33,17 +32,15 @@ impl AsdfBackend {
                 name: "asdf",
                 path,
                 version,
-                data_dir: asdf_data_dir.clone(),
+                data_dir: asdf_data_dir,
                 in_path: true,
             },
-            asdf_data_dir,
             environment: Environment::Native,
         }
     }
 
     #[must_use]
     pub fn with_asdf_data_dir(mut self, dir: PathBuf) -> Self {
-        self.asdf_data_dir = Some(dir.clone());
         self.info.data_dir = Some(dir);
         self
     }
@@ -64,13 +61,12 @@ impl AsdfBackend {
                 data_dir: None,
                 in_path: false,
             },
-            asdf_data_dir: None,
             environment: Environment::Wsl { distro, asdf_path },
         }
     }
 
     fn apply_native_env(&self, cmd: &mut Command) {
-        if let Some(dir) = &self.asdf_data_dir {
+        if let Some(dir) = &self.info.data_dir {
             debug!("Setting ASDF_DATA_DIR={}", dir.display());
             cmd.env("ASDF_DATA_DIR", dir);
         }
