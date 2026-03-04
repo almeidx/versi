@@ -505,10 +505,9 @@ fn lookup_lts<'a>(version: &str, state: &'a MainState) -> Option<&'a str> {
     let parsed = version.parse::<versi_backend::NodeVersion>().ok()?;
     state
         .available_versions
-        .versions
-        .iter()
-        .find(|v| v.version == parsed)
-        .and_then(|v| v.lts_codename.as_deref())
+        .lts_by_version
+        .get(&parsed)
+        .map(String::as_str)
 }
 
 fn is_major_release(version: &str) -> bool {

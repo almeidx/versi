@@ -378,6 +378,7 @@ impl FetchState {
 pub struct VersionCache {
     pub versions: Vec<RemoteVersion>,
     pub latest_by_major: HashMap<u32, NodeVersion>,
+    pub lts_by_version: HashMap<NodeVersion, String>,
     pub fetched_at: Option<Instant>,
     pub loading: bool,
     pub remote: FetchState,
@@ -398,6 +399,7 @@ impl VersionCache {
         Self {
             versions: Vec::new(),
             latest_by_major: HashMap::new(),
+            lts_by_version: HashMap::new(),
             fetched_at: None,
             loading: false,
             remote: FetchState::new(),
@@ -418,6 +420,7 @@ impl VersionCache {
         self.versions = versions;
         self.search_index = RemoteVersionSearchIndex::from_versions(&self.versions);
         self.recompute_latest_by_major();
+        self.recompute_lts_by_version();
     }
 
     fn recompute_latest_by_major(&mut self) {
@@ -432,6 +435,16 @@ impl VersionCache {
                     }
                 })
                 .or_insert_with(|| version.version.clone());
+        }
+    }
+
+    fn recompute_lts_by_version(&mut self) {
+        self.lts_by_version.clear();
+        for version in &self.versions {
+            if let Some(codename) = &version.lts_codename {
+                self.lts_by_version
+                    .insert(version.version.clone(), codename.clone());
+            }
         }
     }
 
