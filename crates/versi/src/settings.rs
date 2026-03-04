@@ -24,12 +24,6 @@ pub struct AppSettings {
     pub launch_at_login: bool,
 
     #[serde(default)]
-    pub fnm_dir: Option<PathBuf>,
-
-    #[serde(default)]
-    pub node_dist_mirror: Option<String>,
-
-    #[serde(default)]
     #[serde(
         deserialize_with = "deserialize_backend_shell_options",
         serialize_with = "serialize_backend_shell_options"
@@ -219,8 +213,6 @@ impl Default for AppSettings {
             tray_behavior: TrayBehavior::WhenWindowOpen,
             start_minimized: false,
             launch_at_login: false,
-            fnm_dir: None,
-            node_dist_mirror: None,
             preferred_backend: None,
             backend_shell_options: HashMap::new(),
             shell_options: None,
