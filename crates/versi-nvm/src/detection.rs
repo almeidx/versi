@@ -240,7 +240,7 @@ pub async fn install_nvm() -> Result<(), versi_backend::BackendError> {
         for attempt in nvm_windows_install_attempts() {
             match run_windows_installer_attempt(attempt).await {
                 Ok(()) => return Ok(()),
-                Err(error) => failures.push(error),
+                Err(error) => failures.push(error.to_string()),
             }
         }
 
@@ -286,23 +286,31 @@ async fn download_install_script(
 }
 
 #[cfg(windows)]
-async fn run_windows_installer_attempt(attempt: &InstallerAttempt) -> Result<(), String> {
+async fn run_windows_installer_attempt(
+    attempt: &InstallerAttempt,
+) -> Result<(), versi_backend::BackendError> {
     let status = Command::new(attempt.program)
         .args(attempt.args)
         .hide_window()
         .status()
-        .await;
+        .await
+        .map_err(|error| {
+            versi_backend::BackendError::install_failed(
+                "run installer command",
+                format!("{} failed to start: {error}", attempt.label),
+            )
+        })?;
 
-    match status {
-        Ok(status) if status.success() => Ok(()),
-        Ok(status) => Err(format!(
-            "{} exited with status {}",
-            attempt.label,
-            status
-                .code()
-                .map_or_else(|| "unknown".to_string(), |code| code.to_string())
-        )),
-        Err(error) => Err(format!("{} failed to start: {error}", attempt.label)),
+    if status.success() {
+        Ok(())
+    } else {
+        let code = status
+            .code()
+            .map_or_else(|| "unknown".to_string(), |code| code.to_string());
+        Err(versi_backend::BackendError::install_failed(
+            "run installer command",
+            format!("{} exited with status {code}", attempt.label),
+        ))
     }
 }
 
