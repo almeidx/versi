@@ -73,6 +73,49 @@ mod tests {
     }
 
     #[test]
+    fn as_str_roundtrips_through_from_name() {
+        let all_kinds = [
+            BackendKind::Fnm,
+            BackendKind::Nvm,
+            BackendKind::Volta,
+            BackendKind::Asdf,
+        ];
+        for kind in all_kinds {
+            assert_eq!(
+                BackendKind::from_name(kind.as_str()),
+                Some(kind),
+                "{kind:?}.as_str() does not round-trip through from_name"
+            );
+        }
+    }
+
+    #[test]
+    fn provider_names_match_backend_kind() {
+        use versi_backend::BackendProvider;
+
+        let providers: Vec<(&str, BackendKind)> = vec![
+            (versi_fnm::FnmProvider::new().name(), BackendKind::Fnm),
+            (versi_nvm::NvmProvider::new().name(), BackendKind::Nvm),
+            (
+                versi_volta::VoltaProvider::new(reqwest::Client::new()).name(),
+                BackendKind::Volta,
+            ),
+            (
+                versi_asdf::AsdfProvider::new(reqwest::Client::new()).name(),
+                BackendKind::Asdf,
+            ),
+        ];
+
+        for (provider_name, expected_kind) in providers {
+            assert_eq!(
+                BackendKind::from_name(provider_name),
+                Some(expected_kind),
+                "provider name '{provider_name}' does not map to {expected_kind:?}"
+            );
+        }
+    }
+
+    #[test]
     fn serde_roundtrip_supports_new_backends() {
         let volta = serde_json::to_string(&BackendKind::Volta)
             .expect("volta backend kind should serialize");
