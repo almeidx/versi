@@ -138,6 +138,26 @@ pub async fn check_for_update(
     }
 }
 
+/// Fetch the latest GitHub release for a backend's repository and return
+/// update metadata when a newer version is available.
+///
+/// # Errors
+/// Returns an error when the HTTP request itself fails or the successful
+/// response body cannot be deserialized.
+pub async fn check_github_backend_update(
+    client: &reqwest::Client,
+    repo: &str,
+    current_version: &str,
+) -> Result<Option<BackendUpdateInfo>, UpdateError> {
+    let release = check_github_release(client, repo).await?;
+
+    let Some(release) = release else {
+        return Ok(None);
+    };
+
+    Ok(backend_update_from_release(release, current_version))
+}
+
 #[must_use]
 pub fn is_newer_version(latest: &str, current: &str) -> bool {
     match (parse_semver(latest), parse_semver(current)) {
