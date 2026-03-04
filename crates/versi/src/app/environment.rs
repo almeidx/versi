@@ -131,20 +131,15 @@ impl Versi {
             return Task::none();
         }
 
-        Task::batch(
-            targets
-                .into_iter()
-                .map(|env_id| {
-                    Task::perform(
-                        async move {
-                            tokio::time::sleep(BACKGROUND_PRELOAD_DELAY).await;
-                            env_id
-                        },
-                        |env_id| Message::StartBackgroundEnvironmentPreload { env_id },
-                    )
-                })
-                .collect::<Vec<_>>(),
-        )
+        Task::batch(targets.into_iter().map(|env_id| {
+            Task::perform(
+                async move {
+                    tokio::time::sleep(BACKGROUND_PRELOAD_DELAY).await;
+                    env_id
+                },
+                |env_id| Message::StartBackgroundEnvironmentPreload { env_id },
+            )
+        }))
     }
 
     pub(super) fn handle_environment_selected(&mut self, idx: usize) -> Task<Message> {
