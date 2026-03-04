@@ -127,7 +127,7 @@ impl MainState {
             environments,
             active_environment_idx: 0,
             background_preload_started: false,
-            available_versions: VersionCache::new(),
+            available_versions: VersionCache::default(),
             operation_queue: OperationQueue::new(),
             bulk_run: None,
             install_progress: HashMap::new(),
@@ -141,7 +141,7 @@ impl MainState {
             app_update_last_checked_at: None,
             backend_update: None,
             view: MainViewKind::default(),
-            settings_state: SettingsModalState::new(),
+            settings_state: SettingsModalState::default(),
             keyboard_list_mode: false,
             hovered_version: None,
             backend_name,
@@ -335,7 +335,7 @@ impl MainState {
 }
 
 /// Tracks the request lifecycle for a cancellable async fetch.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct FetchState {
     pub request_seq: u64,
     pub cancel_token: Option<CancellationToken>,
@@ -343,14 +343,6 @@ pub struct FetchState {
 }
 
 impl FetchState {
-    pub fn new() -> Self {
-        Self {
-            request_seq: 0,
-            cancel_token: None,
-            error: None,
-        }
-    }
-
     /// Cancel any in-flight request and start a new one.
     /// Returns `(cancel_token, request_seq)` for the new request.
     pub fn start(&mut self) -> (CancellationToken, u64) {
@@ -374,7 +366,7 @@ impl FetchState {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct VersionCache {
     pub versions: Vec<RemoteVersion>,
     pub latest_by_major: HashMap<u32, NodeVersion>,
@@ -395,27 +387,6 @@ pub struct VersionCache {
 }
 
 impl VersionCache {
-    pub fn new() -> Self {
-        Self {
-            versions: Vec::new(),
-            latest_by_major: HashMap::new(),
-            lts_by_version: HashMap::new(),
-            fetched_at: None,
-            loading: false,
-            remote: FetchState::new(),
-            schedule: None,
-            schedule_fetch: FetchState::new(),
-            metadata: None,
-            metadata_fetch: FetchState::new(),
-            security_advisories: None,
-            security_fetch: FetchState::new(),
-            security_last_checked_at: None,
-            loaded_from_disk: false,
-            disk_cached_at: None,
-            search_index: RemoteVersionSearchIndex::default(),
-        }
-    }
-
     pub fn set_versions(&mut self, versions: Vec<RemoteVersion>) {
         self.versions = versions;
         self.search_index = RemoteVersionSearchIndex::from_versions(&self.versions);
@@ -504,7 +475,7 @@ mod tests {
 
     #[test]
     fn set_versions_recomputes_latest_major_versions() {
-        let mut cache = VersionCache::new();
+        let mut cache = VersionCache::default();
         cache.set_versions(vec![
             RemoteVersion {
                 version: NodeVersion::new(20, 10, 0),
@@ -540,7 +511,7 @@ mod tests {
 
     #[test]
     fn network_status_reports_expected_state() {
-        let mut cache = VersionCache::new();
+        let mut cache = VersionCache::default();
         assert!(matches!(cache.network_status(), NetworkStatus::Online));
 
         cache.loading = true;

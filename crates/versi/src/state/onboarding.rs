@@ -5,7 +5,7 @@ use versi_shell::ShellType;
 use crate::backend_kind::BackendKind;
 use crate::error::AppError;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct OnboardingState {
     pub step: OnboardingStep,
     pub backend_installing: bool,
@@ -16,27 +16,13 @@ pub struct OnboardingState {
     pub selected_backend: Option<BackendKind>,
 }
 
-impl OnboardingState {
-    pub fn new() -> Self {
-        Self {
-            step: OnboardingStep::Welcome,
-            backend_installing: false,
-            confirming_unsafe_install: false,
-            install_error: None,
-            detected_shells: Vec::new(),
-            available_backends: Vec::new(),
-            selected_backend: None,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::{OnboardingState, OnboardingStep};
 
     #[test]
     fn onboarding_state_new_has_expected_defaults() {
-        let state = OnboardingState::new();
+        let state = OnboardingState::default();
 
         assert_eq!(state.step, OnboardingStep::Welcome);
         assert!(!state.backend_installing);
@@ -48,8 +34,9 @@ mod tests {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub enum OnboardingStep {
+    #[default]
     Welcome,
     SelectBackend,
     InstallBackend,

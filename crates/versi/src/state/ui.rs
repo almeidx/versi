@@ -37,8 +37,8 @@ pub struct SettingsModalState {
     pub log_file_path: String,
 }
 
-impl SettingsModalState {
-    pub fn new() -> Self {
+impl Default for SettingsModalState {
+    fn default() -> Self {
         let log_file_path = versi_platform::AppPaths::new()
             .map(|paths| paths.log_file().to_string_lossy().to_string())
             .unwrap_or_default();
@@ -50,6 +50,7 @@ impl SettingsModalState {
         }
     }
 }
+
 
 #[derive(Debug, Clone)]
 pub struct ShellSetupStatus {
@@ -103,7 +104,7 @@ mod tests {
 
     #[test]
     fn settings_modal_state_new_starts_empty() {
-        let state = SettingsModalState::new();
+        let state = SettingsModalState::default();
 
         assert!(state.shell_statuses.is_empty());
         assert!(!state.checking_shells);

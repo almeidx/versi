@@ -67,9 +67,11 @@ impl Versi {
     fn enter_onboarding_flow(&mut self) -> Task<Message> {
         info!("No backend found, entering onboarding flow");
         let shell_statuses = detect_onboarding_shell_statuses();
-        let mut onboarding = OnboardingState::new();
-        onboarding.detected_shells = shell_statuses;
-        onboarding.available_backends = self.available_backend_options_for_onboarding();
+        let onboarding = OnboardingState {
+            detected_shells: shell_statuses,
+            available_backends: self.available_backend_options_for_onboarding(),
+            ..Default::default()
+        };
         self.state = AppState::Onboarding(onboarding);
         Task::none()
     }
