@@ -1,10 +1,18 @@
 use versi_backend::{BackendError, BackendUpdate};
-use versi_core::{GitHubRelease, is_newer_version};
+use versi_core::{GitHubRelease, backend_update_from_release};
 
 use crate::detection::NvmVariant;
 
 const NVM_UNIX_REPO: &str = "nvm-sh/nvm";
 const NVM_WINDOWS_REPO: &str = "coreybutler/nvm-windows";
+
+fn into_backend_update(info: versi_core::BackendUpdateInfo) -> BackendUpdate {
+    BackendUpdate {
+        current_version: info.current_version,
+        latest_version: info.latest_version,
+        release_url: info.release_url,
+    }
+}
 
 pub async fn check_for_nvm_update(
     client: &reqwest::Client,
@@ -34,21 +42,7 @@ pub async fn check_for_nvm_update(
         .await
         .map_err(|error| BackendError::network_parse_from("nvm update check", error))?;
 
-    let latest = release
-        .tag_name
-        .strip_prefix('v')
-        .unwrap_or(&release.tag_name);
-    let current = current_version.strip_prefix('v').unwrap_or(current_version);
-
-    if is_newer_version(latest, current) {
-        Ok(Some(BackendUpdate {
-            current_version: current.to_string(),
-            latest_version: latest.to_string(),
-            release_url: release.html_url,
-        }))
-    } else {
-        Ok(None)
-    }
+    Ok(backend_update_from_release(release, current_version).map(into_backend_update))
 }
 
 #[cfg(test)]

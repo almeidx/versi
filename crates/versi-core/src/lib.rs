@@ -31,4 +31,7 @@ pub use schedule::{ReleaseSchedule, ScheduleError, fetch_release_schedule};
 /// Node security advisories model and fetch helper.
 pub use security::{SecurityAdvisory, SecurityAdvisoryError, fetch_security_advisories};
 /// App update model, GitHub release mapping, and version comparison helpers.
-pub use update::{AppUpdate, GitHubRelease, UpdateError, check_for_update, is_newer_version};
+pub use update::{
+    AppUpdate, BackendUpdateInfo, GitHubRelease, UpdateError, backend_update_from_release,
+    check_for_update, is_newer_version,
+};

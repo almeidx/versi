@@ -1,26 +1,13 @@
 use versi_backend::{BackendError, BackendUpdate};
-use versi_core::{GitHubRelease, is_newer_version};
+use versi_core::{GitHubRelease, backend_update_from_release};
 
 const FNM_GITHUB_REPO: &str = "Schniz/fnm";
 
-fn backend_update_from_release(
-    release: GitHubRelease,
-    current_version: &str,
-) -> Option<BackendUpdate> {
-    let latest = release
-        .tag_name
-        .strip_prefix('v')
-        .unwrap_or(&release.tag_name);
-    let current = current_version.strip_prefix('v').unwrap_or(current_version);
-
-    if is_newer_version(latest, current) {
-        Some(BackendUpdate {
-            current_version: current.to_string(),
-            latest_version: latest.to_string(),
-            release_url: release.html_url,
-        })
-    } else {
-        None
+fn into_backend_update(info: versi_core::BackendUpdateInfo) -> BackendUpdate {
+    BackendUpdate {
+        current_version: info.current_version,
+        latest_version: info.latest_version,
+        release_url: info.release_url,
     }
 }
 
@@ -46,12 +33,13 @@ pub async fn check_for_fnm_update(
         .await
         .map_err(|error| BackendError::network_parse_from("fnm update check", error))?;
 
-    Ok(backend_update_from_release(release, current_version))
+    Ok(backend_update_from_release(release, current_version).map(into_backend_update))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{GitHubRelease, backend_update_from_release};
+    use super::into_backend_update;
+    use versi_core::{GitHubRelease, backend_update_from_release};
 
     fn release(tag_name: &str) -> GitHubRelease {
         GitHubRelease {
@@ -64,8 +52,9 @@ mod tests {
 
     #[test]
     fn returns_update_when_release_is_newer() {
-        let update = backend_update_from_release(release("v1.38.0"), "v1.37.1")
+        let info = backend_update_from_release(release("v1.38.0"), "v1.37.1")
             .expect("newer release should produce update metadata");
+        let update = into_backend_update(info);
 
         assert_eq!(update.current_version, "1.37.1");
         assert_eq!(update.latest_version, "1.38.0");

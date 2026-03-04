@@ -187,6 +187,35 @@ fn parse_sha256_digest(digest: &str) -> Option<String> {
     Some(hash.to_ascii_lowercase())
 }
 
+#[derive(Debug, Clone)]
+pub struct BackendUpdateInfo {
+    pub current_version: String,
+    pub latest_version: String,
+    pub release_url: String,
+}
+
+#[must_use]
+pub fn backend_update_from_release(
+    release: GitHubRelease,
+    current_version: &str,
+) -> Option<BackendUpdateInfo> {
+    let latest = release
+        .tag_name
+        .strip_prefix('v')
+        .unwrap_or(&release.tag_name);
+    let current = current_version.strip_prefix('v').unwrap_or(current_version);
+
+    if is_newer_version(latest, current) {
+        Some(BackendUpdateInfo {
+            current_version: current.to_string(),
+            latest_version: latest.to_string(),
+            release_url: release.html_url,
+        })
+    } else {
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
