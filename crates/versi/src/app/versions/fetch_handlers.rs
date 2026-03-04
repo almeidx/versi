@@ -20,6 +20,7 @@ pub(super) fn handle_fetch_remote_versions(app: &mut Versi) -> Task<Message> {
     if let AppState::Main(state) = &mut app.state {
         state.available_versions.loading = true;
         let (cancel_token, request_seq) = state.available_versions.remote.start();
+        state.available_versions.remote.error = None;
 
         let backend = state.backend.clone();
         let fetch_timeout = Duration::from_secs(app.settings.fetch_timeout_secs);
@@ -106,6 +107,7 @@ pub(super) fn handle_remote_versions_fetched(
 pub(super) fn handle_fetch_release_schedule(app: &mut Versi) -> Task<Message> {
     if let AppState::Main(state) = &mut app.state {
         let (cancel_token, request_seq) = state.available_versions.schedule_fetch.start();
+        state.available_versions.schedule_fetch.error = None;
         let client = app.http_client.clone();
         let retry_delays = app.settings.retry_delays_secs.clone();
 
