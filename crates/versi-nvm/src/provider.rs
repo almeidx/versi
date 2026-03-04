@@ -283,4 +283,36 @@ mod tests {
 
         assert_eq!(provider.wsl_search_paths(), vec!["$HOME/.nvm/nvm.sh"]);
     }
+
+    #[test]
+    fn wsl_search_paths_are_unique() {
+        let provider = NvmProvider::new();
+        let paths = provider.wsl_search_paths();
+        let unique_count = paths
+            .iter()
+            .copied()
+            .collect::<std::collections::HashSet<_>>()
+            .len();
+
+        assert!(!paths.is_empty());
+        assert_eq!(paths.len(), unique_count);
+    }
+
+    #[test]
+    fn create_manager_falls_back_when_detection_is_empty() {
+        let provider = NvmProvider::new();
+        let detection = BackendDetection {
+            found: false,
+            path: None,
+            version: None,
+            in_path: false,
+            data_dir: None,
+        };
+
+        let manager = provider.create_manager(&detection);
+        let info = manager.backend_info();
+
+        assert_eq!(info.path, PathBuf::from("~/.nvm/nvm.sh"));
+        assert!(!info.in_path);
+    }
 }
