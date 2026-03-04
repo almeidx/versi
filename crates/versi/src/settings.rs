@@ -328,7 +328,7 @@ impl AppSettings {
         }
 
         let content = serde_json::to_vec_pretty(&settings)?;
-        #[cfg(not(target_os = "windows"))]
+        #[cfg(unix)]
         let parent = settings_path.parent().ok_or_else(|| {
             std::io::Error::other("settings path does not have a parent directory")
         })?;
@@ -349,7 +349,7 @@ impl AppSettings {
             return Err(error);
         }
 
-        #[cfg(not(target_os = "windows"))]
+        #[cfg(unix)]
         if let Ok(dir_handle) = std::fs::File::open(parent) {
             let _ = dir_handle.sync_all();
         }
