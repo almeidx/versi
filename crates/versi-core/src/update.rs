@@ -2,6 +2,8 @@ use semver::Version;
 use serde::Deserialize;
 use thiserror::Error;
 
+use crate::http::response_snippet;
+
 const GITHUB_REPO: &str = "almeidx/versi";
 
 #[derive(Debug, Clone)]
@@ -133,15 +135,6 @@ pub async fn check_for_update(
         }))
     } else {
         Ok(None)
-    }
-}
-
-fn response_snippet(body: &str, max_chars: usize) -> String {
-    let snippet: String = body.chars().take(max_chars).collect();
-    if snippet.is_empty() {
-        String::new()
-    } else {
-        format!(": {snippet}")
     }
 }
 

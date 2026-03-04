@@ -4,6 +4,8 @@ use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::http::response_snippet;
+
 const SECURITY_INDEX_URL: &str =
     "https://raw.githubusercontent.com/nodejs/security-wg/main/vuln/core/index.json";
 
@@ -119,15 +121,6 @@ fn matches_requirement_expression(requirement: &str, version: &Version) -> bool 
                 .map(|req| req.matches(version))
                 .unwrap_or(false)
         })
-}
-
-fn response_snippet(body: &str, max_chars: usize) -> String {
-    let snippet: String = body.chars().take(max_chars).collect();
-    if snippet.is_empty() {
-        String::new()
-    } else {
-        format!(": {snippet}")
-    }
 }
 
 #[cfg(test)]

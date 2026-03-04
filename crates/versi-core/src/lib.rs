@@ -10,6 +10,7 @@
 
 pub mod auto_update;
 pub mod commands;
+pub(crate) mod http;
 mod install_script;
 mod metadata;
 mod schedule;

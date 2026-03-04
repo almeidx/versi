@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use thiserror::Error;
 
+use crate::http::response_snippet;
+
 const SCHEDULE_URL: &str = "https://raw.githubusercontent.com/nodejs/Release/main/schedule.json";
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -122,15 +124,6 @@ pub async fn fetch_release_schedule(
         .collect();
 
     Ok(ReleaseSchedule { versions })
-}
-
-fn response_snippet(body: &str, max_chars: usize) -> String {
-    let snippet: String = body.chars().take(max_chars).collect();
-    if snippet.is_empty() {
-        String::new()
-    } else {
-        format!(": {snippet}")
-    }
 }
 
 #[cfg(test)]

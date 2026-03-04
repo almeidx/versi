@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use thiserror::Error;
 
+use crate::http::response_snippet;
+
 const INDEX_URL: &str = "https://nodejs.org/dist/index.json";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -88,15 +90,6 @@ pub async fn fetch_version_metadata(
     let entries: Vec<RawEntry> = response.json().await.map_err(MetadataError::Parse)?;
 
     Ok(map_entries(entries))
-}
-
-fn response_snippet(body: &str, max_chars: usize) -> String {
-    let snippet: String = body.chars().take(max_chars).collect();
-    if snippet.is_empty() {
-        String::new()
-    } else {
-        format!(": {snippet}")
-    }
 }
 
 #[cfg(test)]
