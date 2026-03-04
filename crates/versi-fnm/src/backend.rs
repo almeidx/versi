@@ -10,7 +10,7 @@ use versi_core::HideWindow;
 
 use versi_backend::{
     BackendError, BackendInfo, InstallProgress, InstalledVersion, ManagerCapabilities, NodeVersion,
-    RemoteVersion, ShellInitOptions, VersionManager,
+    RemoteVersion, ShellInitOptions, VersionManager, sanitize_terminal_text,
 };
 
 use crate::version::{parse_installed_versions, parse_remote_versions};
@@ -393,33 +393,6 @@ fn combined_error_output(stderr: &str, stdout: &str) -> String {
     format!("{stderr}\n{stdout}")
 }
 
-fn sanitize_terminal_text(input: &str) -> String {
-    let mut output = String::with_capacity(input.len());
-    let mut chars = input.chars().peekable();
-
-    while let Some(ch) = chars.next() {
-        match ch {
-            '\u{1b}' => {
-                if chars.peek() == Some(&'[') {
-                    let _ = chars.next();
-                    for esc_ch in chars.by_ref() {
-                        if esc_ch.is_ascii_alphabetic() {
-                            break;
-                        }
-                    }
-                }
-            }
-            '\u{8}' => {
-                let _ = output.pop();
-            }
-            control if control.is_control() => {}
-            _ => output.push(ch),
-        }
-    }
-
-    output.trim().to_string()
-}
-
 fn parse_download_progress(line: &str) -> Option<(u64, u64)> {
     let slash_index = line.find('/')?;
     let before = line[..slash_index].trim_end();
@@ -604,9 +577,11 @@ mod tests {
     use std::path::PathBuf;
     use tokio::sync::mpsc;
 
-    use versi_backend::{InstallProgress, ShellInitOptions, VersionManager};
+    use versi_backend::{
+        InstallProgress, ShellInitOptions, VersionManager, sanitize_terminal_text,
+    };
 
-    use super::{FnmBackend, parse_download_progress, sanitize_terminal_text};
+    use super::{FnmBackend, parse_download_progress};
 
     fn backend() -> FnmBackend {
         FnmBackend::new(PathBuf::from("fnm"), Some("1.38.0".to_string()), None)

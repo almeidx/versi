@@ -9,11 +9,14 @@
 //! - Shared types: version models and grouping helpers used by the GUI layer.
 
 mod error;
+mod text;
 mod traits;
 mod types;
 
 /// Error type shared by backend providers and managers.
 pub use error::{BackendError, NetworkStage};
+/// Terminal text sanitization utilities.
+pub use text::sanitize_terminal_text;
 /// Backend traits and capability metadata used by the application.
 pub use traits::{
     BackendDetection, BackendInfo, BackendProvider, BackendUpdate, InstallProgress,
