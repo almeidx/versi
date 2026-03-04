@@ -1,11 +1,15 @@
+mod bulk;
 mod environment;
 mod main;
+mod modal;
 mod onboarding;
 mod operations;
 mod ui;
 
+pub use bulk::*;
 pub use environment::*;
 pub use main::*;
+pub use modal::*;
 pub use onboarding::*;
 pub use operations::*;
 pub use ui::*;
