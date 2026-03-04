@@ -86,10 +86,17 @@ pub fn save_snapshot(
     security_advisories: Option<&HashMap<String, SecurityAdvisory>>,
     cached_at: DateTime<Utc>,
 ) {
-    let Ok(paths) = AppPaths::new() else {
-        return;
+    let paths = match AppPaths::new() {
+        Ok(p) => p,
+        Err(e) => {
+            log::warn!("Cache save: failed to resolve paths: {e}");
+            return;
+        }
     };
-    let _ = paths.ensure_dirs();
+    if let Err(e) = paths.ensure_dirs() {
+        log::warn!("Cache save: failed to create dirs: {e}");
+        return;
+    }
 
     save_snapshot_to_path(
         &paths.version_cache_file(),
@@ -116,8 +123,15 @@ fn save_snapshot_to_path(
         security_advisories,
         cached_at,
     };
-    if let Ok(data) = serde_json::to_vec(&payload) {
-        let _ = write_atomic(path, &data);
+    let data = match serde_json::to_vec(&payload) {
+        Ok(d) => d,
+        Err(e) => {
+            log::warn!("Cache save: serialization failed: {e}");
+            return;
+        }
+    };
+    if let Err(e) = write_atomic(path, &data) {
+        log::warn!("Cache save: failed to write {}: {e}", path.display());
     }
 }
 
