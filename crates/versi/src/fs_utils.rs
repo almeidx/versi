@@ -128,7 +128,7 @@ mod tests {
         assert!(!file.exists());
         let entries: Vec<_> = std::fs::read_dir(dir.path())
             .unwrap()
-            .filter_map(|e| e.ok())
+            .filter_map(Result::ok)
             .collect();
         assert_eq!(entries.len(), 1);
         let name = entries[0].file_name().to_string_lossy().to_string();
@@ -144,7 +144,7 @@ mod tests {
 
         let entries: Vec<_> = std::fs::read_dir(dir.path())
             .unwrap()
-            .filter_map(|e| e.ok())
+            .filter_map(Result::ok)
             .collect();
         assert!(entries.is_empty());
     }
