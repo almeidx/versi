@@ -205,8 +205,15 @@ impl Versi {
     pub(super) fn handle_onboarding_complete(&mut self) -> Task<Message> {
         let all_providers = self.all_providers();
         let preferred = self.settings.preferred_backend;
+        let wsl_list_timeout = self.settings.wsl_list_timeout_secs;
+        let wsl_distro_timeout = self.settings.wsl_distro_timeout_secs;
         Task::perform(
-            super::init::initialize(all_providers, preferred),
+            super::init::initialize(
+                all_providers,
+                preferred,
+                wsl_list_timeout,
+                wsl_distro_timeout,
+            ),
             |result| Message::Initialized(Box::new(result)),
         )
     }

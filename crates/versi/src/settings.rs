@@ -63,6 +63,12 @@ pub struct AppSettings {
     #[serde(default = "default_fetch_timeout")]
     pub fetch_timeout_secs: u64,
 
+    #[serde(default = "default_wsl_list_timeout")]
+    pub wsl_list_timeout_secs: u64,
+
+    #[serde(default = "default_wsl_distro_timeout")]
+    pub wsl_distro_timeout_secs: u64,
+
     #[serde(default = "default_http_timeout")]
     pub http_timeout_secs: u64,
 
@@ -127,6 +133,14 @@ fn default_fetch_timeout() -> u64 {
     30
 }
 
+fn default_wsl_list_timeout() -> u64 {
+    15
+}
+
+fn default_wsl_distro_timeout() -> u64 {
+    10
+}
+
 fn default_http_timeout() -> u64 {
     10
 }
@@ -159,6 +173,8 @@ const CACHE_TTL_HOURS_RANGE: std::ops::RangeInclusive<u64> = 1..=168;
 const INSTALL_TIMEOUT_SECS_RANGE: std::ops::RangeInclusive<u64> = 30..=7_200;
 const OPERATION_TIMEOUT_SECS_RANGE: std::ops::RangeInclusive<u64> = 5..=900;
 const FETCH_TIMEOUT_SECS_RANGE: std::ops::RangeInclusive<u64> = 5..=300;
+const WSL_LIST_TIMEOUT_SECS_RANGE: std::ops::RangeInclusive<u64> = 5..=120;
+const WSL_DISTRO_TIMEOUT_SECS_RANGE: std::ops::RangeInclusive<u64> = 3..=60;
 const HTTP_TIMEOUT_SECS_RANGE: std::ops::RangeInclusive<u64> = 3..=120;
 const TOAST_TIMEOUT_SECS_RANGE: std::ops::RangeInclusive<u64> = 1..=60;
 const MAX_VISIBLE_TOASTS_RANGE: std::ops::RangeInclusive<usize> = 1..=10;
@@ -215,6 +231,8 @@ impl Default for AppSettings {
             uninstall_timeout_secs: default_operation_timeout(),
             set_default_timeout_secs: default_operation_timeout(),
             fetch_timeout_secs: default_fetch_timeout(),
+            wsl_list_timeout_secs: default_wsl_list_timeout(),
+            wsl_distro_timeout_secs: default_wsl_distro_timeout(),
             http_timeout_secs: default_http_timeout(),
             toast_timeout_secs: default_toast_timeout(),
             max_visible_toasts: default_max_visible_toasts(),
@@ -353,6 +371,14 @@ impl AppSettings {
             &OPERATION_TIMEOUT_SECS_RANGE,
         );
         changed |= clamp_u64(&mut self.fetch_timeout_secs, &FETCH_TIMEOUT_SECS_RANGE);
+        changed |= clamp_u64(
+            &mut self.wsl_list_timeout_secs,
+            &WSL_LIST_TIMEOUT_SECS_RANGE,
+        );
+        changed |= clamp_u64(
+            &mut self.wsl_distro_timeout_secs,
+            &WSL_DISTRO_TIMEOUT_SECS_RANGE,
+        );
         changed |= clamp_u64(&mut self.http_timeout_secs, &HTTP_TIMEOUT_SECS_RANGE);
         changed |= clamp_u64(&mut self.toast_timeout_secs, &TOAST_TIMEOUT_SECS_RANGE);
         changed |= clamp_usize(&mut self.max_visible_toasts, &MAX_VISIBLE_TOASTS_RANGE);
@@ -564,6 +590,8 @@ mod tests {
         assert_eq!(settings.uninstall_timeout_secs, 60);
         assert_eq!(settings.set_default_timeout_secs, 60);
         assert_eq!(settings.fetch_timeout_secs, 30);
+        assert_eq!(settings.wsl_list_timeout_secs, 15);
+        assert_eq!(settings.wsl_distro_timeout_secs, 10);
         assert_eq!(settings.http_timeout_secs, 10);
         assert_eq!(settings.toast_timeout_secs, 5);
         assert_eq!(settings.max_visible_toasts, 3);
@@ -705,6 +733,8 @@ mod tests {
             uninstall_timeout_secs: 9_999,
             set_default_timeout_secs: 0,
             fetch_timeout_secs: 999,
+            wsl_list_timeout_secs: 0,
+            wsl_distro_timeout_secs: 999,
             http_timeout_secs: 0,
             toast_timeout_secs: 0,
             max_visible_toasts: 0,
@@ -723,6 +753,8 @@ mod tests {
         assert_eq!(settings.uninstall_timeout_secs, 900);
         assert_eq!(settings.set_default_timeout_secs, 5);
         assert_eq!(settings.fetch_timeout_secs, 300);
+        assert_eq!(settings.wsl_list_timeout_secs, 5);
+        assert_eq!(settings.wsl_distro_timeout_secs, 60);
         assert_eq!(settings.http_timeout_secs, 3);
         assert_eq!(settings.toast_timeout_secs, 1);
         assert_eq!(settings.max_visible_toasts, 1);

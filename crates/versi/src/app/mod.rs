@@ -254,8 +254,15 @@ impl Versi {
 
         let all_providers: Vec<Arc<dyn BackendProvider>> = providers.values().cloned().collect();
         let preferred_backend = app.settings.preferred_backend;
+        let wsl_list_timeout = app.settings.wsl_list_timeout_secs;
+        let wsl_distro_timeout = app.settings.wsl_distro_timeout_secs;
         let init_task = Task::perform(
-            init::initialize(all_providers, preferred_backend),
+            init::initialize(
+                all_providers,
+                preferred_backend,
+                wsl_list_timeout,
+                wsl_distro_timeout,
+            ),
             |result| Message::Initialized(Box::new(result)),
         );
         let theme_task = iced::system::theme().map(Message::SystemThemeChanged);
@@ -406,10 +413,18 @@ impl Versi {
                 }
                 let all_providers = self.all_providers();
                 let preferred = self.settings.preferred_backend;
+                let wsl_list_timeout = self.settings.wsl_list_timeout_secs;
+                let wsl_distro_timeout = self.settings.wsl_distro_timeout_secs;
                 self.state = AppState::Loading;
-                return Task::perform(init::initialize(all_providers, preferred), |result| {
-                    Message::Initialized(Box::new(result))
-                });
+                return Task::perform(
+                    init::initialize(
+                        all_providers,
+                        preferred,
+                        wsl_list_timeout,
+                        wsl_distro_timeout,
+                    ),
+                    |result| Message::Initialized(Box::new(result)),
+                );
             }
         }
 

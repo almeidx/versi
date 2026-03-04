@@ -290,6 +290,8 @@ fn load_disk_cache_into_state(main_state: &mut MainState) {
 pub(super) async fn initialize(
     providers: Vec<Arc<dyn BackendProvider>>,
     preferred: Option<BackendKind>,
+    wsl_list_timeout_secs: u64,
+    wsl_distro_timeout_secs: u64,
 ) -> InitResult {
     info!(
         "Initializing application with {} providers...",
@@ -308,11 +310,20 @@ pub(super) async fn initialize(
     let native_env = native_environment(*backend_name, detection.version.clone());
 
     #[cfg(not(windows))]
+    let _ = (wsl_list_timeout_secs, wsl_distro_timeout_secs);
+    #[cfg(not(windows))]
     let environments = vec![native_env];
 
     #[cfg(windows)]
-    let environments =
-        build_windows_environments(native_env, &providers, *backend_name, preferred_name).await;
+    let environments = build_windows_environments(
+        native_env,
+        &providers,
+        *backend_name,
+        preferred_name,
+        wsl_list_timeout_secs,
+        wsl_distro_timeout_secs,
+    )
+    .await;
 
     log_detected_environments(&environments);
 
@@ -416,14 +427,21 @@ async fn build_windows_environments(
     providers: &[Arc<dyn BackendProvider>],
     native_backend_name: BackendKind,
     preferred_name: BackendKind,
+    wsl_list_timeout_secs: u64,
+    wsl_distro_timeout_secs: u64,
 ) -> Vec<EnvironmentInfo> {
-    use versi_platform::detect_wsl_distros;
+    use versi_platform::{WslTimeouts, detect_wsl_distros};
 
     info!("Running on Windows, detecting WSL distros...");
 
+    let wsl_timeouts = WslTimeouts {
+        list: std::time::Duration::from_secs(wsl_list_timeout_secs),
+        distro: std::time::Duration::from_secs(wsl_distro_timeout_secs),
+    };
+
     let mut environments = vec![native_env];
     let search_paths = collect_wsl_search_paths(providers);
-    let distros = detect_wsl_distros(&search_paths);
+    let distros = detect_wsl_distros(&search_paths, &wsl_timeouts).await;
 
     debug!(
         "WSL distros found: {:?}",
@@ -431,7 +449,15 @@ async fn build_windows_environments(
     );
 
     for distro in distros {
-        environments.push(build_wsl_environment(distro, native_backend_name, preferred_name).await);
+        environments.push(
+            build_wsl_environment(
+                distro,
+                native_backend_name,
+                preferred_name,
+                wsl_distro_timeout_secs,
+            )
+            .await,
+        );
     }
 
     environments
@@ -453,6 +479,7 @@ async fn build_wsl_environment(
     distro: versi_platform::WslDistro,
     native_backend_name: BackendKind,
     preferred_name: BackendKind,
+    wsl_distro_timeout_secs: u64,
 ) -> EnvironmentInfo {
     if !distro.is_running {
         info!(
@@ -468,7 +495,8 @@ async fn build_wsl_environment(
             "Adding WSL environment: {} ({} at {})",
             distro.name, backend_name, backend_path
         );
-        let backend_version = get_wsl_backend_version(&distro.name, &backend_path).await;
+        let backend_version =
+            get_wsl_backend_version(&distro.name, &backend_path, wsl_distro_timeout_secs).await;
         return EnvironmentInfo {
             id: EnvironmentId::Wsl {
                 distro: distro.name,
@@ -536,24 +564,43 @@ fn normalize_backend_version_output(version_str: &str) -> String {
 }
 
 #[cfg(windows)]
-async fn get_wsl_backend_version(distro: &str, backend_path: &str) -> Option<String> {
+async fn get_wsl_backend_version(
+    distro: &str,
+    backend_path: &str,
+    timeout_secs: u64,
+) -> Option<String> {
+    use std::time::Duration;
+
     use tokio::process::Command;
     use versi_core::HideWindow;
 
-    let output = Command::new("wsl.exe")
-        .args(["-d", distro, "--", backend_path, "--version"])
-        .hide_window()
-        .output()
-        .await
-        .ok()?;
+    let timeout = Duration::from_secs(timeout_secs);
 
-    if output.status.success() {
-        let version_str = String::from_utf8_lossy(&output.stdout);
-        let version = normalize_backend_version_output(&version_str);
-        debug!("WSL {} backend version: {}", distro, version);
-        Some(version)
-    } else {
-        None
+    let output = tokio::time::timeout(
+        timeout,
+        Command::new("wsl.exe")
+            .args(["-d", distro, "--", backend_path, "--version"])
+            .hide_window()
+            .output(),
+    )
+    .await;
+
+    match output {
+        Ok(Ok(output)) if output.status.success() => {
+            let version_str = String::from_utf8_lossy(&output.stdout);
+            let version = normalize_backend_version_output(&version_str);
+            debug!("WSL {} backend version: {}", distro, version);
+            Some(version)
+        }
+        Err(_) => {
+            log::warn!(
+                "WSL backend version check for {} timed out after {:?}",
+                distro,
+                timeout,
+            );
+            None
+        }
+        _ => None,
     }
 }
 

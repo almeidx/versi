@@ -1,8 +1,16 @@
+use std::time::Duration;
+
 use log::{debug, error, info, trace, warn};
-use std::process::Command;
 use thiserror::Error;
+use tokio::process::Command;
 
 use crate::HideWindow;
+
+#[derive(Debug, Clone, Copy)]
+pub struct WslTimeouts {
+    pub list: Duration,
+    pub distro: Duration,
+}
 
 #[derive(Debug, Clone)]
 pub struct WslDistro {
@@ -25,88 +33,104 @@ pub enum WslError {
     IoError(#[from] std::io::Error),
 }
 
-pub fn detect_wsl_distros(search_paths: &[&str]) -> Vec<WslDistro> {
+pub async fn detect_wsl_distros(search_paths: &[&str], timeouts: &WslTimeouts) -> Vec<WslDistro> {
     info!("Detecting WSL distros...");
 
-    let running_distros = get_running_distro_names();
+    let running_distros = get_running_distro_names(timeouts.list).await;
     debug!("Running distros: {:?}", running_distros);
 
     debug!("Running: wsl.exe --list --verbose");
-    let output = Command::new("wsl.exe")
-        .args(["--list", "--verbose"])
-        .hide_window()
-        .output();
+    let output = tokio::time::timeout(
+        timeouts.list,
+        Command::new("wsl.exe")
+            .args(["--list", "--verbose"])
+            .hide_window()
+            .output(),
+    )
+    .await;
 
-    match output {
-        Ok(output) => {
-            debug!("wsl.exe exit status: {:?}", output.status);
-            trace!("wsl.exe stdout raw bytes: {:?}", &output.stdout);
-            trace!(
-                "wsl.exe stderr: {:?}",
-                String::from_utf8_lossy(&output.stderr)
-            );
-
-            if output.status.success() {
-                let stdout = decode_wsl_output(&output.stdout);
-                debug!("Decoded WSL output:\n{}", stdout);
-
-                let mut distros = parse_wsl_list(&stdout, &running_distros);
-                info!("Found {} WSL distros", distros.len());
-
-                for distro in &mut distros {
-                    if distro.is_running {
-                        debug!("Checking for backend in running distro: {}", distro.name);
-                        distro.backend_path = find_backend_path(&distro.name, search_paths);
-                        if let Some(ref path) = distro.backend_path {
-                            info!("Found backend in {}: {}", distro.name, path);
-                        } else {
-                            warn!("Backend not found in distro: {}", distro.name);
-                        }
-                    } else {
-                        debug!(
-                            "Skipping backend check for non-running distro: {}",
-                            distro.name
-                        );
-                    }
-                }
-
-                let (with_backend, running) = distros.iter().fold((0usize, 0usize), |(b, r), d| {
-                    (
-                        b + usize::from(d.backend_path.is_some()),
-                        r + usize::from(d.is_running),
-                    )
-                });
-                info!(
-                    "WSL detection complete: {} distros with backend, {} running, {} total",
-                    with_backend,
-                    running,
-                    distros.len()
-                );
-                distros
-            } else {
-                warn!(
-                    "wsl.exe command failed with status: {:?}, stderr: {}",
-                    output.status,
-                    String::from_utf8_lossy(&output.stderr)
-                );
-                Vec::new()
-            }
-        }
-        Err(e) => {
+    let output = match output {
+        Ok(Ok(output)) => output,
+        Ok(Err(e)) => {
             error!("Failed to execute wsl.exe: {}", e);
-            Vec::new()
+            return Vec::new();
+        }
+        Err(_) => {
+            warn!(
+                "wsl.exe --list --verbose timed out after {:?}",
+                timeouts.list
+            );
+            return Vec::new();
+        }
+    };
+
+    debug!("wsl.exe exit status: {:?}", output.status);
+    trace!("wsl.exe stdout raw bytes: {:?}", &output.stdout);
+    trace!(
+        "wsl.exe stderr: {:?}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    if !output.status.success() {
+        warn!(
+            "wsl.exe command failed with status: {:?}, stderr: {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr)
+        );
+        return Vec::new();
+    }
+
+    let stdout = decode_wsl_output(&output.stdout);
+    debug!("Decoded WSL output:\n{}", stdout);
+
+    let mut distros = parse_wsl_list(&stdout, &running_distros);
+    info!("Found {} WSL distros", distros.len());
+
+    for distro in &mut distros {
+        if distro.is_running {
+            debug!("Checking for backend in running distro: {}", distro.name);
+            distro.backend_path =
+                find_backend_path(&distro.name, search_paths, timeouts.distro).await;
+            if let Some(ref path) = distro.backend_path {
+                info!("Found backend in {}: {}", distro.name, path);
+            } else {
+                warn!("Backend not found in distro: {}", distro.name);
+            }
+        } else {
+            debug!(
+                "Skipping backend check for non-running distro: {}",
+                distro.name
+            );
         }
     }
+
+    let (with_backend, running) = distros.iter().fold((0usize, 0usize), |(b, r), d| {
+        (
+            b + usize::from(d.backend_path.is_some()),
+            r + usize::from(d.is_running),
+        )
+    });
+    info!(
+        "WSL detection complete: {} distros with backend, {} running, {} total",
+        with_backend,
+        running,
+        distros.len()
+    );
+    distros
 }
 
-fn get_running_distro_names() -> Vec<String> {
-    let output = Command::new("wsl.exe")
-        .args(["--list", "--running", "--quiet"])
-        .hide_window()
-        .output();
+async fn get_running_distro_names(timeout: Duration) -> Vec<String> {
+    let output = tokio::time::timeout(
+        timeout,
+        Command::new("wsl.exe")
+            .args(["--list", "--running", "--quiet"])
+            .hide_window()
+            .output(),
+    )
+    .await;
 
     match output {
-        Ok(output) if output.status.success() => {
+        Ok(Ok(output)) if output.status.success() => {
             let stdout = decode_wsl_output(&output.stdout);
             stdout
                 .lines()
@@ -114,11 +138,19 @@ fn get_running_distro_names() -> Vec<String> {
                 .filter(|line| !line.is_empty())
                 .collect()
         }
+        Err(_) => {
+            warn!("wsl.exe --list --running timed out after {:?}", timeout);
+            Vec::new()
+        }
         _ => Vec::new(),
     }
 }
 
-fn find_backend_path(distro: &str, search_paths: &[&str]) -> Option<String> {
+async fn find_backend_path(
+    distro: &str,
+    search_paths: &[&str],
+    timeout: Duration,
+) -> Option<String> {
     if search_paths.is_empty() {
         return None;
     }
@@ -134,13 +166,17 @@ fn find_backend_path(distro: &str, search_paths: &[&str]) -> Option<String> {
         distro, distro, check_cmd
     );
 
-    let output = Command::new("wsl.exe")
-        .args(["-d", distro, "--", "sh", "-c", &check_cmd])
-        .hide_window()
-        .output();
+    let output = tokio::time::timeout(
+        timeout,
+        Command::new("wsl.exe")
+            .args(["-d", distro, "--", "sh", "-c", &check_cmd])
+            .hide_window()
+            .output(),
+    )
+    .await;
 
     match output {
-        Ok(output) => {
+        Ok(Ok(output)) => {
             debug!(
                 "Backend path detection for {} - exit status: {:?}",
                 distro, output.status
@@ -174,8 +210,14 @@ fn find_backend_path(distro: &str, search_paths: &[&str]) -> Option<String> {
                 );
             }
         }
-        Err(e) => {
+        Ok(Err(e)) => {
             error!("Failed to run backend path detection for {}: {}", distro, e);
+        }
+        Err(_) => {
+            warn!(
+                "Backend path detection for {} timed out after {:?}",
+                distro, timeout
+            );
         }
     }
 

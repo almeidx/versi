@@ -10,7 +10,7 @@ pub use environment::{Environment, EnvironmentId};
 pub use paths::{AppPaths, AppPathsError};
 
 #[cfg(target_os = "windows")]
-pub use wsl::{WslDistro, detect_wsl_distros, execute_in_wsl};
+pub use wsl::{WslDistro, WslTimeouts, detect_wsl_distros, execute_in_wsl};
 
 pub const APP_ID: &str = "dev.almeidx.versi";
 pub const DESKTOP_ENTRY_FILENAME: &str = "dev.almeidx.versi.desktop";
