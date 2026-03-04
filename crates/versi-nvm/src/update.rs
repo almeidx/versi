@@ -1,5 +1,5 @@
 use versi_backend::{BackendError, BackendUpdate};
-use versi_core::{GitHubRelease, backend_update_from_release};
+use versi_core::{backend_update_from_release, check_github_release};
 
 use crate::detection::NvmVariant;
 
@@ -24,23 +24,13 @@ pub async fn check_for_nvm_update(
         NvmVariant::Windows => NVM_WINDOWS_REPO,
     };
 
-    let url = format!("https://api.github.com/repos/{repo}/releases/latest");
-
-    let response = client
-        .get(&url)
-        .header("User-Agent", "versi")
-        .send()
+    let release = check_github_release(client, repo)
         .await
         .map_err(|error| BackendError::network_request_from("nvm update check", error))?;
 
-    if !response.status().is_success() {
+    let Some(release) = release else {
         return Ok(None);
-    }
-
-    let release: GitHubRelease = response
-        .json()
-        .await
-        .map_err(|error| BackendError::network_parse_from("nvm update check", error))?;
+    };
 
     Ok(backend_update_from_release(release, current_version).map(into_backend_update))
 }

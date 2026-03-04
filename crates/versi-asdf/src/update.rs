@@ -1,5 +1,5 @@
 use versi_backend::{BackendError, BackendUpdate};
-use versi_core::{GitHubRelease, is_newer_version};
+use versi_core::{GitHubRelease, check_github_release, is_newer_version};
 
 const ASDF_GITHUB_REPO: &str = "asdf-vm/asdf";
 
@@ -31,23 +31,13 @@ pub async fn check_for_asdf_update(
     client: &reqwest::Client,
     current_version: &str,
 ) -> Result<Option<BackendUpdate>, BackendError> {
-    let url = format!("https://api.github.com/repos/{ASDF_GITHUB_REPO}/releases/latest");
-
-    let response = client
-        .get(&url)
-        .header("User-Agent", "versi")
-        .send()
+    let release = check_github_release(client, ASDF_GITHUB_REPO)
         .await
         .map_err(|error| BackendError::network_request_from("asdf update check", error))?;
 
-    if !response.status().is_success() {
+    let Some(release) = release else {
         return Ok(None);
-    }
-
-    let release: GitHubRelease = response
-        .json()
-        .await
-        .map_err(|error| BackendError::network_parse_from("asdf update check", error))?;
+    };
 
     Ok(backend_update_from_release(release, current_version))
 }

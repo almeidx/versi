@@ -187,6 +187,37 @@ fn parse_sha256_digest(digest: &str) -> Option<String> {
     Some(hash.to_ascii_lowercase())
 }
 
+/// Fetch the latest GitHub release for a repository.
+///
+/// Returns `Ok(None)` when the API responds with a non-success status (e.g.
+/// rate-limited or repo not found), letting callers treat that as "no update
+/// available" rather than a hard failure.
+///
+/// # Errors
+/// Returns an error when the HTTP request itself fails or the successful
+/// response body cannot be deserialized.
+pub async fn check_github_release(
+    client: &reqwest::Client,
+    repo: &str,
+) -> Result<Option<GitHubRelease>, UpdateError> {
+    let url = format!("https://api.github.com/repos/{repo}/releases/latest");
+
+    let response = client
+        .get(&url)
+        .header("User-Agent", "versi")
+        .send()
+        .await
+        .map_err(UpdateError::Request)?;
+
+    if !response.status().is_success() {
+        return Ok(None);
+    }
+
+    let release: GitHubRelease = response.json().await.map_err(UpdateError::Parse)?;
+
+    Ok(Some(release))
+}
+
 #[derive(Debug, Clone)]
 pub struct BackendUpdateInfo {
     pub current_version: String,

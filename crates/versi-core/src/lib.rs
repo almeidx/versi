@@ -33,5 +33,5 @@ pub use security::{SecurityAdvisory, SecurityAdvisoryError, fetch_security_advis
 /// App update model, GitHub release mapping, and version comparison helpers.
 pub use update::{
     AppUpdate, BackendUpdateInfo, GitHubRelease, UpdateError, backend_update_from_release,
-    check_for_update, is_newer_version,
+    check_for_update, check_github_release, is_newer_version,
 };
