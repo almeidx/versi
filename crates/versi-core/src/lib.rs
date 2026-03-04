@@ -20,6 +20,8 @@ mod update;
 /// Extension trait that normalizes "hide window" behavior on supported command
 /// types.
 pub use commands::HideWindow;
+/// Runs `<path> --version`, strips `prefix`, and returns the version string.
+pub use commands::get_cli_version;
 /// Installer script download helper with retry/verification policy.
 pub use install_script::{
     InstallScriptError, download_install_script_unverified, download_install_script_verified,

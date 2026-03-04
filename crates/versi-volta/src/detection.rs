@@ -9,6 +9,7 @@ use versi_core::HideWindow;
 use versi_core::download_install_script_unverified;
 #[cfg(unix)]
 use versi_core::temp_script_path;
+use versi_core::get_cli_version;
 
 #[cfg(unix)]
 const VOLTA_INSTALL_SCRIPT_URL: &str = "https://get.volta.sh";
@@ -152,36 +153,7 @@ fn volta_home_binary_path(volta_home: &Path) -> PathBuf {
 }
 
 async fn get_volta_version(path: &Path) -> Option<String> {
-    let output = match Command::new(path)
-        .arg("--version")
-        .hide_window()
-        .output()
-        .await
-    {
-        Ok(output) => output,
-        Err(e) => {
-            log::debug!("Failed to run volta --version at {}: {e}", path.display());
-            return None;
-        }
-    };
-
-    if !output.status.success() {
-        log::debug!(
-            "volta --version exited with {:?} at {}",
-            output.status.code(),
-            path.display()
-        );
-        return None;
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let version = stdout
-        .trim()
-        .strip_prefix("volta ")
-        .unwrap_or(stdout.trim())
-        .to_string();
-
-    Some(version)
+    get_cli_version(path, "volta ").await
 }
 
 pub(crate) async fn install_volta() -> Result<(), BackendError> {

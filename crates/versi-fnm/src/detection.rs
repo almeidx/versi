@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use tokio::process::Command;
 use which::which;
 
-use versi_core::{HideWindow, download_install_script_unverified, temp_script_path};
+use versi_core::{HideWindow, download_install_script_unverified, get_cli_version, temp_script_path};
 
 const FNM_INSTALL_SCRIPT_URL: &str =
     "https://raw.githubusercontent.com/Schniz/fnm/v1.38.1/.ci/install.sh";
@@ -120,37 +120,8 @@ fn get_common_fnm_paths() -> Vec<PathBuf> {
     paths
 }
 
-async fn get_fnm_version(path: &PathBuf) -> Option<String> {
-    let output = match Command::new(path)
-        .arg("--version")
-        .hide_window()
-        .output()
-        .await
-    {
-        Ok(output) => output,
-        Err(e) => {
-            log::debug!("Failed to run fnm --version at {}: {e}", path.display());
-            return None;
-        }
-    };
-
-    if !output.status.success() {
-        log::debug!(
-            "fnm --version exited with {:?} at {}",
-            output.status.code(),
-            path.display()
-        );
-        return None;
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let version = stdout
-        .trim()
-        .strip_prefix("fnm ")
-        .unwrap_or(stdout.trim())
-        .to_string();
-
-    Some(version)
+async fn get_fnm_version(path: &Path) -> Option<String> {
+    get_cli_version(path, "fnm ").await
 }
 
 pub(crate) async fn install_fnm() -> Result<(), versi_backend::BackendError> {
