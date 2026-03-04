@@ -14,6 +14,7 @@ chrono.workspace = true
 async-trait.workspace = true
 reqwest.workspace = true
 tokio.workspace = true
+versi-core = { path = "../versi-core" }
 
 [dev-dependencies]
 tokio.workspace = true

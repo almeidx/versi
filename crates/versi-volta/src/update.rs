@@ -3,14 +3,6 @@ use versi_core::{backend_update_from_release, check_github_release};
 
 const VOLTA_GITHUB_REPO: &str = "volta-cli/volta";
 
-fn into_backend_update(info: versi_core::BackendUpdateInfo) -> BackendUpdate {
-    BackendUpdate {
-        current_version: info.current_version,
-        latest_version: info.latest_version,
-        release_url: info.release_url,
-    }
-}
-
 pub async fn check_for_volta_update(
     client: &reqwest::Client,
     current_version: &str,
@@ -23,12 +15,12 @@ pub async fn check_for_volta_update(
         return Ok(None);
     };
 
-    Ok(backend_update_from_release(release, current_version).map(into_backend_update))
+    Ok(backend_update_from_release(release, current_version).map(BackendUpdate::from))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::into_backend_update;
+    use versi_backend::BackendUpdate;
     use versi_core::{GitHubRelease, backend_update_from_release};
 
     fn release(tag_name: &str) -> GitHubRelease {
@@ -42,9 +34,9 @@ mod tests {
 
     #[test]
     fn returns_update_when_release_is_newer() {
-        let info = backend_update_from_release(release("v2.0.0"), "1.9.0")
-            .expect("newer release should produce update metadata");
-        let update = into_backend_update(info);
+        let update: BackendUpdate = backend_update_from_release(release("v2.0.0"), "1.9.0")
+            .expect("newer release should produce update metadata")
+            .into();
 
         assert_eq!(update.current_version, "1.9.0");
         assert_eq!(update.latest_version, "2.0.0");

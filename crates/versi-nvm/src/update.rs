@@ -6,14 +6,6 @@ use crate::detection::NvmVariant;
 const NVM_UNIX_REPO: &str = "nvm-sh/nvm";
 const NVM_WINDOWS_REPO: &str = "coreybutler/nvm-windows";
 
-fn into_backend_update(info: versi_core::BackendUpdateInfo) -> BackendUpdate {
-    BackendUpdate {
-        current_version: info.current_version,
-        latest_version: info.latest_version,
-        release_url: info.release_url,
-    }
-}
-
 pub async fn check_for_nvm_update(
     client: &reqwest::Client,
     current_version: &str,
@@ -32,7 +24,7 @@ pub async fn check_for_nvm_update(
         return Ok(None);
     };
 
-    Ok(backend_update_from_release(release, current_version).map(into_backend_update))
+    Ok(backend_update_from_release(release, current_version).map(BackendUpdate::from))
 }
 
 #[cfg(test)]

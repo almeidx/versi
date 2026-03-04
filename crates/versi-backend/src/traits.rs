@@ -23,6 +23,16 @@ pub struct BackendUpdate {
     pub release_url: String,
 }
 
+impl From<versi_core::BackendUpdateInfo> for BackendUpdate {
+    fn from(info: versi_core::BackendUpdateInfo) -> Self {
+        Self {
+            current_version: info.current_version,
+            latest_version: info.latest_version,
+            release_url: info.release_url,
+        }
+    }
+}
+
 #[async_trait]
 pub trait BackendProvider: Send + Sync {
     fn name(&self) -> &'static str;
