@@ -51,7 +51,6 @@ impl Default for SettingsModalState {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub struct ShellSetupStatus {
     pub shell_type: versi_shell::ShellType,
