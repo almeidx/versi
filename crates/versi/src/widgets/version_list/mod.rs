@@ -332,7 +332,7 @@ fn empty_versions_view(search_query: &str) -> Element<'_, Message> {
 mod tests {
     use std::collections::HashSet;
 
-    use super::update_available_for_group;
+    use super::{filter_group, filter_version, update_available_for_group};
     use crate::state::SearchFilter;
     use crate::version_query::{matches_version_query, passes_release_filters};
     use versi_backend::{InstalledVersion, NodeVersion, VersionGroup};
@@ -342,6 +342,26 @@ mod tests {
             version: version.parse().expect("test version should parse"),
             is_default: false,
             lts_codename: Some("Iron".to_string()),
+            install_date: None,
+            disk_size: None,
+        }
+    }
+
+    fn installed_no_lts(version: &str) -> InstalledVersion {
+        InstalledVersion {
+            version: version.parse().expect("test version should parse"),
+            is_default: false,
+            lts_codename: None,
+            install_date: None,
+            disk_size: None,
+        }
+    }
+
+    fn installed_with_lts(version: &str, codename: &str) -> InstalledVersion {
+        InstalledVersion {
+            version: version.parse().expect("test version should parse"),
+            is_default: false,
+            lts_codename: Some(codename.to_string()),
             install_date: None,
             disk_size: None,
         }
@@ -364,6 +384,13 @@ mod tests {
             }
         }))
         .expect("schedule fixture should deserialize")
+    }
+
+    fn make_group(versions: &[InstalledVersion]) -> VersionGroup {
+        VersionGroup::from_versions(versions)
+            .into_iter()
+            .next()
+            .expect("at least one group")
     }
 
     #[test]
@@ -429,5 +456,223 @@ mod tests {
 
         let latest_equal = std::collections::HashMap::from([(22, NodeVersion::new(22, 1, 0))]);
         assert_eq!(update_available_for_group(&group, &latest_equal), None);
+    }
+
+    // -- filter_group tests --
+
+    #[test]
+    fn filter_group_passes_all_groups_on_empty_query() {
+        let group = make_group(&[installed_no_lts("v22.1.0")]);
+        assert!(filter_group(&group, "", "", &HashSet::new(), None));
+    }
+
+    #[test]
+    fn filter_group_rejects_when_not_installed_filter_is_active() {
+        let group = make_group(&[installed("v22.1.0")]);
+        let filters = HashSet::from([SearchFilter::NotInstalled]);
+        assert!(!filter_group(&group, "22", "22", &filters, None));
+    }
+
+    #[test]
+    fn filter_group_rejects_when_release_filter_excludes_major() {
+        let group = make_group(&[installed("v20.11.0")]);
+        let filters = HashSet::from([SearchFilter::Active]);
+        let schedule = schedule_with_eol_major(20);
+        assert!(!filter_group(&group, "20", "20", &filters, Some(&schedule)));
+    }
+
+    #[test]
+    fn filter_group_lts_query_matches_groups_with_lts_versions() {
+        let group_lts = make_group(&[installed_with_lts("v22.1.0", "Jod")]);
+        assert!(filter_group(
+            &group_lts,
+            "lts",
+            "lts",
+            &HashSet::new(),
+            None
+        ));
+
+        let group_no_lts = make_group(&[installed_no_lts("v23.1.0")]);
+        assert!(!filter_group(
+            &group_no_lts,
+            "lts",
+            "lts",
+            &HashSet::new(),
+            None
+        ));
+    }
+
+    #[test]
+    fn filter_group_matches_version_number_substring() {
+        let group = make_group(&[installed_no_lts("v22.3.0"), installed_no_lts("v22.1.0")]);
+        assert!(filter_group(&group, "22.3", "22.3", &HashSet::new(), None));
+        assert!(!filter_group(&group, "99", "99", &HashSet::new(), None));
+    }
+
+    #[test]
+    fn filter_group_with_lts_filter_only_matches_lts_versions() {
+        let group = make_group(&[
+            installed_with_lts("v22.2.0", "Jod"),
+            installed_no_lts("v22.1.0"),
+        ]);
+        let filters = HashSet::from([SearchFilter::Lts]);
+
+        assert!(filter_group(&group, "22.2", "22.2", &filters, None));
+        assert!(!filter_group(&group, "22.1", "22.1", &filters, None));
+    }
+
+    #[test]
+    fn filter_group_matches_lts_codename_case_insensitive() {
+        let group = make_group(&[installed_with_lts("v22.1.0", "Jod")]);
+        assert!(filter_group(&group, "jod", "jod", &HashSet::new(), None));
+        assert!(filter_group(&group, "Jod", "jod", &HashSet::new(), None));
+    }
+
+    #[test]
+    fn filter_group_eol_filter_restricts_to_eol_majors() {
+        let schedule = schedule_with_eol_major(20);
+        let group_22 = make_group(&[installed("v22.1.0")]);
+        let group_20 = make_group(&[installed("v20.11.0")]);
+        let filters = HashSet::from([SearchFilter::Eol]);
+
+        assert!(!filter_group(
+            &group_22,
+            "v",
+            "v",
+            &filters,
+            Some(&schedule)
+        ));
+        assert!(filter_group(&group_20, "v", "v", &filters, Some(&schedule)));
+    }
+
+    // -- filter_version tests --
+
+    #[test]
+    fn filter_version_passes_on_empty_query() {
+        let version = installed("v22.1.0");
+        let mut buf = String::new();
+        assert!(filter_version(
+            &version,
+            "",
+            "",
+            &HashSet::new(),
+            None,
+            &mut buf
+        ));
+    }
+
+    #[test]
+    fn filter_version_matches_version_text() {
+        let version = installed_no_lts("v22.3.0");
+        let mut buf = String::new();
+        assert!(filter_version(
+            &version,
+            "22.3",
+            "22.3",
+            &HashSet::new(),
+            None,
+            &mut buf,
+        ));
+        assert!(!filter_version(
+            &version,
+            "20",
+            "20",
+            &HashSet::new(),
+            None,
+            &mut buf,
+        ));
+    }
+
+    #[test]
+    fn filter_version_rejects_non_lts_when_lts_filter_active() {
+        let version = installed_no_lts("v23.1.0");
+        let mut buf = String::new();
+        let filters = HashSet::from([SearchFilter::Lts]);
+        assert!(!filter_version(
+            &version, "23", "23", &filters, None, &mut buf,
+        ));
+    }
+
+    #[test]
+    fn filter_version_passes_lts_version_when_lts_filter_active() {
+        let version = installed_with_lts("v22.1.0", "Jod");
+        let mut buf = String::new();
+        let filters = HashSet::from([SearchFilter::Lts]);
+        assert!(filter_version(
+            &version, "22", "22", &filters, None, &mut buf,
+        ));
+    }
+
+    #[test]
+    fn filter_version_rejects_with_not_installed_filter() {
+        let version = installed("v22.1.0");
+        let mut buf = String::new();
+        let filters = HashSet::from([SearchFilter::NotInstalled]);
+        assert!(!filter_version(
+            &version, "22", "22", &filters, None, &mut buf,
+        ));
+    }
+
+    #[test]
+    fn filter_version_respects_eol_release_filter() {
+        let schedule = schedule_with_eol_major(20);
+        let active_version = installed("v22.1.0");
+        let eol_version = installed("v20.11.0");
+        let mut buf = String::new();
+        let eol_filters = HashSet::from([SearchFilter::Eol]);
+
+        assert!(!filter_version(
+            &active_version,
+            "v",
+            "v",
+            &eol_filters,
+            Some(&schedule),
+            &mut buf,
+        ));
+        assert!(filter_version(
+            &eol_version,
+            "v",
+            "v",
+            &eol_filters,
+            Some(&schedule),
+            &mut buf,
+        ));
+    }
+
+    #[test]
+    fn filter_version_rejects_text_mismatch_even_with_passing_filters() {
+        let version = installed_with_lts("v22.1.0", "Jod");
+        let mut buf = String::new();
+        let filters = HashSet::from([SearchFilter::Lts]);
+        assert!(!filter_version(
+            &version, "99", "99", &filters, None, &mut buf,
+        ));
+    }
+
+    #[test]
+    fn filter_version_matches_lts_codename() {
+        let version = installed_with_lts("v22.1.0", "Jod");
+        let mut buf = String::new();
+        assert!(filter_version(
+            &version,
+            "Jod",
+            "jod",
+            &HashSet::new(),
+            None,
+            &mut buf,
+        ));
+    }
+
+    #[test]
+    fn filter_version_buffer_is_reused_across_calls() {
+        let v1 = installed_no_lts("v22.1.0");
+        let v2 = installed_no_lts("v20.11.0");
+        let mut buf = String::with_capacity(16);
+        let initial_ptr = buf.as_ptr();
+
+        filter_version(&v1, "22", "22", &HashSet::new(), None, &mut buf);
+        filter_version(&v2, "20", "20", &HashSet::new(), None, &mut buf);
+
+        assert_eq!(buf.as_ptr(), initial_ptr);
     }
 }
