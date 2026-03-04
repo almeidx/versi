@@ -68,13 +68,8 @@ impl BackendProvider for FnmProvider {
             .clone()
             .unwrap_or_else(|| std::path::PathBuf::from("fnm"));
         let data_dir = detection.data_dir.clone().or_else(detect_fnm_dir);
-        let backend = FnmBackend::new(path, detection.version.clone(), data_dir.clone())
+        let backend = FnmBackend::new(path, detection.version.clone(), data_dir)
             .with_in_path(detection.in_path);
-        let backend = if let Some(dir) = data_dir {
-            backend.with_fnm_dir(dir)
-        } else {
-            backend
-        };
         Arc::new(backend)
     }
 

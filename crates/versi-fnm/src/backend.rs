@@ -40,23 +40,21 @@ pub enum Environment {
 #[derive(Clone)]
 pub struct FnmBackend {
     info: BackendInfo,
-    fnm_dir: Option<PathBuf>,
     node_dist_mirror: Option<String>,
     environment: Environment,
 }
 
 impl FnmBackend {
     #[must_use]
-    pub fn new(path: PathBuf, version: Option<String>, fnm_dir: Option<PathBuf>) -> Self {
+    pub fn new(path: PathBuf, version: Option<String>, data_dir: Option<PathBuf>) -> Self {
         Self {
             info: BackendInfo {
                 name: "fnm",
                 path,
                 version,
-                data_dir: fnm_dir.clone(),
+                data_dir,
                 in_path: true,
             },
-            fnm_dir,
             node_dist_mirror: None,
             environment: Environment::Native,
         }
@@ -64,7 +62,6 @@ impl FnmBackend {
 
     #[must_use]
     pub fn with_fnm_dir(mut self, dir: PathBuf) -> Self {
-        self.fnm_dir = Some(dir.clone());
         self.info.data_dir = Some(dir);
         self
     }
@@ -91,14 +88,13 @@ impl FnmBackend {
                 data_dir: None,
                 in_path: false,
             },
-            fnm_dir: None,
             node_dist_mirror: None,
             environment: Environment::Wsl { distro, fnm_path },
         }
     }
 
     fn apply_native_env(&self, cmd: &mut Command) {
-        if let Some(dir) = &self.fnm_dir {
+        if let Some(dir) = &self.info.data_dir {
             debug!("Setting FNM_DIR={}", dir.display());
             cmd.env("FNM_DIR", dir);
         }
