@@ -248,7 +248,7 @@ impl Versi {
             window_size: None,
             window_position: None,
             http_client,
-            providers: providers.clone(),
+            providers,
             provider: active_provider,
             system_theme_mode: iced::theme::Mode::None,
         };
