@@ -2,6 +2,7 @@ use iced::widget::{Space, button, column, container, row, scrollable, text, togg
 use iced::{Alignment, Element, Length};
 
 use crate::backend_kind::BackendKind;
+use crate::format::format_tenths;
 use crate::icon;
 use crate::message::Message;
 use crate::settings::{AppSettings, AppUpdateBehavior, ThemeSetting, TrayBehavior};
@@ -549,11 +550,4 @@ fn engine_selector<'a>(settings: &'a AppSettings, state: &'a MainState) -> Eleme
     ]
     .spacing(8)
     .into()
-}
-
-fn format_tenths(value: u64, unit: u64, suffix: &str) -> String {
-    let scaled = (u128::from(value) * 10 + u128::from(unit) / 2) / u128::from(unit);
-    let whole = scaled / 10;
-    let tenth = scaled % 10;
-    format!("{whole}.{tenth} {suffix}")
 }

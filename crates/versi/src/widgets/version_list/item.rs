@@ -3,6 +3,7 @@ use iced::{Alignment, Element, Length};
 
 use versi_backend::InstalledVersion;
 
+use crate::format::format_bytes;
 use crate::icon;
 use crate::message::Message;
 use crate::state::{Operation, VersionSecurityFinding};
@@ -195,32 +196,10 @@ fn push_uninstall_button<'a>(
     }
 }
 
-pub(super) fn format_bytes(bytes: u64) -> String {
-    const KB: u64 = 1024;
-    const MB: u64 = KB * 1024;
-    const GB: u64 = MB * 1024;
-
-    if bytes >= GB {
-        format_tenths(bytes, GB, "GB")
-    } else if bytes >= MB {
-        format_tenths(bytes, MB, "MB")
-    } else if bytes >= KB {
-        format_tenths(bytes, KB, "KB")
-    } else {
-        format!("{bytes} B")
-    }
-}
-
-fn format_tenths(value: u64, unit: u64, suffix: &str) -> String {
-    let scaled = (u128::from(value) * 10 + u128::from(unit) / 2) / u128::from(unit);
-    let whole = scaled / 10;
-    let tenth = scaled % 10;
-    format!("{whole}.{tenth} {suffix}")
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{format_bytes, format_tenths, show_security_warning_icon};
+    use super::show_security_warning_icon;
+    use crate::format::{format_bytes, format_tenths};
     use crate::state::VersionSecurityFinding;
 
     #[test]
