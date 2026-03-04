@@ -1,9 +1,8 @@
 use std::path::PathBuf;
-use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::process::Command;
 use which::which;
 
-use versi_core::{HideWindow, download_install_script_unverified};
+use versi_core::{HideWindow, download_install_script_unverified, temp_script_path};
 
 const FNM_INSTALL_SCRIPT_URL: &str =
     "https://raw.githubusercontent.com/Schniz/fnm/v1.38.1/.ci/install.sh";
@@ -203,13 +202,6 @@ pub(crate) async fn install_fnm() -> Result<(), versi_backend::BackendError> {
             "fnm installation script failed",
         ))
     }
-}
-
-fn temp_script_path(prefix: &str, ext: &str) -> PathBuf {
-    let nonce = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |duration| duration.as_nanos());
-    std::env::temp_dir().join(format!("{prefix}-{}-{nonce}.{ext}", std::process::id()))
 }
 
 async fn download_install_script(

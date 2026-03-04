@@ -1,10 +1,10 @@
 use std::path::PathBuf;
-#[cfg(unix)]
-use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::process::Command;
 
 #[cfg(unix)]
 use versi_core::download_install_script_unverified;
+#[cfg(unix)]
+use versi_core::temp_script_path;
 use versi_platform::HideWindow;
 
 use crate::client::{NvmClient, NvmEnvironment};
@@ -269,14 +269,6 @@ pub async fn install_nvm() -> Result<(), versi_backend::BackendError> {
             ),
         ))
     }
-}
-
-#[cfg(unix)]
-fn temp_script_path(prefix: &str, ext: &str) -> PathBuf {
-    let nonce = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |duration| duration.as_nanos());
-    std::env::temp_dir().join(format!("{prefix}-{}-{nonce}.{ext}", std::process::id()))
 }
 
 #[cfg(unix)]

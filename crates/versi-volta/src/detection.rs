@@ -1,6 +1,4 @@
 use std::path::{Path, PathBuf};
-#[cfg(unix)]
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use tokio::process::Command;
 use which::which;
@@ -9,6 +7,8 @@ use versi_backend::BackendError;
 use versi_core::HideWindow;
 #[cfg(unix)]
 use versi_core::download_install_script_unverified;
+#[cfg(unix)]
+use versi_core::temp_script_path;
 
 #[cfg(unix)]
 const VOLTA_INSTALL_SCRIPT_URL: &str = "https://get.volta.sh";
@@ -241,14 +241,6 @@ pub(crate) async fn install_volta() -> Result<(), BackendError> {
 }
 
 #[cfg(unix)]
-fn temp_script_path(prefix: &str, ext: &str) -> PathBuf {
-    let nonce = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |duration| duration.as_nanos());
-    std::env::temp_dir().join(format!("{prefix}-{}-{nonce}.{ext}", std::process::id()))
-}
-
-#[cfg(unix)]
 async fn download_install_script(
     url: &str,
     path: &std::path::Path,
@@ -336,7 +328,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn temp_script_path_uses_requested_extension() {
-        let path = super::temp_script_path("volta-install-test", "sh");
+        let path = versi_core::temp_script_path("volta-install-test", "sh");
         let file_name = path
             .file_name()
             .and_then(|value| value.to_str())

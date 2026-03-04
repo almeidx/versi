@@ -1,5 +1,5 @@
-use std::path::Path;
-use std::time::Duration;
+use std::path::{Path, PathBuf};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use sha2::{Digest, Sha256};
 
@@ -33,6 +33,14 @@ pub enum InstallScriptError {
         #[source]
         source: std::io::Error,
     },
+}
+
+#[must_use]
+pub fn temp_script_path(prefix: &str, ext: &str) -> PathBuf {
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |duration| duration.as_nanos());
+    std::env::temp_dir().join(format!("{prefix}-{}-{nonce}.{ext}", std::process::id()))
 }
 
 /// Download an installer script with timeout/retry policy and SHA-256

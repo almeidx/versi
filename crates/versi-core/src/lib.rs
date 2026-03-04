@@ -23,6 +23,7 @@ pub use commands::HideWindow;
 /// Installer script download helper with retry/verification policy.
 pub use install_script::{
     InstallScriptError, download_install_script_unverified, download_install_script_verified,
+    temp_script_path,
 };
 /// Release metadata model and fetch helper.
 pub use metadata::{MetadataError, VersionMeta, fetch_version_metadata};
