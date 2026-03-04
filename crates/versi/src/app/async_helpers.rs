@@ -108,10 +108,10 @@ mod tests {
     #[tokio::test]
     async fn run_with_timeout_returns_timeout_error() {
         let result = run_with_timeout(
-            Duration::from_millis(5),
+            Duration::from_millis(10),
             "install",
             async {
-                tokio::time::sleep(Duration::from_millis(20)).await;
+                tokio::time::sleep(Duration::from_secs(2)).await;
                 Ok::<_, AppError>(())
             },
             |error| error,
