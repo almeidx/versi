@@ -40,18 +40,7 @@ fn enqueue_exclusive_if_busy(state: &mut MainState, request: Operation) -> bool 
     false
 }
 
-fn should_confirm_default_uninstall(state: &MainState, version: &str) -> bool {
-    let Ok(version) = version.parse::<NodeVersion>() else {
-        return false;
-    };
-    state
-        .active_environment()
-        .default_version
-        .as_ref()
-        .is_some_and(|dv| dv == &version)
-}
-
-fn is_already_default_version(state: &MainState, version: &str) -> bool {
+fn is_default_version(state: &MainState, version: &str) -> bool {
     let Ok(version) = version.parse::<NodeVersion>() else {
         return false;
     };
@@ -294,7 +283,7 @@ impl Versi {
                 return Task::none();
             }
 
-            if should_confirm_default_uninstall(state, &version) {
+            if is_default_version(state, &version) {
                 state.modal = Some(Modal::ConfirmUninstallDefault {
                     version: version.clone(),
                 });
@@ -405,7 +394,7 @@ impl Versi {
 
     pub(super) fn handle_set_default(&mut self, version: String) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            if is_already_default_version(state, &version) {
+            if is_default_version(state, &version) {
                 return Task::none();
             }
 
