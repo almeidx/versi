@@ -255,4 +255,126 @@ mod tests {
                     && details == &crate::error::AppErrorDetail::from("apply failed")
         ));
     }
+
+    #[test]
+    fn start_app_update_noop_when_no_update_available() {
+        let mut app = test_app_with_two_environments();
+        app.main_state_mut().app_update = None;
+        app.main_state_mut().app_update_state = AppUpdateState::Idle;
+
+        let _ = app.handle_start_app_update();
+
+        assert!(matches!(
+            app.main_state().app_update_state,
+            AppUpdateState::Idle
+        ));
+    }
+
+    #[test]
+    fn start_app_update_retries_from_failed_state() {
+        let mut app = test_app_with_two_environments();
+        let state = app.main_state_mut();
+        state.app_update = Some(sample_update(
+            Some("https://example.com/download.zip"),
+            Some(99),
+        ));
+        state.app_update_state =
+            AppUpdateState::Failed(AppError::auto_update_failed("apply", "disk full"));
+
+        let _ = app.handle_start_app_update();
+
+        assert!(matches!(
+            app.main_state().app_update_state,
+            AppUpdateState::Downloading {
+                downloaded: 0,
+                total: 99
+            }
+        ));
+    }
+
+    #[test]
+    fn start_app_update_blocked_for_non_retriable_states() {
+        for initial_state in [
+            AppUpdateState::Downloading {
+                downloaded: 0,
+                total: 0,
+            },
+            AppUpdateState::Extracting,
+            AppUpdateState::RestartRequired,
+        ] {
+            let mut app = test_app_with_two_environments();
+            let state = app.main_state_mut();
+            state.app_update = Some(sample_update(
+                Some("https://example.com/download.zip"),
+                Some(42),
+            ));
+            state.app_update_state = initial_state;
+
+            let _ = app.handle_start_app_update();
+
+            let state = app.main_state();
+            assert!(
+                !matches!(
+                    state.app_update_state,
+                    AppUpdateState::Downloading {
+                        downloaded: 0,
+                        total: 42
+                    }
+                ),
+                "should not transition to Downloading from non-retriable state"
+            );
+        }
+    }
+
+    #[test]
+    fn start_app_update_uses_zero_when_download_size_is_none() {
+        let mut app = test_app_with_two_environments();
+        let state = app.main_state_mut();
+        state.app_update = Some(sample_update(
+            Some("https://example.com/download.zip"),
+            None,
+        ));
+        state.app_update_state = AppUpdateState::Idle;
+
+        let _ = app.handle_start_app_update();
+
+        assert!(matches!(
+            app.main_state().app_update_state,
+            AppUpdateState::Downloading {
+                downloaded: 0,
+                total: 0
+            }
+        ));
+    }
+
+    #[test]
+    fn app_update_progress_overwrites_prior_state() {
+        let mut app = test_app_with_two_environments();
+
+        app.handle_app_update_progress(10, 100);
+        app.handle_app_update_progress(50, 100);
+
+        assert!(matches!(
+            app.main_state().app_update_state,
+            AppUpdateState::Downloading {
+                downloaded: 50,
+                total: 100
+            }
+        ));
+    }
+
+    #[test]
+    fn app_update_complete_failed_preserves_phase_string() {
+        let mut app = test_app_with_two_environments();
+        let _ = app.handle_app_update_complete(Err(AppError::auto_update_failed(
+            "task join",
+            "update task panicked: JoinError",
+        )));
+
+        assert!(matches!(
+            &app.main_state().app_update_state,
+            AppUpdateState::Failed(AppError::AutoUpdateFailed { phase, .. })
+                if phase == &"task join"
+        ));
+    }
 }
