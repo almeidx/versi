@@ -11,19 +11,13 @@ use which::which;
 #[cfg(unix)]
 use versi_core::GitHubRelease;
 use versi_core::HideWindow;
+#[cfg(any(test, windows))]
+use versi_core::InstallerAttempt;
 
 #[cfg(unix)]
 const ASDF_RELEASES_API: &str = "https://api.github.com/repos/asdf-vm/asdf/releases/latest";
 #[cfg(unix)]
 const ASDF_NODEJS_PLUGIN_URL: &str = "https://github.com/asdf-vm/asdf-nodejs.git";
-
-#[cfg(any(test, windows))]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct InstallerAttempt {
-    label: &'static str,
-    program: &'static str,
-    args: &'static [&'static str],
-}
 
 #[cfg(any(test, windows))]
 const ASDF_WINDOWS_INSTALL_ATTEMPTS: [InstallerAttempt; 3] = [
@@ -260,7 +254,7 @@ pub(crate) async fn install_asdf(
 ) -> Result<(), versi_backend::BackendError> {
     let mut failures = Vec::new();
     for attempt in asdf_windows_install_attempts() {
-        match run_windows_installer_attempt(attempt).await {
+        match versi_core::run_installer_attempt(attempt).await {
             Ok(()) => return Ok(()),
             Err(error) => failures.push(error.to_string()),
         }
@@ -509,35 +503,6 @@ async fn ensure_nodejs_plugin(
             } else {
                 stderr
             },
-        ))
-    }
-}
-
-#[cfg(windows)]
-async fn run_windows_installer_attempt(
-    attempt: &InstallerAttempt,
-) -> Result<(), versi_backend::BackendError> {
-    let status = Command::new(attempt.program)
-        .args(attempt.args)
-        .hide_window()
-        .status()
-        .await
-        .map_err(|error| {
-            versi_backend::BackendError::install_failed(
-                "run installer command",
-                format!("{} failed to start: {error}", attempt.label),
-            )
-        })?;
-
-    if status.success() {
-        Ok(())
-    } else {
-        let code = status
-            .code()
-            .map_or_else(|| "unknown".to_string(), |code| code.to_string());
-        Err(versi_backend::BackendError::install_failed(
-            "run installer command",
-            format!("{} exited with status {code}", attempt.label),
         ))
     }
 }
