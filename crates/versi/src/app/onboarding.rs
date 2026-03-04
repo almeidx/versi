@@ -248,7 +248,8 @@ mod tests {
     fn test_onboarding_app(backend_count: usize) -> Versi {
         let fnm_provider: Arc<dyn BackendProvider> = Arc::new(versi_fnm::FnmProvider::new());
         let nvm_provider: Arc<dyn BackendProvider> = Arc::new(versi_nvm::NvmProvider::new());
-        let asdf_provider: Arc<dyn BackendProvider> = Arc::new(versi_asdf::AsdfProvider::new());
+        let asdf_provider: Arc<dyn BackendProvider> =
+            Arc::new(versi_asdf::AsdfProvider::new(reqwest::Client::new()));
         let volta_provider: Arc<dyn BackendProvider> =
             Arc::new(versi_volta::VoltaProvider::new(reqwest::Client::new()));
 

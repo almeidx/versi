@@ -370,8 +370,9 @@ mod tests {
             as std::sync::Arc<dyn versi_backend::BackendProvider>;
         let nvm_provider = std::sync::Arc::new(versi_nvm::NvmProvider::new())
             as std::sync::Arc<dyn versi_backend::BackendProvider>;
-        let asdf_provider = std::sync::Arc::new(versi_asdf::AsdfProvider::new())
-            as std::sync::Arc<dyn versi_backend::BackendProvider>;
+        let asdf_provider =
+            std::sync::Arc::new(versi_asdf::AsdfProvider::new(reqwest::Client::new()))
+                as std::sync::Arc<dyn versi_backend::BackendProvider>;
 
         assert_eq!(
             backend_kind_from_provider(&fnm_provider),

@@ -223,7 +223,8 @@ impl Versi {
         let nvm_provider: Arc<dyn BackendProvider> = Arc::new(versi_nvm::NvmProvider::new());
         let volta_provider: Arc<dyn BackendProvider> =
             Arc::new(versi_volta::VoltaProvider::new(http_client.clone()));
-        let asdf_provider: Arc<dyn BackendProvider> = Arc::new(versi_asdf::AsdfProvider::new());
+        let asdf_provider: Arc<dyn BackendProvider> =
+            Arc::new(versi_asdf::AsdfProvider::new(http_client.clone()));
 
         let mut providers: HashMap<BackendKind, Arc<dyn BackendProvider>> = HashMap::new();
         providers.insert(BackendKind::Fnm, fnm_provider.clone());
@@ -464,7 +465,8 @@ impl Versi {
 fn test_app_with_two_environments() -> Versi {
     let fnm_provider: Arc<dyn BackendProvider> = Arc::new(versi_fnm::FnmProvider::new());
     let nvm_provider: Arc<dyn BackendProvider> = Arc::new(versi_nvm::NvmProvider::new());
-    let asdf_provider: Arc<dyn BackendProvider> = Arc::new(versi_asdf::AsdfProvider::new());
+    let asdf_provider: Arc<dyn BackendProvider> =
+        Arc::new(versi_asdf::AsdfProvider::new(reqwest::Client::new()));
     let volta_provider: Arc<dyn BackendProvider> =
         Arc::new(versi_volta::VoltaProvider::new(reqwest::Client::new()));
 

@@ -13,7 +13,7 @@ async fn asdf_lists_versions_in_real_environment() {
         return;
     }
 
-    let provider = AsdfProvider::new();
+    let provider = AsdfProvider::new(reqwest::Client::new());
     let detection = provider.detect().await;
     assert!(
         detection.found,

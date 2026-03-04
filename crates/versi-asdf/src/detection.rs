@@ -235,11 +235,12 @@ struct ReleaseAssetInfo {
 }
 
 #[cfg(unix)]
-pub(crate) async fn install_asdf() -> Result<(), versi_backend::BackendError> {
-    let client = reqwest::Client::new();
-    let release = fetch_latest_release(&client).await?;
+pub(crate) async fn install_asdf(
+    client: &reqwest::Client,
+) -> Result<(), versi_backend::BackendError> {
+    let release = fetch_latest_release(client).await?;
     let asset = select_release_asset(&release)?;
-    let archive_bytes = download_release_asset(&client, &asset.download_url).await?;
+    let archive_bytes = download_release_asset(client, &asset.download_url).await?;
 
     let temp_dir = temp_install_dir();
     let install_result = async {
@@ -254,7 +255,9 @@ pub(crate) async fn install_asdf() -> Result<(), versi_backend::BackendError> {
 }
 
 #[cfg(windows)]
-pub(crate) async fn install_asdf() -> Result<(), versi_backend::BackendError> {
+pub(crate) async fn install_asdf(
+    _client: &reqwest::Client,
+) -> Result<(), versi_backend::BackendError> {
     let mut failures = Vec::new();
     for attempt in asdf_windows_install_attempts() {
         match run_windows_installer_attempt(attempt).await {
@@ -270,7 +273,9 @@ pub(crate) async fn install_asdf() -> Result<(), versi_backend::BackendError> {
 }
 
 #[cfg(not(any(unix, windows)))]
-pub(crate) async fn install_asdf() -> Result<(), versi_backend::BackendError> {
+pub(crate) async fn install_asdf(
+    _client: &reqwest::Client,
+) -> Result<(), versi_backend::BackendError> {
     Err(versi_backend::BackendError::install_failed(
         "unsupported platform flow",
         "Automatic asdf installation is unsupported on this platform.",

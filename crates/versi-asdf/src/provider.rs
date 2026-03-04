@@ -10,13 +10,14 @@ use crate::backend::AsdfBackend;
 use crate::detection::{detect_asdf, detect_asdf_data_dir, install_asdf};
 use crate::update::check_for_asdf_update;
 
-#[derive(Default)]
-pub struct AsdfProvider;
+pub struct AsdfProvider {
+    http_client: reqwest::Client,
+}
 
 impl AsdfProvider {
     #[must_use]
-    pub fn new() -> Self {
-        Self
+    pub fn new(http_client: reqwest::Client) -> Self {
+        Self { http_client }
     }
 }
 
@@ -50,7 +51,7 @@ impl BackendProvider for AsdfProvider {
     }
 
     async fn install_backend(&self) -> Result<(), BackendError> {
-        install_asdf().await
+        install_asdf(&self.http_client).await
     }
 
     async fn check_for_update(
@@ -108,7 +109,7 @@ mod tests {
 
     #[test]
     fn provider_metadata_is_stable() {
-        let provider = AsdfProvider::new();
+        let provider = AsdfProvider::new(reqwest::Client::new());
 
         assert_eq!(provider.name(), "asdf");
         assert_eq!(provider.display_name(), "asdf (asdf-nodejs)");
@@ -118,7 +119,7 @@ mod tests {
 
     #[test]
     fn create_manager_uses_detected_path_and_data_dir() {
-        let provider = AsdfProvider::new();
+        let provider = AsdfProvider::new(reqwest::Client::new());
         let detection = BackendDetection {
             found: true,
             path: Some(PathBuf::from("/opt/homebrew/bin/asdf")),
@@ -138,7 +139,7 @@ mod tests {
 
     #[test]
     fn create_manager_falls_back_to_asdf_binary_name() {
-        let provider = AsdfProvider::new();
+        let provider = AsdfProvider::new(reqwest::Client::new());
         let detection = BackendDetection {
             found: false,
             path: None,
@@ -156,7 +157,7 @@ mod tests {
 
     #[test]
     fn create_wsl_manager_uses_wsl_binary_path() {
-        let provider = AsdfProvider::new();
+        let provider = AsdfProvider::new(reqwest::Client::new());
 
         let manager =
             provider.create_manager_for_wsl("Ubuntu".to_string(), "/usr/bin/asdf".to_string());
@@ -168,7 +169,7 @@ mod tests {
 
     #[test]
     fn wsl_search_paths_are_unique() {
-        let provider = AsdfProvider::new();
+        let provider = AsdfProvider::new(reqwest::Client::new());
         let paths = provider.wsl_search_paths();
         let unique_count = paths.iter().copied().collect::<HashSet<_>>().len();
 
