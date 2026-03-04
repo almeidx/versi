@@ -6,7 +6,7 @@ use crate::version::{
 };
 use versi_backend::{
     BackendError, InstalledVersion, NodeVersion, RemoteVersion, command_output_to_result,
-    sanitize_terminal_text,
+    parse_current_version, sanitize_terminal_text,
 };
 use versi_platform::HideWindow;
 
@@ -134,13 +134,7 @@ impl NvmClient {
     /// Returns an error if the command fails or the version output is invalid.
     pub async fn current(&self) -> Result<Option<NodeVersion>, BackendError> {
         let output = self.execute(&["current"]).await?;
-        let output = output.trim().trim_start_matches('v');
-
-        if output.is_empty() || output == "none" || output == "system" {
-            return Ok(None);
-        }
-
-        output.parse().map(Some).map_err(BackendError::from)
+        parse_current_version(&output)
     }
 
     /// Return the configured default Node.js version, if any.
