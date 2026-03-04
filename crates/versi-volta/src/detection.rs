@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use tokio::process::Command;
 use which::which;
 
-use versi_backend::BackendError;
+use versi_backend::{BackendDetection, BackendError};
 use versi_core::HideWindow;
 #[cfg(unix)]
 use versi_core::download_install_script;
@@ -14,62 +14,53 @@ use versi_core::temp_script_path;
 #[cfg(unix)]
 const VOLTA_INSTALL_SCRIPT_URL: &str = "https://get.volta.sh";
 
-#[derive(Debug, Clone)]
-pub struct VoltaDetection {
-    pub found: bool,
-    pub path: Option<PathBuf>,
-    pub version: Option<String>,
-    pub in_path: bool,
-    pub volta_home: Option<PathBuf>,
-}
+pub(crate) async fn detect_volta() -> BackendDetection {
+    let data_dir = detect_volta_home();
 
-pub(crate) async fn detect_volta() -> VoltaDetection {
-    let volta_home = detect_volta_home();
-
-    if let Some(home) = &volta_home {
+    if let Some(home) = &data_dir {
         let path = volta_home_binary_path(home);
         if path.exists() {
             let version = get_volta_version(&path).await;
-            return VoltaDetection {
+            return BackendDetection {
                 found: true,
                 path: Some(path),
                 version,
                 in_path: false,
-                volta_home,
+                data_dir,
             };
         }
     }
 
     if let Ok(path) = which("volta") {
         let version = get_volta_version(&path).await;
-        return VoltaDetection {
+        return BackendDetection {
             found: true,
             path: Some(path),
             version,
             in_path: true,
-            volta_home,
+            data_dir,
         };
     }
 
     for path in get_common_volta_paths() {
         if path.exists() {
             let version = get_volta_version(&path).await;
-            return VoltaDetection {
+            return BackendDetection {
                 found: true,
                 path: Some(path),
                 version,
                 in_path: false,
-                volta_home,
+                data_dir,
             };
         }
     }
 
-    VoltaDetection {
+    BackendDetection {
         found: false,
         path: None,
         version: None,
         in_path: false,
-        volta_home,
+        data_dir,
     }
 }
 
@@ -227,50 +218,34 @@ async fn download_and_prepare_script(
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
     use super::{get_common_volta_paths, select_volta_home};
-
-    fn temp_path(name: &str) -> PathBuf {
-        let nonce = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system clock should be after unix epoch")
-            .as_nanos();
-        std::env::temp_dir().join(format!(
-            "versi-volta-detection-test-{}-{nonce}-{name}",
-            std::process::id()
-        ))
-    }
 
     #[test]
     fn select_volta_home_prefers_existing_env_dir() {
-        let env_dir = temp_path("env");
-        let fallback = temp_path("fallback");
-        std::fs::create_dir_all(&env_dir).expect("create env dir");
-        std::fs::create_dir_all(&fallback).expect("create fallback dir");
+        let env_dir = tempfile::tempdir().expect("create env dir");
+        let fallback = tempfile::tempdir().expect("create fallback dir");
 
-        let selected = select_volta_home(Some(env_dir.clone()), vec![fallback.clone()]);
+        let selected = select_volta_home(
+            Some(env_dir.path().to_path_buf()),
+            vec![fallback.path().to_path_buf()],
+        );
 
-        assert_eq!(selected, Some(env_dir.clone()));
-        let _ = std::fs::remove_dir_all(env_dir);
-        let _ = std::fs::remove_dir_all(fallback);
+        assert_eq!(selected, Some(env_dir.path().to_path_buf()));
     }
 
     #[test]
     fn select_volta_home_falls_back_to_existing_candidate() {
-        let fallback = temp_path("fallback");
-        std::fs::create_dir_all(&fallback).expect("create fallback dir");
+        let fallback = tempfile::tempdir().expect("create fallback dir");
 
-        let selected = select_volta_home(None, vec![fallback.clone()]);
+        let selected = select_volta_home(None, vec![fallback.path().to_path_buf()]);
 
-        assert_eq!(selected, Some(fallback.clone()));
-        let _ = std::fs::remove_dir_all(fallback);
+        assert_eq!(selected, Some(fallback.path().to_path_buf()));
     }
 
     #[test]
     fn select_volta_home_returns_none_when_nothing_exists() {
-        let missing = temp_path("missing");
+        let base = tempfile::tempdir().expect("create temp dir");
+        let missing = base.path().join("nonexistent");
 
         let selected = select_volta_home(None, vec![missing]);
 

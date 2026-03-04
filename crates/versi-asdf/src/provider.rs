@@ -40,14 +40,7 @@ impl BackendProvider for AsdfProvider {
     }
 
     async fn detect(&self) -> BackendDetection {
-        let detection = detect_asdf().await;
-        BackendDetection {
-            found: detection.found,
-            path: detection.path,
-            version: detection.version,
-            in_path: detection.in_path,
-            data_dir: detection.asdf_data_dir,
-        }
+        detect_asdf().await
     }
 
     async fn install_backend(&self) -> Result<(), BackendError> {

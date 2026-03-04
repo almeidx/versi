@@ -40,14 +40,7 @@ impl BackendProvider for VoltaProvider {
     }
 
     async fn detect(&self) -> BackendDetection {
-        let detection = detect_volta().await;
-        BackendDetection {
-            found: detection.found,
-            path: detection.path,
-            version: detection.version,
-            in_path: detection.in_path,
-            data_dir: detection.volta_home,
-        }
+        detect_volta().await
     }
 
     async fn install_backend(&self) -> Result<(), BackendError> {

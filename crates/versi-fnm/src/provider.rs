@@ -39,14 +39,7 @@ impl BackendProvider for FnmProvider {
     }
 
     async fn detect(&self) -> BackendDetection {
-        let detection = detect_fnm().await;
-        BackendDetection {
-            found: detection.found,
-            path: detection.path,
-            version: detection.version,
-            in_path: detection.in_path,
-            data_dir: detection.fnm_dir,
-        }
+        detect_fnm().await
     }
 
     async fn install_backend(&self) -> Result<(), BackendError> {

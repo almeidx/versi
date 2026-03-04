@@ -8,6 +8,7 @@ use std::os::unix::fs::PermissionsExt;
 use tokio::process::Command;
 use which::which;
 
+use versi_backend::BackendDetection;
 #[cfg(unix)]
 use versi_core::GitHubRelease;
 use versi_core::HideWindow;
@@ -52,60 +53,45 @@ fn asdf_windows_install_attempts() -> &'static [InstallerAttempt] {
     &ASDF_WINDOWS_INSTALL_ATTEMPTS
 }
 
-#[derive(Debug, Clone)]
-pub struct AsdfDetection {
-    pub found: bool,
-    pub path: Option<PathBuf>,
-    pub version: Option<String>,
-    pub in_path: bool,
-    pub asdf_data_dir: Option<PathBuf>,
-}
-
-pub(crate) async fn detect_asdf() -> AsdfDetection {
-    let asdf_data_dir = detect_asdf_data_dir();
+pub(crate) async fn detect_asdf() -> BackendDetection {
+    let data_dir = detect_asdf_data_dir();
 
     if let Ok(path) = which("asdf") {
         let version = get_asdf_version(&path).await;
-        let nodejs_plugin_installed = has_nodejs_plugin(&path, asdf_data_dir.as_deref()).await;
-        return build_detection(
-            Some(path),
-            version,
-            true,
-            asdf_data_dir,
-            nodejs_plugin_installed,
-        );
+        let nodejs_plugin_installed = has_nodejs_plugin(&path, data_dir.as_deref()).await;
+        return build_detection(Some(path), version, true, data_dir, nodejs_plugin_installed);
     }
 
     for path in get_common_asdf_paths() {
         if path.exists() {
             let version = get_asdf_version(&path).await;
-            let nodejs_plugin_installed = has_nodejs_plugin(&path, asdf_data_dir.as_deref()).await;
+            let nodejs_plugin_installed = has_nodejs_plugin(&path, data_dir.as_deref()).await;
             return build_detection(
                 Some(path),
                 version,
                 false,
-                asdf_data_dir,
+                data_dir,
                 nodejs_plugin_installed,
             );
         }
     }
 
-    build_detection(None, None, false, asdf_data_dir, false)
+    build_detection(None, None, false, data_dir, false)
 }
 
 fn build_detection(
     path: Option<PathBuf>,
     version: Option<String>,
     in_path: bool,
-    asdf_data_dir: Option<PathBuf>,
+    data_dir: Option<PathBuf>,
     nodejs_plugin_installed: bool,
-) -> AsdfDetection {
-    AsdfDetection {
+) -> BackendDetection {
+    BackendDetection {
         found: path.is_some() && nodejs_plugin_installed,
         path,
         version,
         in_path,
-        asdf_data_dir,
+        data_dir,
     }
 }
 
@@ -510,54 +496,39 @@ async fn ensure_nodejs_plugin(
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
-    use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::{
         asdf_windows_install_attempts, build_detection, get_common_asdf_paths,
         normalize_asdf_version, select_asdf_data_dir,
     };
 
-    fn temp_path(name: &str) -> PathBuf {
-        let nonce = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system clock should be after unix epoch")
-            .as_nanos();
-        std::env::temp_dir().join(format!(
-            "versi-asdf-detection-test-{}-{nonce}-{name}",
-            std::process::id()
-        ))
-    }
-
     #[test]
     fn select_asdf_data_dir_prefers_existing_env_dir() {
-        let env_dir = temp_path("env");
-        let candidate = temp_path("candidate");
-        std::fs::create_dir_all(&env_dir).expect("create env dir");
-        std::fs::create_dir_all(&candidate).expect("create candidate dir");
+        let env_dir = tempfile::tempdir().expect("create env dir");
+        let candidate = tempfile::tempdir().expect("create candidate dir");
 
-        let selected = select_asdf_data_dir(Some(env_dir.clone()), vec![candidate.clone()]);
+        let selected = select_asdf_data_dir(
+            Some(env_dir.path().to_path_buf()),
+            vec![candidate.path().to_path_buf()],
+        );
 
-        assert_eq!(selected, Some(env_dir.clone()));
-
-        let _ = std::fs::remove_dir_all(candidate);
-        let _ = std::fs::remove_dir_all(env_dir);
+        assert_eq!(selected, Some(env_dir.path().to_path_buf()));
     }
 
     #[test]
     fn select_asdf_data_dir_prefers_candidate_with_plugins_and_installs() {
-        let plain = temp_path("plain");
-        let rich = temp_path("rich");
+        let plain = tempfile::tempdir().expect("create plain dir");
+        let rich = tempfile::tempdir().expect("create rich dir");
 
-        std::fs::create_dir_all(&plain).expect("create plain dir");
-        std::fs::create_dir_all(rich.join("plugins")).expect("create plugins dir");
-        std::fs::create_dir_all(rich.join("installs")).expect("create installs dir");
+        std::fs::create_dir_all(rich.path().join("plugins")).expect("create plugins dir");
+        std::fs::create_dir_all(rich.path().join("installs")).expect("create installs dir");
 
-        let selected = select_asdf_data_dir(None, vec![plain.clone(), rich.clone()]);
+        let selected = select_asdf_data_dir(
+            None,
+            vec![plain.path().to_path_buf(), rich.path().to_path_buf()],
+        );
 
-        assert_eq!(selected, Some(rich.clone()));
-
-        let _ = std::fs::remove_dir_all(plain);
-        let _ = std::fs::remove_dir_all(rich);
+        assert_eq!(selected, Some(rich.path().to_path_buf()));
     }
 
     #[test]
