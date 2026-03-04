@@ -25,6 +25,28 @@ pub enum BulkItemStatus {
     Canceled,
 }
 
+impl BulkItemStatus {
+    fn is_pending(&self) -> bool {
+        matches!(self, Self::Pending)
+    }
+
+    fn is_running(&self) -> bool {
+        matches!(self, Self::Running)
+    }
+
+    fn is_completed(&self) -> bool {
+        matches!(self, Self::Completed)
+    }
+
+    fn is_failed(&self) -> bool {
+        matches!(self, Self::Failed(_))
+    }
+
+    fn is_canceled(&self) -> bool {
+        matches!(self, Self::Canceled)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BulkRunItem {
     pub version: String,
@@ -44,6 +66,15 @@ impl BulkRunState {
         Self { kind, items }
     }
 
+    fn items_matching(
+        &self,
+        predicate: fn(&BulkItemStatus) -> bool,
+    ) -> impl Iterator<Item = &BulkRunItem> {
+        self.items
+            .iter()
+            .filter(move |item| predicate(&item.status))
+    }
+
     #[must_use]
     pub fn total_count(&self) -> usize {
         self.items.len()
@@ -51,42 +82,27 @@ impl BulkRunState {
 
     #[must_use]
     pub fn pending_count(&self) -> usize {
-        self.items
-            .iter()
-            .filter(|item| matches!(item.status, BulkItemStatus::Pending))
-            .count()
+        self.items_matching(BulkItemStatus::is_pending).count()
     }
 
     #[must_use]
     pub fn running_count(&self) -> usize {
-        self.items
-            .iter()
-            .filter(|item| matches!(item.status, BulkItemStatus::Running))
-            .count()
+        self.items_matching(BulkItemStatus::is_running).count()
     }
 
     #[must_use]
     pub fn completed_count(&self) -> usize {
-        self.items
-            .iter()
-            .filter(|item| matches!(item.status, BulkItemStatus::Completed))
-            .count()
+        self.items_matching(BulkItemStatus::is_completed).count()
     }
 
     #[must_use]
     pub fn failed_count(&self) -> usize {
-        self.items
-            .iter()
-            .filter(|item| matches!(item.status, BulkItemStatus::Failed(_)))
-            .count()
+        self.items_matching(BulkItemStatus::is_failed).count()
     }
 
     #[must_use]
     pub fn canceled_count(&self) -> usize {
-        self.items
-            .iter()
-            .filter(|item| matches!(item.status, BulkItemStatus::Canceled))
-            .count()
+        self.items_matching(BulkItemStatus::is_canceled).count()
     }
 
     #[must_use]
@@ -96,36 +112,28 @@ impl BulkRunState {
 
     #[must_use]
     pub fn pending_versions(&self) -> Vec<String> {
-        self.items
-            .iter()
-            .filter(|item| matches!(item.status, BulkItemStatus::Pending))
+        self.items_matching(BulkItemStatus::is_pending)
             .map(|item| item.version.clone())
             .collect()
     }
 
     #[must_use]
     pub fn completed_versions(&self) -> Vec<String> {
-        self.items
-            .iter()
-            .filter(|item| matches!(item.status, BulkItemStatus::Completed))
+        self.items_matching(BulkItemStatus::is_completed)
             .map(|item| item.version.clone())
             .collect()
     }
 
     #[must_use]
     pub fn failed_versions(&self) -> Vec<String> {
-        self.items
-            .iter()
-            .filter(|item| matches!(item.status, BulkItemStatus::Failed(_)))
+        self.items_matching(BulkItemStatus::is_failed)
             .map(|item| item.version.clone())
             .collect()
     }
 
     #[must_use]
     pub fn canceled_versions(&self) -> Vec<String> {
-        self.items
-            .iter()
-            .filter(|item| matches!(item.status, BulkItemStatus::Canceled))
+        self.items_matching(BulkItemStatus::is_canceled)
             .map(|item| item.version.clone())
             .collect()
     }
@@ -943,6 +951,90 @@ mod tests {
         assert_eq!(run.completed_versions(), vec!["v22.1.0".to_string()]);
         assert_eq!(run.failed_versions(), vec!["v20.11.1".to_string()]);
         assert_eq!(run.canceled_versions(), vec!["v18.20.0".to_string()]);
+    }
+
+    #[test]
+    fn items_matching_filters_by_status() {
+        let run = BulkRunState::new(
+            BulkRunKind::UninstallEol,
+            vec![
+                BulkRunItem {
+                    version: "v14.0.0".to_string(),
+                    action: BulkRunAction::Uninstall,
+                    status: BulkItemStatus::Completed,
+                },
+                BulkRunItem {
+                    version: "v16.0.0".to_string(),
+                    action: BulkRunAction::Uninstall,
+                    status: BulkItemStatus::Pending,
+                },
+                BulkRunItem {
+                    version: "v12.0.0".to_string(),
+                    action: BulkRunAction::Uninstall,
+                    status: BulkItemStatus::Failed(AppError::operation_failed(
+                        "Uninstall",
+                        "permission denied",
+                    )),
+                },
+                BulkRunItem {
+                    version: "v10.0.0".to_string(),
+                    action: BulkRunAction::Uninstall,
+                    status: BulkItemStatus::Running,
+                },
+                BulkRunItem {
+                    version: "v8.0.0".to_string(),
+                    action: BulkRunAction::Uninstall,
+                    status: BulkItemStatus::Canceled,
+                },
+            ],
+        );
+
+        let pending: Vec<&str> = run
+            .items_matching(BulkItemStatus::is_pending)
+            .map(|item| item.version.as_str())
+            .collect();
+        assert_eq!(pending, vec!["v16.0.0"]);
+
+        let running: Vec<&str> = run
+            .items_matching(BulkItemStatus::is_running)
+            .map(|item| item.version.as_str())
+            .collect();
+        assert_eq!(running, vec!["v10.0.0"]);
+
+        let completed: Vec<&str> = run
+            .items_matching(BulkItemStatus::is_completed)
+            .map(|item| item.version.as_str())
+            .collect();
+        assert_eq!(completed, vec!["v14.0.0"]);
+
+        let failed: Vec<&str> = run
+            .items_matching(BulkItemStatus::is_failed)
+            .map(|item| item.version.as_str())
+            .collect();
+        assert_eq!(failed, vec!["v12.0.0"]);
+
+        let canceled: Vec<&str> = run
+            .items_matching(BulkItemStatus::is_canceled)
+            .map(|item| item.version.as_str())
+            .collect();
+        assert_eq!(canceled, vec!["v8.0.0"]);
+    }
+
+    #[test]
+    fn items_matching_returns_empty_for_no_matches() {
+        let run = BulkRunState::new(
+            BulkRunKind::UninstallEol,
+            vec![BulkRunItem {
+                version: "v14.0.0".to_string(),
+                action: BulkRunAction::Uninstall,
+                status: BulkItemStatus::Pending,
+            }],
+        );
+
+        assert_eq!(run.items_matching(BulkItemStatus::is_completed).count(), 0);
+        assert_eq!(run.items_matching(BulkItemStatus::is_failed).count(), 0);
+        assert_eq!(run.items_matching(BulkItemStatus::is_canceled).count(), 0);
+        assert_eq!(run.items_matching(BulkItemStatus::is_running).count(), 0);
     }
 
     #[test]
