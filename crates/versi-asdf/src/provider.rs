@@ -93,80 +93,22 @@ impl BackendProvider for AsdfProvider {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
-    use std::path::PathBuf;
-
-    use versi_backend::{BackendDetection, BackendProvider};
-
     use super::AsdfProvider;
 
-    #[test]
-    fn provider_metadata_is_stable() {
-        let provider = AsdfProvider::new(reqwest::Client::new());
-
-        assert_eq!(provider.name(), "asdf");
-        assert_eq!(provider.display_name(), "asdf (asdf-nodejs)");
-        assert_eq!(provider.shell_config_marker(), "ASDF_DATA_DIR");
-        assert_eq!(provider.shell_config_label(), "asdf (asdf-nodejs)");
-    }
-
-    #[test]
-    fn create_manager_uses_detected_path_and_data_dir() {
-        let provider = AsdfProvider::new(reqwest::Client::new());
-        let detection = BackendDetection {
-            found: true,
-            path: Some(PathBuf::from("/opt/homebrew/bin/asdf")),
-            version: Some("0.18.0".to_string()),
-            in_path: true,
-            data_dir: Some(PathBuf::from("/tmp/asdf-data")),
-        };
-
-        let manager = provider.create_manager(&detection);
-        let info = manager.backend_info();
-
-        assert_eq!(info.path, PathBuf::from("/opt/homebrew/bin/asdf"));
-        assert_eq!(info.version.as_deref(), Some("0.18.0"));
-        assert_eq!(info.data_dir, Some(PathBuf::from("/tmp/asdf-data")));
-        assert!(info.in_path);
-    }
-
-    #[test]
-    fn create_manager_falls_back_to_asdf_binary_name() {
-        let provider = AsdfProvider::new(reqwest::Client::new());
-        let detection = BackendDetection {
-            found: false,
-            path: None,
-            version: None,
-            in_path: false,
-            data_dir: None,
-        };
-
-        let manager = provider.create_manager(&detection);
-        let info = manager.backend_info();
-
-        assert_eq!(info.path, PathBuf::from("asdf"));
-        assert!(!info.in_path);
-    }
-
-    #[test]
-    fn create_wsl_manager_uses_wsl_binary_path() {
-        let provider = AsdfProvider::new(reqwest::Client::new());
-
-        let manager =
-            provider.create_manager_for_wsl("Ubuntu".to_string(), "/usr/bin/asdf".to_string());
-        let info = manager.backend_info();
-
-        assert_eq!(info.path, PathBuf::from("/usr/bin/asdf"));
-        assert!(!info.in_path);
-    }
-
-    #[test]
-    fn wsl_search_paths_are_unique() {
-        let provider = AsdfProvider::new(reqwest::Client::new());
-        let paths = provider.wsl_search_paths();
-        let unique_count = paths.iter().copied().collect::<HashSet<_>>().len();
-
-        assert!(!paths.is_empty());
-        assert_eq!(paths.len(), unique_count);
+    versi_backend::provider_tests! {
+        provider: AsdfProvider::new(reqwest::Client::new()),
+        binary_name: "asdf",
+        metadata: {
+            name: "asdf",
+            display_name: "asdf (asdf-nodejs)",
+            shell_config_marker: "ASDF_DATA_DIR",
+            shell_config_label: "asdf (asdf-nodejs)",
+        },
+        create_manager: {
+            path: "/opt/homebrew/bin/asdf",
+            version: "0.18.0",
+            data_dir: "/tmp/asdf-data",
+        },
+        wsl_binary_path: "/usr/bin/asdf",
     }
 }
