@@ -20,7 +20,7 @@ pub use command::command_output_to_result;
 /// Error type shared by backend providers and managers.
 pub use error::{BackendError, NetworkStage};
 /// Shared helpers for common backend patterns.
-pub use helpers::parse_current_version;
+pub use helpers::{find_default_version, parse_current_version};
 /// Terminal text sanitization utilities.
 pub use text::sanitize_terminal_text;
 /// Backend traits and capability metadata used by the application.

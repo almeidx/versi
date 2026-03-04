@@ -6,7 +6,7 @@ use crate::version::{
 };
 use versi_backend::{
     BackendError, InstalledVersion, NodeVersion, RemoteVersion, command_output_to_result,
-    parse_current_version, sanitize_terminal_text,
+    find_default_version, parse_current_version, sanitize_terminal_text,
 };
 use versi_platform::HideWindow;
 
@@ -144,10 +144,7 @@ impl NvmClient {
     pub async fn default_version(&self) -> Result<Option<NodeVersion>, BackendError> {
         if self.is_windows() {
             let versions = self.list_installed().await?;
-            Ok(versions
-                .into_iter()
-                .find(|v| v.is_default)
-                .map(|v| v.version))
+            Ok(find_default_version(versions))
         } else {
             let output = self.execute(&["alias", "default"]).await;
             match output {

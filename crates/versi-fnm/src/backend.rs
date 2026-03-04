@@ -11,7 +11,7 @@ use versi_core::HideWindow;
 use versi_backend::{
     BackendError, BackendInfo, InstallProgress, InstalledVersion, ManagerCapabilities, NodeVersion,
     RemoteVersion, ShellInitOptions, VersionManager, command_output_to_result,
-    parse_current_version, sanitize_terminal_text,
+    find_default_version, parse_current_version, sanitize_terminal_text,
 };
 
 use crate::version::{parse_installed_versions, parse_remote_versions};
@@ -495,10 +495,7 @@ impl VersionManager for FnmBackend {
 
     async fn default_version(&self) -> Result<Option<NodeVersion>, BackendError> {
         let versions = self.list_installed().await?;
-        Ok(versions
-            .into_iter()
-            .find(|v| v.is_default)
-            .map(|v| v.version))
+        Ok(find_default_version(versions))
     }
 
     async fn install(&self, version: &str) -> Result<(), BackendError> {

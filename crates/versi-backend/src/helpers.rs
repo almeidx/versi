@@ -1,5 +1,5 @@
 use crate::error::BackendError;
-use crate::types::NodeVersion;
+use crate::types::{InstalledVersion, NodeVersion};
 
 const SENTINELS: &[&str] = &["none", "system"];
 
@@ -22,9 +22,17 @@ pub fn parse_current_version(output: &str) -> Result<Option<NodeVersion>, Backen
     trimmed.parse().map(Some).map_err(BackendError::from)
 }
 
+#[must_use]
+pub fn find_default_version(versions: Vec<InstalledVersion>) -> Option<NodeVersion> {
+    versions
+        .into_iter()
+        .find(|v| v.is_default)
+        .map(|v| v.version)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::parse_current_version;
+    use super::{find_default_version, parse_current_version};
     use crate::types::NodeVersion;
 
     #[test]
@@ -74,5 +82,39 @@ mod tests {
     #[test]
     fn invalid_version_returns_error() {
         assert!(parse_current_version("not-a-version").is_err());
+    }
+
+    fn installed(version: &str, is_default: bool) -> crate::types::InstalledVersion {
+        crate::types::InstalledVersion {
+            version: version.parse().unwrap(),
+            is_default,
+            lts_codename: None,
+            install_date: None,
+            disk_size: None,
+        }
+    }
+
+    #[test]
+    fn find_default_returns_version_marked_as_default() {
+        let versions = vec![
+            installed("18.19.0", false),
+            installed("20.11.0", true),
+            installed("22.1.0", false),
+        ];
+        assert_eq!(
+            find_default_version(versions),
+            Some(NodeVersion::new(20, 11, 0))
+        );
+    }
+
+    #[test]
+    fn find_default_returns_none_when_no_default() {
+        let versions = vec![installed("18.19.0", false), installed("20.11.0", false)];
+        assert_eq!(find_default_version(versions), None);
+    }
+
+    #[test]
+    fn find_default_returns_none_for_empty_list() {
+        assert_eq!(find_default_version(vec![]), None);
     }
 }
