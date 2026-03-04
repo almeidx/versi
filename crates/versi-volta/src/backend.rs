@@ -1,13 +1,10 @@
 use async_trait::async_trait;
-use log::info;
 use std::path::{Path, PathBuf};
-use tokio::process::Command;
 
 use versi_backend::{
-    BackendError, BackendInfo, InstalledVersion, ManagerCapabilities, NodeVersion, RemoteVersion,
-    ShellInitOptions, VersionManager, command_output_to_result,
+    BackendError, BackendInfo, CommandEnvironment, InstalledVersion, ManagerCapabilities,
+    NodeVersion, RemoteVersion, ShellInitOptions, VersionManager, execute_backend_command,
 };
-use versi_core::HideWindow;
 
 use crate::version::{
     parse_first_runtime_version, parse_installed_versions, parse_node_index_remote_versions,
@@ -16,15 +13,9 @@ use crate::version::{
 const NODE_INDEX_URL: &str = "https://nodejs.org/dist/index.json";
 
 #[derive(Debug, Clone)]
-pub enum Environment {
-    Native,
-    Wsl { distro: String, volta_path: String },
-}
-
-#[derive(Debug, Clone)]
 pub struct VoltaBackend {
     info: BackendInfo,
-    environment: Environment,
+    command_env: CommandEnvironment,
     http_client: reqwest::Client,
 }
 
@@ -36,6 +27,9 @@ impl VoltaBackend {
         volta_home: Option<PathBuf>,
         http_client: reqwest::Client,
     ) -> Self {
+        let command_env = CommandEnvironment::Native {
+            binary_path: path.clone(),
+        };
         Self {
             info: BackendInfo {
                 name: "volta",
@@ -44,7 +38,7 @@ impl VoltaBackend {
                 data_dir: volta_home,
                 in_path: true,
             },
-            environment: Environment::Native,
+            command_env,
             http_client,
         }
     }
@@ -60,7 +54,10 @@ impl VoltaBackend {
                 data_dir: volta_home,
                 in_path: false,
             },
-            environment: Environment::Wsl { distro, volta_path },
+            command_env: CommandEnvironment::Wsl {
+                distro,
+                binary_path: volta_path,
+            },
             http_client,
         }
     }
@@ -71,28 +68,8 @@ impl VoltaBackend {
         self
     }
 
-    fn build_command(&self, args: &[&str]) -> Command {
-        match &self.environment {
-            Environment::Native => {
-                let mut cmd = Command::new(&self.info.path);
-                cmd.args(args);
-                cmd.hide_window();
-                cmd
-            }
-            Environment::Wsl { distro, volta_path } => {
-                let mut cmd = Command::new("wsl.exe");
-                cmd.args(["-d", distro, "--", volta_path]);
-                cmd.args(args);
-                cmd.hide_window();
-                cmd
-            }
-        }
-    }
-
     async fn execute(&self, args: &[&str]) -> Result<String, BackendError> {
-        info!("Executing volta command: {}", args.join(" "));
-        let output = self.build_command(args).output().await?;
-        command_output_to_result(&output)
+        execute_backend_command("volta", &self.command_env, args).await
     }
 
     fn normalized_node_spec(version: &str) -> String {

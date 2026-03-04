@@ -4,6 +4,6 @@ mod provider;
 mod update;
 mod version;
 
-pub use backend::{AsdfBackend, Environment};
+pub use backend::AsdfBackend;
 pub use provider::AsdfProvider;
 pub use version::{parse_current_version, parse_installed_versions, parse_remote_versions};

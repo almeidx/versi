@@ -11,12 +11,15 @@
 mod command;
 mod error;
 mod helpers;
+mod test_macros;
 mod text;
 mod traits;
 mod types;
 
-/// Shared command output processing.
-pub use command::command_output_to_result;
+/// Shared command building and execution for native/WSL dispatch.
+pub use command::{
+    CommandEnvironment, build_backend_command, command_output_to_result, execute_backend_command,
+};
 /// Error type shared by backend providers and managers.
 pub use error::{BackendError, NetworkStage};
 /// Shared helpers for common backend patterns.

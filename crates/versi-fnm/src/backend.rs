@@ -9,9 +9,10 @@ use tokio::sync::mpsc;
 use versi_core::HideWindow;
 
 use versi_backend::{
-    BackendError, BackendInfo, InstallProgress, InstalledVersion, ManagerCapabilities, NodeVersion,
-    RemoteVersion, ShellInitOptions, VersionManager, command_output_to_result,
-    find_default_version, parse_current_version, sanitize_terminal_text,
+    BackendError, BackendInfo, CommandEnvironment, InstallProgress, InstalledVersion,
+    ManagerCapabilities, NodeVersion, RemoteVersion, ShellInitOptions, VersionManager,
+    build_backend_command, command_output_to_result, find_default_version, parse_current_version,
+    sanitize_terminal_text,
 };
 
 use crate::version::{parse_installed_versions, parse_remote_versions};
@@ -32,22 +33,19 @@ struct InstallProgressParser {
     last_total_bytes: Option<u64>,
 }
 
-#[derive(Debug, Clone)]
-pub enum Environment {
-    Native,
-    Wsl { distro: String, fnm_path: String },
-}
-
 #[derive(Clone)]
 pub struct FnmBackend {
     info: BackendInfo,
     node_dist_mirror: Option<String>,
-    environment: Environment,
+    command_env: CommandEnvironment,
 }
 
 impl FnmBackend {
     #[must_use]
     pub fn new(path: PathBuf, version: Option<String>, data_dir: Option<PathBuf>) -> Self {
+        let command_env = CommandEnvironment::Native {
+            binary_path: path.clone(),
+        };
         Self {
             info: BackendInfo {
                 name: "fnm",
@@ -57,7 +55,7 @@ impl FnmBackend {
                 in_path: true,
             },
             node_dist_mirror: None,
-            environment: Environment::Native,
+            command_env,
         }
     }
 
@@ -90,11 +88,18 @@ impl FnmBackend {
                 in_path: false,
             },
             node_dist_mirror: None,
-            environment: Environment::Wsl { distro, fnm_path },
+            command_env: CommandEnvironment::Wsl {
+                distro,
+                binary_path: fnm_path,
+            },
         }
     }
 
     fn apply_native_env(&self, cmd: &mut Command) {
+        if !self.command_env.is_native() {
+            return;
+        }
+
         if let Some(dir) = &self.info.data_dir {
             debug!("Setting FNM_DIR={}", dir.display());
             cmd.env("FNM_DIR", dir);
@@ -107,40 +112,13 @@ impl FnmBackend {
     }
 
     fn build_command(&self, args: &[&str]) -> Command {
-        match &self.environment {
-            Environment::Native => {
-                debug!(
-                    "Building native fnm command: {} {}",
-                    self.info.path.display(),
-                    args.join(" ")
-                );
-
-                let mut cmd = Command::new(&self.info.path);
-                cmd.args(args);
-                self.apply_native_env(&mut cmd);
-
-                cmd.hide_window();
-                cmd
-            }
-            Environment::Wsl { distro, fnm_path } => {
-                debug!(
-                    "Building WSL fnm command: wsl.exe -d {} -- {} {}",
-                    distro,
-                    fnm_path,
-                    args.join(" ")
-                );
-
-                let mut cmd = Command::new("wsl.exe");
-                cmd.args(["-d", distro, "--", fnm_path]);
-                cmd.args(args);
-                cmd.hide_window();
-                cmd
-            }
-        }
+        let mut cmd = build_backend_command(&self.command_env, args);
+        self.apply_native_env(&mut cmd);
+        cmd
     }
 
     fn should_use_tty_wrapper(&self) -> bool {
-        if !matches!(self.environment, Environment::Native) {
+        if !self.command_env.is_native() {
             return false;
         }
 
@@ -185,8 +163,6 @@ impl FnmBackend {
     }
 
     async fn execute(&self, args: &[&str]) -> Result<String, BackendError> {
-        info!("Executing fnm command: {}", args.join(" "));
-
         let output = self.build_command(args).output().await?;
 
         debug!("fnm command exit status: {:?}", output.status);
@@ -624,14 +600,17 @@ mod tests {
 
     #[test]
     fn sanitize_terminal_text_removes_ansi_and_backspaces() {
-        let raw = "\u{1b}[2K^D\u{8}\u{8}00:00:00 █ 10.49 MiB/19.66 MiB (4.23 MiB/s, 2s)\r";
+        let raw = "\x1b[2K^D\x08\x0800:00:00 \u{2588} 10.49 MiB/19.66 MiB (4.23 MiB/s, 2s)\r";
         let cleaned = sanitize_terminal_text(raw);
-        assert_eq!(cleaned, "00:00:00 █ 10.49 MiB/19.66 MiB (4.23 MiB/s, 2s)");
+        assert_eq!(
+            cleaned,
+            "00:00:00 \u{2588} 10.49 MiB/19.66 MiB (4.23 MiB/s, 2s)"
+        );
     }
 
     #[test]
     fn parse_download_progress_extracts_downloaded_and_total_bytes() {
-        let line = "00:00:03 █████████████████▌ 10.71 MiB/19.66 MiB (4.20 MiB/s, 2s)";
+        let line = "00:00:03 \u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{258c} 10.71 MiB/19.66 MiB (4.20 MiB/s, 2s)";
         let (downloaded, total) =
             parse_download_progress(line).expect("progress line should parse");
 

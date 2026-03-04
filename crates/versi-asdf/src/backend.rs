@@ -6,27 +6,25 @@ use tokio::process::Command;
 use versi_core::HideWindow;
 
 use versi_backend::{
-    BackendError, BackendInfo, InstalledVersion, ManagerCapabilities, NodeVersion, RemoteVersion,
-    ShellInitOptions, VersionManager, command_output_to_result,
+    BackendError, BackendInfo, CommandEnvironment, InstalledVersion, ManagerCapabilities,
+    NodeVersion, RemoteVersion, ShellInitOptions, VersionManager, build_backend_command,
+    command_output_to_result,
 };
 
 use crate::version::{parse_current_version, parse_installed_versions, parse_remote_versions};
 
-#[derive(Debug, Clone)]
-pub enum Environment {
-    Native,
-    Wsl { distro: String, asdf_path: String },
-}
-
 #[derive(Clone)]
 pub struct AsdfBackend {
     info: BackendInfo,
-    environment: Environment,
+    command_env: CommandEnvironment,
 }
 
 impl AsdfBackend {
     #[must_use]
     pub fn new(path: PathBuf, version: Option<String>, asdf_data_dir: Option<PathBuf>) -> Self {
+        let command_env = CommandEnvironment::Native {
+            binary_path: path.clone(),
+        };
         Self {
             info: BackendInfo {
                 name: "asdf",
@@ -35,7 +33,7 @@ impl AsdfBackend {
                 data_dir: asdf_data_dir,
                 in_path: true,
             },
-            environment: Environment::Native,
+            command_env,
         }
     }
 
@@ -61,11 +59,18 @@ impl AsdfBackend {
                 data_dir: None,
                 in_path: false,
             },
-            environment: Environment::Wsl { distro, asdf_path },
+            command_env: CommandEnvironment::Wsl {
+                distro,
+                binary_path: asdf_path,
+            },
         }
     }
 
     fn apply_native_env(&self, cmd: &mut Command) {
+        if !self.command_env.is_native() {
+            return;
+        }
+
         if let Some(dir) = &self.info.data_dir {
             debug!("Setting ASDF_DATA_DIR={}", dir.display());
             cmd.env("ASDF_DATA_DIR", dir);
@@ -73,28 +78,23 @@ impl AsdfBackend {
     }
 
     fn build_command(&self, args: &[&str], home_scope: bool) -> Command {
-        match &self.environment {
-            Environment::Native => {
-                debug!(
-                    "Building native asdf command: {} {} (home_scope={home_scope})",
-                    self.info.path.display(),
-                    args.join(" "),
-                );
-
-                let mut cmd = Command::new(&self.info.path);
-                cmd.args(args);
+        match &self.command_env {
+            CommandEnvironment::Native { .. } => {
+                let mut cmd = build_backend_command(&self.command_env, args);
                 self.apply_native_env(&mut cmd);
                 if home_scope && let Some(home) = dirs::home_dir() {
                     cmd.current_dir(home);
                 }
-                cmd.hide_window();
                 cmd
             }
-            Environment::Wsl { distro, asdf_path } => {
+            CommandEnvironment::Wsl {
+                distro,
+                binary_path,
+            } => {
                 if home_scope {
                     debug!(
                         "Building WSL asdf home-scope command: {} {}",
-                        asdf_path,
+                        binary_path,
                         args.join(" "),
                     );
 
@@ -107,24 +107,13 @@ impl AsdfBackend {
                         "-c",
                         "cd \"$HOME\"; \"$@\"",
                         "sh",
-                        asdf_path,
+                        binary_path,
                     ]);
                     cmd.args(args);
                     cmd.hide_window();
                     cmd
                 } else {
-                    debug!(
-                        "Building WSL asdf command: wsl.exe -d {} -- {} {}",
-                        distro,
-                        asdf_path,
-                        args.join(" "),
-                    );
-
-                    let mut cmd = Command::new("wsl.exe");
-                    cmd.args(["-d", distro, "--", asdf_path]);
-                    cmd.args(args);
-                    cmd.hide_window();
-                    cmd
+                    build_backend_command(&self.command_env, args)
                 }
             }
         }
