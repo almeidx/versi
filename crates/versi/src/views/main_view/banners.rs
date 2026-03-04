@@ -328,40 +328,42 @@ fn network_status_banner(state: &MainState) -> Option<Element<'_, Message>> {
 }
 
 fn release_schedule_banner(state: &MainState, has_schedule: bool) -> Option<Element<'_, Message>> {
-    if state.available_versions.schedule_fetch.error.is_some() && !has_schedule {
-        Some(simple_retry_banner(
-            "Release schedule unavailable \u{2014} EOL detection may be inaccurate".to_string(),
-            Message::FetchReleaseSchedule,
-        ))
-    } else {
-        None
-    }
+    fetch_error_banner(
+        state.available_versions.schedule_fetch.error.is_some(),
+        has_schedule,
+        "Release schedule unavailable \u{2014} EOL detection may be inaccurate",
+        Message::FetchReleaseSchedule,
+    )
 }
 
 fn metadata_banner(state: &MainState, has_metadata: bool) -> Option<Element<'_, Message>> {
-    if state.available_versions.metadata_fetch.error.is_some() && !has_metadata {
-        Some(simple_retry_banner(
-            "Version metadata unavailable \u{2014} release details may be incomplete".to_string(),
-            Message::FetchVersionMetadata,
-        ))
-    } else {
-        None
-    }
+    fetch_error_banner(
+        state.available_versions.metadata_fetch.error.is_some(),
+        has_metadata,
+        "Version metadata unavailable \u{2014} release details may be incomplete",
+        Message::FetchVersionMetadata,
+    )
 }
 
 fn security_advisories_banner(
     state: &MainState,
     has_security_advisories: bool,
 ) -> Option<Element<'_, Message>> {
-    if state.available_versions.security_fetch.error.is_some() && !has_security_advisories {
-        Some(simple_retry_banner(
-            "Security advisories unavailable \u{2014} vulnerability warnings may be incomplete"
-                .to_string(),
-            Message::FetchSecurityAdvisories,
-        ))
-    } else {
-        None
-    }
+    fetch_error_banner(
+        state.available_versions.security_fetch.error.is_some(),
+        has_security_advisories,
+        "Security advisories unavailable \u{2014} vulnerability warnings may be incomplete",
+        Message::FetchSecurityAdvisories,
+    )
+}
+
+fn fetch_error_banner(
+    has_error: bool,
+    has_cached_data: bool,
+    label: &str,
+    retry_message: Message,
+) -> Option<Element<'static, Message>> {
+    (has_error && !has_cached_data).then(|| simple_retry_banner(label.to_string(), retry_message))
 }
 
 fn vulnerability_banner(state: &MainState) -> Option<Element<'_, Message>> {
