@@ -11,8 +11,8 @@ use versi_core::HideWindow;
 use versi_backend::{
     BackendError, BackendInfo, CommandEnvironment, InstallProgress, InstalledVersion,
     ManagerCapabilities, NodeVersion, RemoteVersion, ShellInitOptions, VersionManager,
-    build_backend_command, command_output_to_result, find_default_version, parse_current_version,
-    sanitize_terminal_text,
+    build_backend_command, execute_backend_command_with, find_default_version,
+    parse_current_version, sanitize_terminal_text,
 };
 
 use crate::version::{parse_installed_versions, parse_remote_versions};
@@ -163,21 +163,10 @@ impl FnmBackend {
     }
 
     async fn execute(&self, args: &[&str]) -> Result<String, BackendError> {
-        let output = self.build_command(args).output().await?;
-
-        debug!("fnm command exit status: {:?}", output.status);
-        trace!("fnm stdout: {}", String::from_utf8_lossy(&output.stdout));
-        if !output.stderr.is_empty() {
-            trace!("fnm stderr: {}", String::from_utf8_lossy(&output.stderr));
-        }
-
-        command_output_to_result(&output)
-            .inspect(|stdout| {
-                debug!("fnm command succeeded, output: {} bytes", stdout.len());
-            })
-            .inspect_err(|err| {
-                error!("fnm command failed: args={args:?}, error='{err}'");
-            })
+        execute_backend_command_with("fnm", &self.command_env, args, |cmd| {
+            self.apply_native_env(cmd);
+        })
+        .await
     }
 
     async fn execute_install_with_progress(

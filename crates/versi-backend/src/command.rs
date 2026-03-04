@@ -53,6 +53,22 @@ pub async fn execute_backend_command(
     env: &CommandEnvironment,
     args: &[&str],
 ) -> Result<String, BackendError> {
+    execute_backend_command_with(backend_name, env, args, |_| {}).await
+}
+
+/// Like [`execute_backend_command`], but calls `configure` on the [`Command`]
+/// before spawning, allowing callers to inject environment variables.
+///
+/// # Errors
+///
+/// Returns [`BackendError::CommandFailed`] when the process exits
+/// with a non-zero status, or a transport error if spawning fails.
+pub async fn execute_backend_command_with(
+    backend_name: &str,
+    env: &CommandEnvironment,
+    args: &[&str],
+    configure: impl FnOnce(&mut Command),
+) -> Result<String, BackendError> {
     debug!(
         "Executing {backend_name} command: {} {}",
         match env {
@@ -65,7 +81,9 @@ pub async fn execute_backend_command(
         args.join(" ")
     );
 
-    let output = build_backend_command(env, args).output().await?;
+    let mut cmd = build_backend_command(env, args);
+    configure(&mut cmd);
+    let output = cmd.output().await?;
 
     debug!("{backend_name} command exit status: {:?}", output.status);
     trace!(

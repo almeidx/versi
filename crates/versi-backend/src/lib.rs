@@ -19,6 +19,7 @@ mod types;
 /// Shared command building and execution for native/WSL dispatch.
 pub use command::{
     CommandEnvironment, build_backend_command, command_output_to_result, execute_backend_command,
+    execute_backend_command_with,
 };
 /// Error type shared by backend providers and managers.
 pub use error::{BackendError, NetworkStage};
