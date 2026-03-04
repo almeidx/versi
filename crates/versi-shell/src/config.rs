@@ -49,14 +49,21 @@ impl ShellConfig {
 
     #[must_use]
     pub fn detect_options(&self, marker: &str) -> Option<ShellInitOptions> {
-        if !self.has_init(marker) {
+        let marker_lines: String = self
+            .content
+            .lines()
+            .filter(|line| line.contains(marker))
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        if marker_lines.is_empty() {
             return None;
         }
 
         Some(ShellInitOptions {
-            use_on_cd: self.content.contains("--use-on-cd"),
-            resolve_engines: self.content.contains("--resolve-engines"),
-            corepack_enabled: self.content.contains("--corepack-enabled"),
+            use_on_cd: marker_lines.contains("--use-on-cd"),
+            resolve_engines: marker_lines.contains("--resolve-engines"),
+            corepack_enabled: marker_lines.contains("--corepack-enabled"),
         })
     }
 
@@ -288,6 +295,18 @@ mod tests {
     fn test_detect_options_no_marker() {
         let config = create_test_config("export PATH=$PATH");
         assert!(config.detect_options("fnm env").is_none());
+    }
+
+    #[test]
+    fn test_detect_options_ignores_other_backend_flags() {
+        let config = create_test_config(
+            r#"eval "$(fnm env --shell bash)"
+eval "$(nvm env --use-on-cd --resolve-engines --corepack-enabled --shell bash)""#,
+        );
+        let options = config.detect_options("fnm env").unwrap();
+        assert!(!options.use_on_cd);
+        assert!(!options.resolve_engines);
+        assert!(!options.corepack_enabled);
     }
 
     #[test]
