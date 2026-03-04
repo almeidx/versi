@@ -13,6 +13,12 @@ const SECURITY_ADVISORY_CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60 *
 impl Versi {
     pub(super) fn dispatch_system(&mut self, message: Message) -> super::DispatchResult {
         match message {
+            Message::InitTray => {
+                if let Err(e) = crate::tray::init_tray(self.settings.tray_behavior) {
+                    log::warn!("Failed to initialize tray icon: {e}");
+                }
+                Ok(Task::none())
+            }
             Message::AnimationTick => Ok(self.handle_animation_tick()),
             Message::Tick => Ok(self.handle_tick()),
             Message::WindowEvent(

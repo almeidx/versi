@@ -44,6 +44,7 @@ fn should_dismiss_context_menu(message: &Message) -> bool {
     !matches!(
         message,
         Message::NoOp
+            | Message::InitTray
             | Message::Tick
             | Message::AnimationTick
             | Message::VersionListCursorMoved(_)
@@ -198,9 +199,7 @@ pub struct Versi {
 }
 
 impl Versi {
-    pub fn new() -> (Self, Task<Message>) {
-        let settings = AppSettings::load();
-
+    pub fn new(settings: AppSettings) -> (Self, Task<Message>) {
         let should_minimize = settings.start_minimized
             && settings.tray_behavior != TrayBehavior::Disabled
             && tray::is_tray_active();
@@ -266,8 +265,9 @@ impl Versi {
             |result| Message::Initialized(Box::new(result)),
         );
         let theme_task = iced::system::theme().map(Message::SystemThemeChanged);
+        let tray_task = Task::done(Message::InitTray);
 
-        (app, Task::batch([init_task, theme_task]))
+        (app, Task::batch([init_task, theme_task, tray_task]))
     }
 
     pub fn title(&self) -> String {

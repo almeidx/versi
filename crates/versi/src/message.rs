@@ -15,6 +15,7 @@ use crate::tray::TrayMessage;
 #[derive(Debug, Clone)]
 pub enum Message {
     NoOp,
+    InitTray,
     Initialized(Box<InitResult>),
 
     EnvironmentSelected(usize),

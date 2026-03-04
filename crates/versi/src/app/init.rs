@@ -341,23 +341,27 @@ pub(super) async fn initialize(
 async fn detect_backends(
     providers: &[Arc<dyn BackendProvider>],
 ) -> Vec<(BackendKind, BackendDetection)> {
-    let mut detections = Vec::new();
-    for provider in providers {
-        let Some(kind) = BackendKind::from_name(provider.name()) else {
-            continue;
-        };
-        debug!("Detecting {} installation...", provider.name());
-        let detection = provider.detect().await;
-        info!(
-            "{} detection: found={}, path={:?}, version={:?}",
-            provider.name(),
-            detection.found,
-            detection.path,
-            detection.version
-        );
-        detections.push((kind, detection));
-    }
-    detections
+    let futures: Vec<_> = providers
+        .iter()
+        .filter_map(|provider| {
+            let kind = BackendKind::from_name(provider.name())?;
+            let provider = Arc::clone(provider);
+            Some(async move {
+                debug!("Detecting {} installation...", provider.name());
+                let detection = provider.detect().await;
+                info!(
+                    "{} detection: found={}, path={:?}, version={:?}",
+                    provider.name(),
+                    detection.found,
+                    detection.path,
+                    detection.version
+                );
+                (kind, detection)
+            })
+        })
+        .collect();
+
+    iced::futures::future::join_all(futures).await
 }
 
 fn collect_detected_backends(detections: &[(BackendKind, BackendDetection)]) -> Vec<BackendKind> {

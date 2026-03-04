@@ -58,10 +58,6 @@ fn main() -> iced::Result {
         }
     }
 
-    if let Err(e) = tray::init_tray(settings.tray_behavior) {
-        log::warn!("Failed to initialize tray icon: {e}");
-    }
-
     let icon = window::icon::from_file_data(include_bytes!("../../../assets/logo.png"), None).ok();
 
     let (window_size, window_position) = match &settings.window_geometry {
@@ -80,19 +76,23 @@ fn main() -> iced::Result {
     #[cfg(not(target_os = "linux"))]
     let platform_specific = window::settings::PlatformSpecific::default();
 
-    iced::application(app::Versi::new, app::Versi::update, app::Versi::view)
-        .title(|state: &app::Versi| state.title())
-        .subscription(|state: &app::Versi| state.subscription())
-        .theme(|state: &app::Versi| state.theme())
-        .window(window::Settings {
-            size: window_size,
-            position: window_position,
-            min_size: Some(iced::Size::new(600.0, 400.0)),
-            icon,
-            visible: true,
-            exit_on_close_request: false,
-            platform_specific,
-            ..Default::default()
-        })
-        .run()
+    iced::application(
+        move || app::Versi::new(settings.clone()),
+        app::Versi::update,
+        app::Versi::view,
+    )
+    .title(|state: &app::Versi| state.title())
+    .subscription(|state: &app::Versi| state.subscription())
+    .theme(|state: &app::Versi| state.theme())
+    .window(window::Settings {
+        size: window_size,
+        position: window_position,
+        min_size: Some(iced::Size::new(600.0, 400.0)),
+        icon,
+        visible: true,
+        exit_on_close_request: false,
+        platform_specific,
+        ..Default::default()
+    })
+    .run()
 }
