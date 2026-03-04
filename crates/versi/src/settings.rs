@@ -215,7 +215,7 @@ impl Default for AppSettings {
     fn default() -> Self {
         Self {
             theme: ThemeSetting::System,
-            cache_ttl_hours: 1,
+            cache_ttl_hours: default_cache_ttl(),
             tray_behavior: TrayBehavior::WhenWindowOpen,
             start_minimized: false,
             launch_at_login: false,
@@ -360,31 +360,31 @@ impl AppSettings {
     fn sanitize_in_place(&mut self) -> bool {
         let mut changed = false;
 
-        changed |= clamp_u64(&mut self.cache_ttl_hours, &CACHE_TTL_HOURS_RANGE);
-        changed |= clamp_u64(&mut self.install_timeout_secs, &INSTALL_TIMEOUT_SECS_RANGE);
-        changed |= clamp_u64(
+        changed |= clamp_in_place(&mut self.cache_ttl_hours, &CACHE_TTL_HOURS_RANGE);
+        changed |= clamp_in_place(&mut self.install_timeout_secs, &INSTALL_TIMEOUT_SECS_RANGE);
+        changed |= clamp_in_place(
             &mut self.uninstall_timeout_secs,
             &OPERATION_TIMEOUT_SECS_RANGE,
         );
-        changed |= clamp_u64(
+        changed |= clamp_in_place(
             &mut self.set_default_timeout_secs,
             &OPERATION_TIMEOUT_SECS_RANGE,
         );
-        changed |= clamp_u64(&mut self.fetch_timeout_secs, &FETCH_TIMEOUT_SECS_RANGE);
-        changed |= clamp_u64(
+        changed |= clamp_in_place(&mut self.fetch_timeout_secs, &FETCH_TIMEOUT_SECS_RANGE);
+        changed |= clamp_in_place(
             &mut self.wsl_list_timeout_secs,
             &WSL_LIST_TIMEOUT_SECS_RANGE,
         );
-        changed |= clamp_u64(
+        changed |= clamp_in_place(
             &mut self.wsl_distro_timeout_secs,
             &WSL_DISTRO_TIMEOUT_SECS_RANGE,
         );
-        changed |= clamp_u64(&mut self.http_timeout_secs, &HTTP_TIMEOUT_SECS_RANGE);
-        changed |= clamp_u64(&mut self.toast_timeout_secs, &TOAST_TIMEOUT_SECS_RANGE);
-        changed |= clamp_usize(&mut self.max_visible_toasts, &MAX_VISIBLE_TOASTS_RANGE);
-        changed |= clamp_usize(&mut self.search_results_limit, &SEARCH_RESULTS_LIMIT_RANGE);
-        changed |= clamp_usize(&mut self.modal_preview_limit, &MODAL_PREVIEW_LIMIT_RANGE);
-        changed |= clamp_u64(&mut self.max_log_size_bytes, &MAX_LOG_SIZE_BYTES_RANGE);
+        changed |= clamp_in_place(&mut self.http_timeout_secs, &HTTP_TIMEOUT_SECS_RANGE);
+        changed |= clamp_in_place(&mut self.toast_timeout_secs, &TOAST_TIMEOUT_SECS_RANGE);
+        changed |= clamp_in_place(&mut self.max_visible_toasts, &MAX_VISIBLE_TOASTS_RANGE);
+        changed |= clamp_in_place(&mut self.search_results_limit, &SEARCH_RESULTS_LIMIT_RANGE);
+        changed |= clamp_in_place(&mut self.modal_preview_limit, &MODAL_PREVIEW_LIMIT_RANGE);
+        changed |= clamp_in_place(&mut self.max_log_size_bytes, &MAX_LOG_SIZE_BYTES_RANGE);
 
         let original_retry_delays = self.retry_delays_secs.clone();
         self.retry_delays_secs
@@ -401,14 +401,7 @@ impl AppSettings {
     }
 }
 
-fn clamp_u64(value: &mut u64, range: &std::ops::RangeInclusive<u64>) -> bool {
-    let clamped = (*value).clamp(*range.start(), *range.end());
-    let changed = clamped != *value;
-    *value = clamped;
-    changed
-}
-
-fn clamp_usize(value: &mut usize, range: &std::ops::RangeInclusive<usize>) -> bool {
+fn clamp_in_place<T: Ord + Copy>(value: &mut T, range: &std::ops::RangeInclusive<T>) -> bool {
     let clamped = (*value).clamp(*range.start(), *range.end());
     let changed = clamped != *value;
     *value = clamped;
