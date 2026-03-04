@@ -537,6 +537,7 @@ mod tests {
             PathBuf::from("volta"),
             Some("2.0.2".to_string()),
             None,
+            reqwest::Client::new(),
         ));
         state.backend_name = BackendKind::Volta;
         state

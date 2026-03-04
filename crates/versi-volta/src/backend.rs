@@ -25,11 +25,17 @@ pub enum Environment {
 pub struct VoltaBackend {
     info: BackendInfo,
     environment: Environment,
+    http_client: reqwest::Client,
 }
 
 impl VoltaBackend {
     #[must_use]
-    pub fn new(path: PathBuf, version: Option<String>, volta_home: Option<PathBuf>) -> Self {
+    pub fn new(
+        path: PathBuf,
+        version: Option<String>,
+        volta_home: Option<PathBuf>,
+        http_client: reqwest::Client,
+    ) -> Self {
         Self {
             info: BackendInfo {
                 name: "volta",
@@ -39,11 +45,12 @@ impl VoltaBackend {
                 in_path: true,
             },
             environment: Environment::Native,
+            http_client,
         }
     }
 
     #[must_use]
-    pub fn with_wsl(distro: String, volta_path: String) -> Self {
+    pub fn with_wsl(distro: String, volta_path: String, http_client: reqwest::Client) -> Self {
         let volta_home = infer_home_from_binary(Path::new(&volta_path));
         Self {
             info: BackendInfo {
@@ -54,6 +61,7 @@ impl VoltaBackend {
                 in_path: false,
             },
             environment: Environment::Wsl { distro, volta_path },
+            http_client,
         }
     }
 
@@ -107,7 +115,8 @@ impl VoltaBackend {
     }
 
     async fn fetch_remote_versions(&self) -> Result<Vec<RemoteVersion>, BackendError> {
-        let response = reqwest::Client::new()
+        let response = self
+            .http_client
             .get(NODE_INDEX_URL)
             .header("User-Agent", "versi")
             .send()
@@ -268,6 +277,7 @@ mod tests {
             PathBuf::from("volta"),
             Some("2.0.2".to_string()),
             Some(PathBuf::from("/Users/test/.volta")),
+            reqwest::Client::new(),
         )
     }
 
@@ -314,6 +324,7 @@ mod tests {
         let backend = VoltaBackend::with_wsl(
             "Ubuntu".to_string(),
             "/home/user/.volta/bin/volta".to_string(),
+            reqwest::Client::new(),
         );
         let info: &BackendInfo = backend.backend_info();
 

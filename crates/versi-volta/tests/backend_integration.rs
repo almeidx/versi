@@ -15,7 +15,7 @@ async fn volta_lists_versions_in_real_environment() {
         return;
     }
 
-    let provider = VoltaProvider::new();
+    let provider = VoltaProvider::new(reqwest::Client::new());
     let detection = provider.detect().await;
     assert!(
         detection.found,

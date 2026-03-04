@@ -81,7 +81,12 @@ async fn volta_backend_executes_mock_commands_and_parses_output() {
 
     write_executable(&volta_path, &mock_volta_script(&log_path));
 
-    let backend = VoltaBackend::new(volta_path, Some("2.0.2".to_string()), None);
+    let backend = VoltaBackend::new(
+        volta_path,
+        Some("2.0.2".to_string()),
+        None,
+        reqwest::Client::new(),
+    );
 
     let installed = backend.list_installed().await.expect("list installed");
     assert_eq!(installed.len(), 2);
@@ -117,7 +122,12 @@ async fn volta_backend_surfaces_command_failures() {
     let log_path = temp_dir.path().join("volta.log");
     write_executable(&volta_path, &mock_volta_script(&log_path));
 
-    let backend = VoltaBackend::new(volta_path, Some("2.0.2".to_string()), None);
+    let backend = VoltaBackend::new(
+        volta_path,
+        Some("2.0.2".to_string()),
+        None,
+        reqwest::Client::new(),
+    );
     let result = backend.install("fail").await;
 
     assert!(matches!(

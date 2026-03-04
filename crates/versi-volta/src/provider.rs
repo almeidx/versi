@@ -10,13 +10,14 @@ use crate::backend::VoltaBackend;
 use crate::detection::{detect_volta, detect_volta_home, install_volta};
 use crate::update::check_for_volta_update;
 
-#[derive(Default)]
-pub struct VoltaProvider;
+pub struct VoltaProvider {
+    http_client: reqwest::Client,
+}
 
 impl VoltaProvider {
     #[must_use]
-    pub fn new() -> Self {
-        Self
+    pub fn new(http_client: reqwest::Client) -> Self {
+        Self { http_client }
     }
 }
 
@@ -69,8 +70,13 @@ impl BackendProvider for VoltaProvider {
             .unwrap_or_else(|| std::path::PathBuf::from("volta"));
         let volta_home = detection.data_dir.clone().or_else(detect_volta_home);
         Arc::new(
-            VoltaBackend::new(path, detection.version.clone(), volta_home)
-                .with_in_path(detection.in_path),
+            VoltaBackend::new(
+                path,
+                detection.version.clone(),
+                volta_home,
+                self.http_client.clone(),
+            )
+            .with_in_path(detection.in_path),
         )
     }
 
@@ -79,7 +85,10 @@ impl BackendProvider for VoltaProvider {
         distro: String,
         backend_path: String,
     ) -> Arc<dyn VersionManager> {
-        Arc::new(VoltaBackend::with_wsl(distro, backend_path).with_in_path(false))
+        Arc::new(
+            VoltaBackend::with_wsl(distro, backend_path, self.http_client.clone())
+                .with_in_path(false),
+        )
     }
 
     fn wsl_search_paths(&self) -> &'static [&'static str] {
@@ -102,9 +111,13 @@ mod tests {
 
     use super::VoltaProvider;
 
+    fn provider() -> VoltaProvider {
+        VoltaProvider::new(reqwest::Client::new())
+    }
+
     #[test]
     fn provider_metadata_is_stable() {
-        let provider = VoltaProvider::new();
+        let provider = provider();
 
         assert_eq!(provider.name(), "volta");
         assert_eq!(provider.display_name(), "Volta");
@@ -114,7 +127,7 @@ mod tests {
 
     #[test]
     fn create_manager_uses_detected_path_and_data_dir() {
-        let provider = VoltaProvider::new();
+        let provider = provider();
         let detection = BackendDetection {
             found: true,
             path: Some(PathBuf::from("/usr/local/bin/volta")),
@@ -134,7 +147,7 @@ mod tests {
 
     #[test]
     fn create_manager_falls_back_to_volta_binary_name() {
-        let provider = VoltaProvider::new();
+        let provider = provider();
         let detection = BackendDetection {
             found: false,
             path: None,
@@ -152,7 +165,7 @@ mod tests {
 
     #[test]
     fn create_wsl_manager_uses_wsl_binary_path() {
-        let provider = VoltaProvider::new();
+        let provider = provider();
         let manager =
             provider.create_manager_for_wsl("Ubuntu".to_string(), "/usr/bin/volta".to_string());
         let info = manager.backend_info();
@@ -163,7 +176,7 @@ mod tests {
 
     #[test]
     fn wsl_search_paths_are_unique() {
-        let provider = VoltaProvider::new();
+        let provider = provider();
         let paths = provider.wsl_search_paths();
         let unique_count = paths.iter().copied().collect::<HashSet<_>>().len();
 
