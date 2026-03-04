@@ -76,6 +76,21 @@ impl AutoUpdateError {
     }
 }
 
+fn sanitize_asset_name(download_url: &str) -> &str {
+    let raw_name = download_url.rsplit('/').next().unwrap_or("update-download");
+    Path::new(raw_name)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .filter(|n| !n.is_empty() && !n.contains(".."))
+        .unwrap_or("update-download")
+}
+
+fn is_msi_asset(file_name: &str) -> bool {
+    Path::new(file_name)
+        .extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("msi"))
+}
+
 /// Download and apply a packaged Versi update.
 ///
 /// # Errors
@@ -97,21 +112,14 @@ pub async fn download_and_apply(
     let temp_dir = tempfile::tempdir_in(&cache_dir)
         .map_err(|error| AutoUpdateError::io("failed to create temp directory", error))?;
 
-    let raw_name = download_url.rsplit('/').next().unwrap_or("update-download");
-    let file_name = Path::new(raw_name)
-        .file_name()
-        .and_then(|n| n.to_str())
-        .filter(|n| !n.is_empty() && !n.contains(".."))
-        .unwrap_or("update-download");
+    let file_name = sanitize_asset_name(download_url);
     let download_path = temp_dir.path().join(file_name);
 
     info!("Downloading update from {download_url}");
     download_file(client, download_url, &download_path, &progress).await?;
     verify_download_checksum(expected_sha256, file_name, &download_path)?;
 
-    let is_msi = Path::new(file_name)
-        .extension()
-        .is_some_and(|ext| ext.eq_ignore_ascii_case("msi"));
+    let is_msi = is_msi_asset(file_name);
 
     if is_msi {
         let _ = progress.send(UpdateProgress::Applying).await;
@@ -557,7 +565,10 @@ pub fn restart_app() -> Result<(), AutoUpdateError> {
 mod tests {
     use std::io::Write as _;
 
-    use super::{extract_zip, sha256_file};
+    use super::{
+        AutoUpdateError, extract_zip, is_msi_asset, sanitize_asset_name, sha256_file,
+        verify_download_checksum,
+    };
 
     #[test]
     fn extract_zip_expands_files_and_directories() {
@@ -637,5 +648,139 @@ mod tests {
             Err(super::AutoUpdateError::Invalid(ref message))
                 if message == "MSI installation is only supported on Windows"
         ));
+    }
+
+    #[test]
+    fn sanitize_asset_name_extracts_filename_from_url() {
+        assert_eq!(
+            sanitize_asset_name("https://github.com/releases/download/v1.0/versi-macos.zip"),
+            "versi-macos.zip"
+        );
+    }
+
+    #[test]
+    fn sanitize_asset_name_falls_back_for_empty_url() {
+        assert_eq!(sanitize_asset_name(""), "update-download");
+    }
+
+    #[test]
+    fn sanitize_asset_name_falls_back_for_trailing_slash() {
+        assert_eq!(
+            sanitize_asset_name("https://example.com/"),
+            "update-download"
+        );
+    }
+
+    #[test]
+    fn sanitize_asset_name_rejects_path_traversal() {
+        assert_eq!(
+            sanitize_asset_name("https://evil.com/.."),
+            "update-download"
+        );
+    }
+
+    #[test]
+    fn sanitize_asset_name_handles_bare_filename() {
+        assert_eq!(sanitize_asset_name("update.zip"), "update.zip");
+    }
+
+    #[test]
+    fn is_msi_asset_detects_msi_extension() {
+        assert!(is_msi_asset("versi-setup.msi"));
+        assert!(is_msi_asset("VERSI.MSI"));
+        assert!(is_msi_asset("versi.Msi"));
+    }
+
+    #[test]
+    fn is_msi_asset_rejects_non_msi() {
+        assert!(!is_msi_asset("versi-macos.zip"));
+        assert!(!is_msi_asset("versi.tar.gz"));
+        assert!(!is_msi_asset("versi"));
+        assert!(!is_msi_asset("msi"));
+    }
+
+    #[test]
+    fn verify_checksum_succeeds_on_match() {
+        let temp = tempfile::tempdir().expect("tempdir should be created");
+        let path = temp.path().join("payload.bin");
+        std::fs::write(&path, b"versi").expect("file should be written");
+
+        let result = verify_download_checksum(
+            Some("50639d63848d275a7efcd04478de62ca0df8f35dfd75be490e4fcae667ecd436"),
+            "payload.bin",
+            &path,
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn verify_checksum_succeeds_case_insensitive() {
+        let temp = tempfile::tempdir().expect("tempdir should be created");
+        let path = temp.path().join("payload.bin");
+        std::fs::write(&path, b"versi").expect("file should be written");
+
+        let result = verify_download_checksum(
+            Some("50639D63848D275A7EFCD04478DE62CA0DF8F35DFD75BE490E4FCAE667ECD436"),
+            "payload.bin",
+            &path,
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn verify_checksum_fails_on_mismatch() {
+        let temp = tempfile::tempdir().expect("tempdir should be created");
+        let path = temp.path().join("payload.bin");
+        std::fs::write(&path, b"versi").expect("file should be written");
+
+        let result = verify_download_checksum(Some("0000dead"), "payload.bin", &path);
+        assert!(
+            matches!(result, Err(AutoUpdateError::Invalid(ref msg)) if msg.contains("Checksum mismatch"))
+        );
+    }
+
+    #[test]
+    fn verify_checksum_fails_when_digest_missing() {
+        let temp = tempfile::tempdir().expect("tempdir should be created");
+        let path = temp.path().join("payload.bin");
+        std::fs::write(&path, b"versi").expect("file should be written");
+
+        let result = verify_download_checksum(None, "payload.bin", &path);
+        assert!(
+            matches!(result, Err(AutoUpdateError::Invalid(ref msg)) if msg.contains("Missing SHA-256"))
+        );
+    }
+
+    #[test]
+    fn error_io_preserves_context() {
+        let source = std::io::Error::new(std::io::ErrorKind::NotFound, "gone");
+        let err = AutoUpdateError::io("reading config", source);
+        let msg = err.to_string();
+        assert!(msg.contains("reading config"));
+        assert!(msg.contains("gone"));
+    }
+
+    #[test]
+    fn error_io_with_path_includes_path_in_message() {
+        let source = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "denied");
+        let err =
+            AutoUpdateError::io_with_path("open file", std::path::Path::new("/tmp/test"), &source);
+        let msg = err.to_string();
+        assert!(msg.contains("open file"));
+        assert!(msg.contains("/tmp/test"));
+    }
+
+    #[test]
+    fn error_platform_preserves_context_and_details() {
+        let err = AutoUpdateError::platform("resolve paths", "HOME not set".to_string());
+        let msg = err.to_string();
+        assert!(msg.contains("resolve paths"));
+        assert!(msg.contains("HOME not set"));
+    }
+
+    #[test]
+    fn error_invalid_displays_inner_message() {
+        let err = AutoUpdateError::Invalid("bad archive".to_string());
+        assert_eq!(err.to_string(), "bad archive");
     }
 }
