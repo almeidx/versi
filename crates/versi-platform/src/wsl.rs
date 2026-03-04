@@ -240,7 +240,7 @@ fn decode_wsl_output(bytes: &[u8]) -> String {
             return decoded;
         }
     }
-    String::from_utf8_lossy(bytes).to_string()
+    String::from_utf8_lossy(bytes).into_owned()
 }
 
 fn parse_wsl_list(output: &str, running_distros: &[String]) -> Vec<WslDistro> {
@@ -466,14 +466,14 @@ pub async fn execute_in_wsl(distro: &str, command: &str) -> Result<String, WslEr
     );
 
     if output.status.success() {
-        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
         debug!(
             "WSL command succeeded, output length: {} bytes",
             stdout.len()
         );
         Ok(stdout)
     } else {
-        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
         error!(
             "WSL command failed in {}: command='{}', stderr='{}'",
             distro, command, stderr

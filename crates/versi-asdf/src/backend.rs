@@ -149,7 +149,7 @@ impl AsdfBackend {
         }
 
         if output.status.success() {
-            Ok(String::from_utf8_lossy(&output.stdout).to_string())
+            Ok(String::from_utf8_lossy(&output.stdout).into_owned())
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
             let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -173,8 +173,8 @@ impl AsdfBackend {
         let args = ["current", "nodejs", "--no-header"];
         let output = self.build_command(&args, home_scope).output().await?;
 
-        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+        let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
 
         if output.status.success() {
             return Ok(parse_current_version(&stdout).or_else(|| parse_current_version(&stderr)));

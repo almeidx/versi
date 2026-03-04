@@ -356,7 +356,7 @@ async fn read_wsl_config_file(
         ));
     }
 
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
 #[cfg(target_os = "windows")]

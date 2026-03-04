@@ -200,11 +200,11 @@ impl FnmBackend {
         }
 
         if output.status.success() {
-            let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+            let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
             debug!("fnm command succeeded, output: {} bytes", stdout.len());
             Ok(stdout)
         } else {
-            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
             error!("fnm command failed: args={args:?}, stderr='{stderr}'");
             Err(BackendError::CommandFailed { stderr })
         }

@@ -82,10 +82,10 @@ impl NvmClient {
         let output = self.build_nvm_command(nvm_args).output().await?;
 
         if output.status.success() {
-            let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+            let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
             Ok(sanitize_terminal_text(&stdout))
         } else {
-            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
             Err(BackendError::CommandFailed { stderr })
         }
     }
