@@ -573,7 +573,7 @@ fn keyboard_shortcuts_view() -> Element<'static, Message> {
 
 #[cfg(test)]
 mod tests {
-    use super::advisory_heading;
+    use super::{advisory_heading, is_major_release};
 
     #[test]
     fn advisory_heading_prefers_cve_list_and_severity() {
@@ -608,5 +608,45 @@ mod tests {
         };
 
         assert_eq!(advisory_heading("163", &advisory), "NSWG-COR-163");
+    }
+
+    #[test]
+    fn major_release_with_v_prefix() {
+        assert!(is_major_release("v10.0.0"));
+    }
+
+    #[test]
+    fn major_release_without_v_prefix() {
+        assert!(is_major_release("10.0.0"));
+    }
+
+    #[test]
+    fn minor_bump_is_not_major() {
+        assert!(!is_major_release("v10.1.0"));
+    }
+
+    #[test]
+    fn patch_bump_is_not_major() {
+        assert!(!is_major_release("v10.0.1"));
+    }
+
+    #[test]
+    fn zero_major_is_still_major() {
+        assert!(is_major_release("v0.0.0"));
+    }
+
+    #[test]
+    fn high_major_without_prefix() {
+        assert!(is_major_release("20.0.0"));
+    }
+
+    #[test]
+    fn empty_string_is_not_major() {
+        assert!(!is_major_release(""));
+    }
+
+    #[test]
+    fn bare_v_prefix_is_not_major() {
+        assert!(!is_major_release("v"));
     }
 }
