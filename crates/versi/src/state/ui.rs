@@ -34,14 +34,19 @@ pub struct SettingsModalState {
     pub shell_statuses: Vec<ShellSetupStatus>,
     pub checking_shells: bool,
     pub log_file_size: Option<u64>,
+    pub log_file_path: String,
 }
 
 impl SettingsModalState {
     pub fn new() -> Self {
+        let log_file_path = versi_platform::AppPaths::new()
+            .map(|paths| paths.log_file().to_string_lossy().to_string())
+            .unwrap_or_default();
         Self {
             shell_statuses: Vec::new(),
             checking_shells: false,
             log_file_size: None,
+            log_file_path,
         }
     }
 }

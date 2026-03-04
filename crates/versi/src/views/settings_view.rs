@@ -412,9 +412,7 @@ fn advanced_section<'a>(
     settings_state: &'a SettingsModalState,
     settings: &'a AppSettings,
 ) -> Element<'a, Message> {
-    let log_path = versi_platform::AppPaths::new()
-        .map(|paths| paths.log_file().to_string_lossy().to_string())
-        .unwrap_or_default();
+    let log_path = &settings_state.log_file_path;
     let log_size_text = match settings_state.log_file_size {
         Some(0) => "empty".to_string(),
         Some(size) if size < 1024 => format!("{size} B"),
@@ -439,7 +437,7 @@ fn advanced_section<'a>(
                 .size(11)
                 .color(crate::theme::tokens::TEXT_MUTED),
             button(text(log_path.clone()).size(11))
-                .on_press(Message::CopyToClipboard(log_path))
+                .on_press(Message::CopyToClipboard(log_path.clone()))
                 .style(styles::link_button)
                 .padding(0),
             text(format!(" ({log_size_text})"))
