@@ -1,12 +1,16 @@
 pub const USER_AGENT: &str = concat!("Versi/", env!("CARGO_PKG_VERSION"));
 
 pub(crate) fn response_snippet(body: &str, max_chars: usize) -> String {
-    let snippet: String = body.chars().take(max_chars).collect();
-    if snippet.is_empty() {
-        String::new()
-    } else {
-        format!(": {snippet}")
+    if body.is_empty() {
+        return String::new();
     }
+
+    let end = body
+        .char_indices()
+        .nth(max_chars)
+        .map_or(body.len(), |(idx, _)| idx);
+
+    format!(": {}", &body[..end])
 }
 
 #[cfg(test)]
