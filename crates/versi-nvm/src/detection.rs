@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tokio::process::Command;
 
 #[cfg(unix)]
@@ -176,7 +176,7 @@ fn get_windows_nvm_paths() -> Vec<PathBuf> {
     paths
 }
 
-async fn get_windows_nvm_version(path: &PathBuf) -> Option<String> {
+async fn get_windows_nvm_version(path: &Path) -> Option<String> {
     let output = match Command::new(path)
         .arg("version")
         .hide_window()
