@@ -1,7 +1,6 @@
 use std::time::Duration;
 
 use log::{debug, error, info, trace, warn};
-use thiserror::Error;
 use tokio::process::Command;
 
 use crate::HideWindow;
@@ -19,18 +18,6 @@ pub struct WslDistro {
     pub version: u8,
     pub backend_path: Option<String>,
     pub is_running: bool,
-}
-
-#[derive(Error, Debug)]
-pub enum WslError {
-    #[error("WSL not available")]
-    NotAvailable,
-
-    #[error("Command failed: {stderr}")]
-    CommandFailed { stderr: String },
-
-    #[error("IO error: {0}")]
-    IoError(#[from] std::io::Error),
 }
 
 pub async fn detect_wsl_distros(search_paths: &[&str], timeouts: &WslTimeouts) -> Vec<WslDistro> {
@@ -440,44 +427,5 @@ mod tests {
         let distros = parse_wsl_list(output, &running);
 
         assert!(distros[0].backend_path.is_none());
-    }
-}
-
-pub async fn execute_in_wsl(distro: &str, command: &str) -> Result<String, WslError> {
-    debug!(
-        "Executing in WSL {}: wsl.exe -d {} -- sh -c \"{}\"",
-        distro, distro, command
-    );
-
-    let output = tokio::process::Command::new("wsl.exe")
-        .args(["-d", distro, "--", "sh", "-c", command])
-        .hide_window()
-        .output()
-        .await?;
-
-    debug!("WSL command exit status: {:?}", output.status);
-    trace!(
-        "WSL command stdout: {}",
-        String::from_utf8_lossy(&output.stdout)
-    );
-    trace!(
-        "WSL command stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    if output.status.success() {
-        let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
-        debug!(
-            "WSL command succeeded, output length: {} bytes",
-            stdout.len()
-        );
-        Ok(stdout)
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
-        error!(
-            "WSL command failed in {}: command='{}', stderr='{}'",
-            distro, command, stderr
-        );
-        Err(WslError::CommandFailed { stderr })
     }
 }
