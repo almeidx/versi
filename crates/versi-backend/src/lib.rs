@@ -23,6 +23,8 @@ pub use command::{
 };
 /// Error type shared by backend providers and managers.
 pub use error::BackendError;
+#[cfg(unix)]
+pub use helpers::run_unix_install_script;
 /// Shared helpers for common backend patterns.
 pub use helpers::{
     download_and_prepare_install_script, find_default_version, parse_current_version,

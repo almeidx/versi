@@ -1,13 +1,13 @@
 use std::path::{Path, PathBuf};
 
+#[cfg(windows)]
 use tokio::process::Command;
 use which::which;
 
-use versi_backend::{BackendDetection, BackendError, download_and_prepare_install_script};
+use versi_backend::{BackendDetection, BackendError};
+#[cfg(windows)]
 use versi_core::HideWindow;
 use versi_core::get_cli_version;
-#[cfg(unix)]
-use versi_core::temp_script_path;
 
 #[cfg(unix)]
 const VOLTA_INSTALL_SCRIPT_URL: &str = "https://get.volta.sh";
@@ -148,28 +148,8 @@ async fn get_volta_version(path: &Path) -> Option<String> {
 pub(crate) async fn install_volta() -> Result<(), BackendError> {
     #[cfg(unix)]
     {
-        let script_path = temp_script_path("volta-install", "sh");
-        let result = async {
-            download_and_prepare_install_script(VOLTA_INSTALL_SCRIPT_URL, &script_path).await?;
-            Command::new("bash")
-                .arg(&script_path)
-                .hide_window()
-                .status()
-                .await
-                .map_err(BackendError::from)
-        }
-        .await;
-        let _ = tokio::fs::remove_file(&script_path).await;
-        let status = result?;
-
-        if status.success() {
-            Ok(())
-        } else {
-            Err(BackendError::install_failed(
-                "run installer script",
-                "volta installation script failed",
-            ))
-        }
+        return versi_backend::run_unix_install_script(VOLTA_INSTALL_SCRIPT_URL, "volta-install")
+            .await;
     }
 
     #[cfg(windows)]

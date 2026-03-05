@@ -1,12 +1,8 @@
 use std::path::{Path, PathBuf};
 use tokio::process::Command;
 
-#[cfg(unix)]
-use versi_backend::download_and_prepare_install_script;
 #[cfg(any(test, windows))]
 use versi_core::InstallerAttempt;
-#[cfg(unix)]
-use versi_core::temp_script_path;
 use versi_platform::HideWindow;
 
 use crate::client::{NvmClient, NvmEnvironment};
@@ -221,28 +217,7 @@ pub fn detect_nvm_environment(detection: &NvmDetection) -> Option<NvmEnvironment
 pub async fn install_nvm() -> Result<(), versi_backend::BackendError> {
     #[cfg(unix)]
     {
-        let script_path = temp_script_path("nvm-install", "sh");
-        let result = async {
-            download_and_prepare_install_script(NVM_INSTALL_SCRIPT_URL, &script_path).await?;
-            Command::new("bash")
-                .arg(&script_path)
-                .hide_window()
-                .status()
-                .await
-                .map_err(versi_backend::BackendError::from)
-        }
-        .await;
-        let _ = tokio::fs::remove_file(&script_path).await;
-        let status = result?;
-
-        if status.success() {
-            Ok(())
-        } else {
-            Err(versi_backend::BackendError::install_failed(
-                "run installer script",
-                "nvm installation script failed",
-            ))
-        }
+        return versi_backend::run_unix_install_script(NVM_INSTALL_SCRIPT_URL, "nvm-install").await;
     }
 
     #[cfg(windows)]

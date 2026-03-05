@@ -1,10 +1,14 @@
 use std::path::{Path, PathBuf};
+#[cfg(windows)]
 use tokio::process::Command;
 use which::which;
 
 use versi_backend::BackendDetection;
+#[cfg(windows)]
 use versi_backend::download_and_prepare_install_script;
-use versi_core::{HideWindow, get_cli_version, temp_script_path};
+use versi_core::get_cli_version;
+#[cfg(windows)]
+use versi_core::{HideWindow, temp_script_path};
 
 const FNM_INSTALL_SCRIPT_URL: &str =
     "https://raw.githubusercontent.com/Schniz/fnm/v1.38.1/.ci/install.sh";
@@ -119,24 +123,12 @@ async fn get_fnm_version(path: &Path) -> Option<String> {
 
 pub(crate) async fn install_fnm() -> Result<(), versi_backend::BackendError> {
     #[cfg(unix)]
-    let status = {
-        let script_path = temp_script_path("fnm-install", "sh");
-        let result = async {
-            download_and_prepare_install_script(FNM_INSTALL_SCRIPT_URL, &script_path).await?;
-            Command::new("bash")
-                .arg(&script_path)
-                .hide_window()
-                .status()
-                .await
-                .map_err(versi_backend::BackendError::from)
-        }
-        .await;
-        let _ = tokio::fs::remove_file(&script_path).await;
-        result?
-    };
+    {
+        return versi_backend::run_unix_install_script(FNM_INSTALL_SCRIPT_URL, "fnm-install").await;
+    }
 
     #[cfg(windows)]
-    let status = {
+    {
         let script_path = temp_script_path("fnm-install", "ps1");
         let result = async {
             download_and_prepare_install_script(FNM_INSTALL_SCRIPT_URL, &script_path).await?;
@@ -155,16 +147,16 @@ pub(crate) async fn install_fnm() -> Result<(), versi_backend::BackendError> {
         }
         .await;
         let _ = tokio::fs::remove_file(&script_path).await;
-        result?
-    };
+        let status = result?;
 
-    if status.success() {
-        Ok(())
-    } else {
-        Err(versi_backend::BackendError::install_failed(
-            "run installer script",
-            "fnm installation script failed",
-        ))
+        if status.success() {
+            Ok(())
+        } else {
+            Err(versi_backend::BackendError::install_failed(
+                "run installer script",
+                "fnm installation script failed",
+            ))
+        }
     }
 }
 

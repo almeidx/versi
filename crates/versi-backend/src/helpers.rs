@@ -1,6 +1,43 @@
 use crate::error::BackendError;
 use crate::types::{InstalledVersion, NodeVersion};
 
+/// Download and run a Unix shell install script, cleaning up the temporary file
+/// afterward.
+///
+/// This is the common flow used by fnm, nvm, and volta Unix installers.
+///
+/// # Errors
+///
+/// Returns [`BackendError::InstallFailed`] when downloading or executing the
+/// script fails.
+#[cfg(unix)]
+pub async fn run_unix_install_script(url: &str, label: &str) -> Result<(), BackendError> {
+    use versi_core::HideWindow;
+
+    let script_path = versi_core::temp_script_path(label, "sh");
+    let result = async {
+        download_and_prepare_install_script(url, &script_path).await?;
+        tokio::process::Command::new("bash")
+            .arg(&script_path)
+            .hide_window()
+            .status()
+            .await
+            .map_err(BackendError::from)
+    }
+    .await;
+    let _ = tokio::fs::remove_file(&script_path).await;
+    let status = result?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        Err(BackendError::install_failed(
+            "run installer script",
+            format!("{label} installation script failed"),
+        ))
+    }
+}
+
 /// Download an install script and map errors to [`BackendError`].
 ///
 /// This is a thin adapter around [`versi_core::download_install_script`] that
