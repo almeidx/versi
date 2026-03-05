@@ -62,13 +62,8 @@ impl BackendProvider for AsdfProvider {
             .clone()
             .unwrap_or_else(|| std::path::PathBuf::from("asdf"));
         let data_dir = detection.data_dir.clone().or_else(detect_asdf_data_dir);
-        let backend = AsdfBackend::new(path, detection.version.clone(), data_dir.clone())
+        let backend = AsdfBackend::new(path, detection.version.clone(), data_dir)
             .with_in_path(detection.in_path);
-        let backend = if let Some(dir) = data_dir {
-            backend.with_asdf_data_dir(dir)
-        } else {
-            backend
-        };
         Arc::new(backend)
     }
 
