@@ -81,7 +81,11 @@ impl BackendProvider for NvmProvider {
     async fn detect(&self) -> BackendDetection {
         let detection = detect_nvm().await;
         let in_path = detection_in_path(&detection);
-        let path = detection.nvm_dir.clone().or(detection.nvm_exe.clone());
+        let path = detection
+            .nvm_dir
+            .as_ref()
+            .or(detection.nvm_exe.as_ref())
+            .cloned();
 
         BackendDetection {
             found: detection.found,
