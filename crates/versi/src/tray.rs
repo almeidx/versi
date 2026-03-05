@@ -351,7 +351,6 @@ pub fn tray_subscription() -> Subscription<Message> {
 
 #[cfg(test)]
 mod tests {
-    use chrono::Utc;
     use versi_platform::EnvironmentId;
 
     use super::{TrayMenuData, TrayMessage, encode_environment_id, parse_menu_event, tooltip_text};
@@ -363,7 +362,6 @@ mod tests {
             version: version.parse().expect("test version should parse"),
             is_default,
             lts_codename: None,
-            install_date: Some(Utc::now()),
             disk_size: None,
         }
     }

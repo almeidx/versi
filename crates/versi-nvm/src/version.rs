@@ -61,7 +61,6 @@ pub fn parse_unix_installed(output: &str) -> Vec<InstalledVersion> {
                     version,
                     is_default,
                     lts_codename: None,
-                    install_date: None,
                     disk_size: None,
                 });
             }
@@ -101,7 +100,6 @@ pub fn parse_windows_installed(output: &str) -> Vec<InstalledVersion> {
                     version,
                     is_default: is_default || is_current,
                     lts_codename: None,
-                    install_date: None,
                     disk_size: None,
                 });
             }

@@ -328,7 +328,6 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::Arc;
 
-    use chrono::Utc;
     use versi_backend::{InstalledVersion, RemoteVersion};
 
     use super::super::test_app_with_two_environments;
@@ -341,7 +340,6 @@ mod tests {
             version: version.parse().expect("test version should parse"),
             is_default: false,
             lts_codename: None,
-            install_date: Some(Utc::now()),
             disk_size: None,
         }
     }

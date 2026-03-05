@@ -68,7 +68,6 @@ mod tests {
             version: version.parse().expect("test version should parse"),
             is_default: false,
             lts_codename: None,
-            install_date: None,
             disk_size: None,
         }
     }

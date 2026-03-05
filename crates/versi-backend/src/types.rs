@@ -138,7 +138,6 @@ pub struct InstalledVersion {
     pub version: NodeVersion,
     pub is_default: bool,
     pub lts_codename: Option<String>,
-    pub install_date: Option<chrono::DateTime<chrono::Utc>>,
     pub disk_size: Option<u64>,
 }
 
@@ -277,21 +276,18 @@ mod tests {
                 version: NodeVersion::new(20, 11, 0),
                 is_default: true,
                 lts_codename: None,
-                install_date: None,
                 disk_size: None,
             },
             InstalledVersion {
                 version: NodeVersion::new(20, 10, 0),
                 is_default: false,
                 lts_codename: None,
-                install_date: None,
                 disk_size: None,
             },
             InstalledVersion {
                 version: NodeVersion::new(18, 19, 0),
                 is_default: false,
                 lts_codename: None,
-                install_date: None,
                 disk_size: None,
             },
         ];
@@ -312,14 +308,12 @@ mod tests {
                 version: NodeVersion::new(20, 10, 0),
                 is_default: false,
                 lts_codename: None,
-                install_date: None,
                 disk_size: None,
             },
             InstalledVersion {
                 version: NodeVersion::new(20, 11, 0),
                 is_default: false,
                 lts_codename: None,
-                install_date: None,
                 disk_size: None,
             },
         ];
@@ -343,7 +337,6 @@ mod tests {
             version: NodeVersion::new(20, 11, 0),
             is_default: false,
             lts_codename: None,
-            install_date: None,
             disk_size: None,
         }];
 

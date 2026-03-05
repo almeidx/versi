@@ -52,7 +52,6 @@ pub fn parse_installed_versions(output: &str) -> Vec<InstalledVersion> {
             version,
             is_default: false,
             lts_codename: None,
-            install_date: None,
             disk_size: None,
         });
     }

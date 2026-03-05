@@ -342,7 +342,6 @@ mod tests {
             version: version.parse().expect("test version should parse"),
             is_default: false,
             lts_codename: Some("Iron".to_string()),
-            install_date: None,
             disk_size: None,
         }
     }
@@ -352,7 +351,6 @@ mod tests {
             version: version.parse().expect("test version should parse"),
             is_default: false,
             lts_codename: None,
-            install_date: None,
             disk_size: None,
         }
     }
@@ -362,7 +360,6 @@ mod tests {
             version: version.parse().expect("test version should parse"),
             is_default: false,
             lts_codename: Some(codename.to_string()),
-            install_date: None,
             disk_size: None,
         }
     }
