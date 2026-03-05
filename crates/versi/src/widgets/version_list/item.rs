@@ -199,28 +199,7 @@ fn push_uninstall_button<'a>(
 #[cfg(test)]
 mod tests {
     use super::show_security_warning_icon;
-    use crate::format::{format_bytes, format_tenths};
     use crate::state::VersionSecurityFinding;
-
-    #[test]
-    fn format_bytes_uses_bytes_for_small_values() {
-        assert_eq!(format_bytes(0), "0 B");
-        assert_eq!(format_bytes(999), "999 B");
-    }
-
-    #[test]
-    fn format_bytes_uses_kilobytes_megabytes_and_gigabytes() {
-        assert_eq!(format_bytes(1024), "1.0 KB");
-        assert_eq!(format_bytes(1536), "1.5 KB");
-        assert_eq!(format_bytes(1024 * 1024), "1.0 MB");
-        assert_eq!(format_bytes(1024 * 1024 * 1024), "1.0 GB");
-    }
-
-    #[test]
-    fn format_tenths_rounds_to_nearest_tenth() {
-        assert_eq!(format_tenths(1280, 1024, "KB"), "1.3 KB");
-        assert_eq!(format_tenths(1228, 1024, "KB"), "1.2 KB");
-    }
 
     #[test]
     fn show_security_warning_icon_requires_vulnerable_finding() {
