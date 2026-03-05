@@ -1,27 +1,11 @@
 #![cfg(unix)]
 
 use std::fs;
-use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
 use tempfile::tempdir;
 use versi_asdf::AsdfBackend;
-use versi_backend::{BackendError, VersionManager};
-
-fn write_executable(path: &Path, content: &str) {
-    let tmp_path = path.with_file_name(format!(
-        ".{}.tmp-{}",
-        path.file_name()
-            .expect("mock executable file name")
-            .to_string_lossy(),
-        std::process::id()
-    ));
-
-    fs::write(&tmp_path, content).expect("write mock asdf executable");
-    let perms = fs::Permissions::from_mode(0o755);
-    fs::set_permissions(&tmp_path, perms).expect("set mock asdf executable permissions");
-    fs::rename(&tmp_path, path).expect("atomically publish mock asdf executable");
-}
+use versi_backend::{BackendError, VersionManager, write_mock_executable};
 
 fn mock_asdf_script(log_path: &Path) -> String {
     let log_path = log_path.display();
@@ -85,7 +69,7 @@ async fn asdf_backend_executes_mock_commands_and_parses_output() {
     let asdf_path = temp_dir.path().join("asdf");
     let log_path = temp_dir.path().join("asdf.log");
 
-    write_executable(&asdf_path, &mock_asdf_script(&log_path));
+    write_mock_executable!(&asdf_path, &mock_asdf_script(&log_path));
 
     let backend = AsdfBackend::new(asdf_path, Some("0.18.0".to_string()), None);
 
@@ -127,7 +111,7 @@ async fn asdf_backend_surfaces_command_failures() {
     let temp_dir = tempdir().expect("create temp dir");
     let asdf_path = temp_dir.path().join("asdf");
     let log_path = temp_dir.path().join("asdf.log");
-    write_executable(&asdf_path, &mock_asdf_script(&log_path));
+    write_mock_executable!(&asdf_path, &mock_asdf_script(&log_path));
 
     let backend = AsdfBackend::new(asdf_path, Some("0.18.0".to_string()), None);
     let result = backend.install("fail").await;

@@ -1,29 +1,11 @@
 #![cfg(unix)]
 
 use std::fs;
-use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
 use tempfile::tempdir;
-use versi_backend::{BackendError, VersionManager};
+use versi_backend::{BackendError, VersionManager, write_mock_executable};
 use versi_fnm::FnmBackend;
-
-fn write_executable(path: &Path, content: &str) {
-    let tmp_path = path.with_file_name(format!(
-        ".{}.tmp-{}",
-        path.file_name()
-            .expect("mock executable file name")
-            .to_string_lossy(),
-        std::process::id()
-    ));
-
-    // Write + chmod on a temporary path, then rename atomically to avoid
-    // transient ETXTBSY ("Text file busy") when the file is executed on Linux.
-    fs::write(&tmp_path, content).expect("write mock fnm executable");
-    let perms = fs::Permissions::from_mode(0o755);
-    fs::set_permissions(&tmp_path, perms).expect("set mock fnm executable permissions");
-    fs::rename(&tmp_path, path).expect("atomically publish mock fnm executable");
-}
 
 fn mock_fnm_script(log_path: &Path) -> String {
     let log_path = log_path.display();
@@ -88,7 +70,7 @@ async fn fnm_backend_executes_mock_commands_and_parses_output() {
     let fnm_path = temp_dir.path().join("fnm");
     let log_path = temp_dir.path().join("fnm.log");
 
-    write_executable(&fnm_path, &mock_fnm_script(&log_path));
+    write_mock_executable!(&fnm_path, &mock_fnm_script(&log_path));
 
     let backend = FnmBackend::new(fnm_path, Some("test".to_string()), None);
 
@@ -131,7 +113,7 @@ async fn fnm_backend_surfaces_command_failures() {
     let temp_dir = tempdir().expect("create temp dir");
     let fnm_path = temp_dir.path().join("fnm");
     let log_path = temp_dir.path().join("fnm.log");
-    write_executable(&fnm_path, &mock_fnm_script(&log_path));
+    write_mock_executable!(&fnm_path, &mock_fnm_script(&log_path));
 
     let backend = FnmBackend::new(fnm_path, Some("test".to_string()), None);
     let result = backend.install("fail").await;

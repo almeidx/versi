@@ -1,3 +1,24 @@
+#[cfg(unix)]
+#[macro_export]
+macro_rules! write_mock_executable {
+    ($path:expr, $content:expr) => {{
+        use std::fs;
+        use std::os::unix::fs::PermissionsExt;
+        let path: &std::path::Path = $path;
+        let tmp_path = path.with_file_name(format!(
+            ".{}.tmp-{}",
+            path.file_name()
+                .expect("mock executable file name")
+                .to_string_lossy(),
+            std::process::id()
+        ));
+        fs::write(&tmp_path, $content).expect("write mock executable");
+        let perms = fs::Permissions::from_mode(0o755);
+        fs::set_permissions(&tmp_path, perms).expect("set mock executable permissions");
+        fs::rename(&tmp_path, path).expect("atomically publish mock executable");
+    }};
+}
+
 #[macro_export]
 macro_rules! provider_tests {
     (

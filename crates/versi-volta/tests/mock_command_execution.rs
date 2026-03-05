@@ -1,27 +1,11 @@
 #![cfg(unix)]
 
 use std::fs;
-use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
 use tempfile::tempdir;
-use versi_backend::{BackendError, VersionManager};
+use versi_backend::{BackendError, VersionManager, write_mock_executable};
 use versi_volta::VoltaBackend;
-
-fn write_executable(path: &Path, content: &str) {
-    let tmp_path = path.with_file_name(format!(
-        ".{}.tmp-{}",
-        path.file_name()
-            .expect("mock executable file name")
-            .to_string_lossy(),
-        std::process::id()
-    ));
-
-    fs::write(&tmp_path, content).expect("write mock volta executable");
-    let perms = fs::Permissions::from_mode(0o755);
-    fs::set_permissions(&tmp_path, perms).expect("set mock volta executable permissions");
-    fs::rename(&tmp_path, path).expect("atomically publish mock volta executable");
-}
 
 fn mock_volta_script(log_path: &Path) -> String {
     let log_path = log_path.display();
@@ -79,7 +63,7 @@ async fn volta_backend_executes_mock_commands_and_parses_output() {
     let volta_path = temp_dir.path().join("volta");
     let log_path = temp_dir.path().join("volta.log");
 
-    write_executable(&volta_path, &mock_volta_script(&log_path));
+    write_mock_executable!(&volta_path, &mock_volta_script(&log_path));
 
     let backend = VoltaBackend::new(
         volta_path,
@@ -120,7 +104,7 @@ async fn volta_backend_surfaces_command_failures() {
     let temp_dir = tempdir().expect("create temp dir");
     let volta_path = temp_dir.path().join("volta");
     let log_path = temp_dir.path().join("volta.log");
-    write_executable(&volta_path, &mock_volta_script(&log_path));
+    write_mock_executable!(&volta_path, &mock_volta_script(&log_path));
 
     let backend = VoltaBackend::new(
         volta_path,
