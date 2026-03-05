@@ -253,7 +253,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_shell_type_name() {
+    fn shell_type_name() {
         assert_eq!(ShellType::Bash.name(), "Bash");
         assert_eq!(ShellType::Zsh.name(), "Zsh");
         assert_eq!(ShellType::Fish.name(), "Fish");
@@ -262,7 +262,7 @@ mod tests {
     }
 
     #[test]
-    fn test_shell_type_shell_arg() {
+    fn shell_type_shell_arg() {
         assert_eq!(ShellType::Bash.shell_arg(), "bash");
         assert_eq!(ShellType::Zsh.shell_arg(), "zsh");
         assert_eq!(ShellType::Fish.shell_arg(), "fish");
@@ -271,40 +271,40 @@ mod tests {
     }
 
     #[test]
-    fn test_config_files_bash() {
+    fn config_files_bash() {
         let files = ShellType::Bash.config_files();
         assert!(!files.is_empty());
         assert!(files.iter().any(|p| p.ends_with(".bashrc")));
     }
 
     #[test]
-    fn test_config_files_zsh() {
+    fn config_files_zsh() {
         let files = ShellType::Zsh.config_files();
         assert!(!files.is_empty());
         assert!(files.iter().any(|p| p.ends_with(".zshrc")));
     }
 
     #[test]
-    fn test_config_files_fish() {
+    fn config_files_fish() {
         let files = ShellType::Fish.config_files();
         assert!(!files.is_empty());
         assert!(files.iter().any(|p| p.to_string_lossy().contains("fish")));
     }
 
     #[test]
-    fn test_config_files_cmd() {
+    fn config_files_cmd() {
         let files = ShellType::Cmd.config_files();
         assert!(files.is_empty());
     }
 
     #[test]
-    fn test_shell_type_equality() {
+    fn shell_type_equality() {
         assert_eq!(ShellType::Bash, ShellType::Bash);
         assert_ne!(ShellType::Bash, ShellType::Zsh);
     }
 
     #[test]
-    fn test_shell_type_copy() {
+    fn shell_type_copy() {
         let shell = ShellType::Bash;
         let copied = shell;
         assert_eq!(shell, copied);

@@ -230,7 +230,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_unix_installed_basic() {
+    fn parse_unix_installed_basic() {
         let output = "->     v20.11.0\n       v18.19.1\ndefault -> 20 (-> v20.11.0)\n";
         let versions = parse_unix_installed(output);
 
@@ -243,21 +243,21 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_unix_installed_empty() {
+    fn parse_unix_installed_empty() {
         let output = "";
         let versions = parse_unix_installed(output);
         assert!(versions.is_empty());
     }
 
     #[test]
-    fn test_parse_unix_installed_skips_aliases() {
+    fn parse_unix_installed_skips_aliases() {
         let output = "->     v20.11.0\n       v18.19.1\ndefault -> 20 (-> v20.11.0)\nnode -> stable (-> v20.11.0) (default)\nstable -> 20.11 (-> v20.11.0)\nlts/* -> lts/iron (-> v20.11.0)\nlts/iron -> v20.11.0\n";
         let versions = parse_unix_installed(output);
         assert_eq!(versions.len(), 2);
     }
 
     #[test]
-    fn test_parse_windows_installed_basic() {
+    fn parse_windows_installed_basic() {
         let output = "  * 20.11.0 (Currently using 64-bit executable)\n    18.19.1\n";
         let versions = parse_windows_installed(output);
 
@@ -269,7 +269,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_unix_remote_basic() {
+    fn parse_unix_remote_basic() {
         let output = "        v20.10.0\n        v20.11.0   (Latest LTS: Iron)\n        v21.0.0\n";
         let versions = parse_unix_remote(output);
 
@@ -283,7 +283,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_unix_remote_with_lts() {
+    fn parse_unix_remote_with_lts() {
         let output =
             "        v18.19.0   (LTS: Hydrogen)\n        v18.19.1   (Latest LTS: Hydrogen)\n";
         let versions = parse_unix_remote(output);
@@ -296,7 +296,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_windows_remote_table() {
+    fn parse_windows_remote_table() {
         let output = "|   CURRENT    |     LTS      |  OLD STABLE  | OLD UNSTABLE |\n|--------------|--------------|--------------|              |\n|    21.6.1    |   20.11.1    |   18.19.1    |              |\n|    21.6.0    |   20.11.0    |   18.19.0    |              |\n";
         let versions = parse_windows_remote(output);
 
@@ -311,7 +311,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_windows_remote_deduplicates_versions() {
+    fn parse_windows_remote_deduplicates_versions() {
         let output =
             "| CURRENT | LTS |\n|---------|-----|\n| 21.6.1 | 20.11.1 |\n| 21.6.1 | 20.11.1 |\n";
         let versions = parse_windows_remote(output);
@@ -320,7 +320,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_windows_remote_upgrades_duplicate_to_lts_when_seen_later() {
+    fn parse_windows_remote_upgrades_duplicate_to_lts_when_seen_later() {
         let output = "21.6.1\n| CURRENT | LTS |\n|---------|-----|\n| 21.6.1 | 21.6.1 |\n";
         let versions = parse_windows_remote(output);
 

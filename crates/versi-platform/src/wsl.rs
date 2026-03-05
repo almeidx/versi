@@ -308,14 +308,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_decode_wsl_output_utf8() {
+    fn decode_wsl_output_utf8() {
         let input = b"Ubuntu Running 2";
         let result = decode_wsl_output(input);
         assert!(result.contains("Ubuntu"));
     }
 
     #[test]
-    fn test_decode_wsl_output_utf16le() {
+    fn decode_wsl_output_utf16le() {
         let input: Vec<u8> = "Ubuntu"
             .encode_utf16()
             .flat_map(|c| c.to_le_bytes())
@@ -325,7 +325,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_wsl_list_basic() {
+    fn parse_wsl_list_basic() {
         let output = "  NAME      STATE           VERSION\n* Ubuntu    Running         2\n  Debian    Stopped         2";
         let running = vec!["Ubuntu".to_string()];
         let distros = parse_wsl_list(output, &running);
@@ -342,7 +342,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_wsl_list_empty() {
+    fn parse_wsl_list_empty() {
         let output = "  NAME      STATE           VERSION\n";
         let running: Vec<String> = vec![];
         let distros = parse_wsl_list(output, &running);
@@ -350,7 +350,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_wsl_list_skips_header() {
+    fn parse_wsl_list_skips_header() {
         let output = "  NAME      STATE           VERSION\nUbuntu    Running         2";
         let running = vec!["Ubuntu".to_string()];
         let distros = parse_wsl_list(output, &running);
@@ -360,7 +360,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_wsl_list_version_parsing() {
+    fn parse_wsl_list_version_parsing() {
         let output = "  NAME      STATE           VERSION\nUbuntu    Running         1";
         let running = vec!["Ubuntu".to_string()];
         let distros = parse_wsl_list(output, &running);
@@ -369,7 +369,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_wsl_list_default_marker() {
+    fn parse_wsl_list_default_marker() {
         let output = "  NAME      STATE           VERSION\n* Ubuntu    Running         2\n  Debian    Stopped         2";
         let running: Vec<String> = vec![];
         let distros = parse_wsl_list(output, &running);
@@ -379,7 +379,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_wsl_list_running_detection() {
+    fn parse_wsl_list_running_detection() {
         let output = "  NAME      STATE           VERSION\nUbuntu    Running         2\nDebian    Stopped         2";
         let running = vec!["Ubuntu".to_string()];
         let distros = parse_wsl_list(output, &running);
@@ -389,7 +389,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_wsl_list_with_null_chars() {
+    fn parse_wsl_list_with_null_chars() {
         let output = "  NAME      STATE           VERSION\nUbuntu\0    Running         2";
         let running = vec!["Ubuntu".to_string()];
         let distros = parse_wsl_list(output, &running);
@@ -398,7 +398,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_wsl_list_minimal_format() {
+    fn parse_wsl_list_minimal_format() {
         let output = "  NAME      STATE           VERSION\nUbuntu";
         let running: Vec<String> = vec![];
         let distros = parse_wsl_list(output, &running);
@@ -409,7 +409,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_wsl_list_name_with_spaces() {
+    fn parse_wsl_list_name_with_spaces() {
         let output = "  NAME      STATE           VERSION\n* Ubuntu 22.04    Running         2\n  Debian    Stopped         2";
         let running = vec!["Ubuntu 22.04".to_string()];
         let distros = parse_wsl_list(output, &running);
@@ -421,7 +421,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wsl_distro_backend_path_default() {
+    fn wsl_distro_backend_path_default() {
         let output = "  NAME      STATE           VERSION\nUbuntu    Running         2";
         let running: Vec<String> = vec![];
         let distros = parse_wsl_list(output, &running);

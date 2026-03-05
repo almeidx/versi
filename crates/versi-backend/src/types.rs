@@ -189,7 +189,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_version_with_v_prefix() {
+    fn parse_version_with_v_prefix() {
         let v: NodeVersion = "v20.11.0".parse().unwrap();
         assert_eq!(v.major, 20);
         assert_eq!(v.minor, 11);
@@ -197,7 +197,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_version_without_v_prefix() {
+    fn parse_version_without_v_prefix() {
         let v: NodeVersion = "20.11.0".parse().unwrap();
         assert_eq!(v.major, 20);
         assert_eq!(v.minor, 11);
@@ -205,25 +205,25 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_version_with_whitespace() {
+    fn parse_version_with_whitespace() {
         let v: NodeVersion = "  v20.11.0  ".parse().unwrap();
         assert_eq!(v.major, 20);
     }
 
     #[test]
-    fn test_parse_version_invalid_format() {
+    fn parse_version_invalid_format() {
         let result: Result<NodeVersion, _> = "v20.11".parse();
         assert!(result.is_err());
     }
 
     #[test]
-    fn test_parse_version_invalid_major() {
+    fn parse_version_invalid_major() {
         let result: Result<NodeVersion, _> = "vXX.11.0".parse();
         assert!(result.is_err());
     }
 
     #[test]
-    fn test_version_display() {
+    fn version_display() {
         let v = NodeVersion::new(20, 11, 0);
         assert_eq!(v.to_string(), "v20.11.0");
     }
@@ -242,35 +242,35 @@ mod tests {
     }
 
     #[test]
-    fn test_version_ordering_by_major() {
+    fn version_ordering_by_major() {
         let v1: NodeVersion = "v18.0.0".parse().unwrap();
         let v2: NodeVersion = "v20.0.0".parse().unwrap();
         assert!(v2 > v1);
     }
 
     #[test]
-    fn test_version_ordering_by_minor() {
+    fn version_ordering_by_minor() {
         let v1: NodeVersion = "v20.10.0".parse().unwrap();
         let v2: NodeVersion = "v20.11.0".parse().unwrap();
         assert!(v2 > v1);
     }
 
     #[test]
-    fn test_version_ordering_by_patch() {
+    fn version_ordering_by_patch() {
         let v1: NodeVersion = "v20.11.0".parse().unwrap();
         let v2: NodeVersion = "v20.11.1".parse().unwrap();
         assert!(v2 > v1);
     }
 
     #[test]
-    fn test_version_equality() {
+    fn version_equality() {
         let v1: NodeVersion = "v20.11.0".parse().unwrap();
         let v2: NodeVersion = "v20.11.0".parse().unwrap();
         assert_eq!(v1, v2);
     }
 
     #[test]
-    fn test_version_group_from_versions() {
+    fn version_group_from_versions() {
         let versions = vec![
             InstalledVersion {
                 version: NodeVersion::new(20, 11, 0),
@@ -302,7 +302,7 @@ mod tests {
     }
 
     #[test]
-    fn test_version_group_sorted_descending() {
+    fn version_group_sorted_descending() {
         let versions = vec![
             InstalledVersion {
                 version: NodeVersion::new(20, 10, 0),
@@ -325,14 +325,14 @@ mod tests {
     }
 
     #[test]
-    fn test_version_group_empty() {
+    fn version_group_empty() {
         let versions: Vec<InstalledVersion> = vec![];
         let groups = VersionGroup::from_versions(&versions);
         assert!(groups.is_empty());
     }
 
     #[test]
-    fn test_version_group_is_expanded_default() {
+    fn version_group_is_expanded_default() {
         let versions = vec![InstalledVersion {
             version: NodeVersion::new(20, 11, 0),
             is_default: false,

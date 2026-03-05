@@ -229,25 +229,25 @@ mod tests {
     }
 
     #[test]
-    fn test_has_init_true() {
+    fn has_init_true() {
         let config = create_test_config(r#"eval "$(fnm env --shell bash)""#);
         assert!(config.has_init("fnm env"));
     }
 
     #[test]
-    fn test_has_init_false() {
+    fn has_init_false() {
         let config = create_test_config("export PATH=$PATH:/usr/bin");
         assert!(!config.has_init("fnm env"));
     }
 
     #[test]
-    fn test_has_init_empty() {
+    fn has_init_empty() {
         let config = create_test_config("");
         assert!(!config.has_init("fnm env"));
     }
 
     #[test]
-    fn test_detect_options_all_flags() {
+    fn detect_options_all_flags() {
         let config = create_test_config(
             r#"eval "$(fnm env --use-on-cd --resolve-engines --corepack-enabled --shell bash)""#,
         );
@@ -258,7 +258,7 @@ mod tests {
     }
 
     #[test]
-    fn test_detect_options_no_flags() {
+    fn detect_options_no_flags() {
         let config = create_test_config(r#"eval "$(fnm env --shell bash)""#);
         let options = config.detect_options("fnm env").unwrap();
         assert!(!options.use_on_cd);
@@ -267,7 +267,7 @@ mod tests {
     }
 
     #[test]
-    fn test_detect_options_partial_flags() {
+    fn detect_options_partial_flags() {
         let config = create_test_config(r#"eval "$(fnm env --use-on-cd --shell bash)""#);
         let options = config.detect_options("fnm env").unwrap();
         assert!(options.use_on_cd);
@@ -276,13 +276,13 @@ mod tests {
     }
 
     #[test]
-    fn test_detect_options_no_marker() {
+    fn detect_options_no_marker() {
         let config = create_test_config("export PATH=$PATH");
         assert!(config.detect_options("fnm env").is_none());
     }
 
     #[test]
-    fn test_detect_options_ignores_other_backend_flags() {
+    fn detect_options_ignores_other_backend_flags() {
         let config = create_test_config(
             r#"eval "$(fnm env --shell bash)"
 eval "$(nvm env --use-on-cd --resolve-engines --corepack-enabled --shell bash)""#,
@@ -294,7 +294,7 @@ eval "$(nvm env --use-on-cd --resolve-engines --corepack-enabled --shell bash)""
     }
 
     #[test]
-    fn test_add_init() {
+    fn add_init() {
         let mut config = create_test_config("# My bashrc\nexport PATH=$PATH");
         let edit = config.add_init(
             r#"eval "$(fnm env --shell bash)""#,
@@ -307,14 +307,14 @@ eval "$(nvm env --use-on-cd --resolve-engines --corepack-enabled --shell bash)""
     }
 
     #[test]
-    fn test_add_flag_to_init() {
+    fn add_flag_to_init() {
         let content = r#"eval "$(fnm env --shell bash)""#;
         let result = ShellConfig::add_flag_to_init(content, "fnm env", "--use-on-cd");
         assert!(result.contains("fnm env --use-on-cd"));
     }
 
     #[test]
-    fn test_add_flag_preserves_existing() {
+    fn add_flag_preserves_existing() {
         let content = r#"eval "$(fnm env --use-on-cd --shell bash)""#;
         let result = ShellConfig::add_flag_to_init(content, "fnm env", "--resolve-engines");
         assert!(result.contains("--use-on-cd"));
@@ -322,7 +322,7 @@ eval "$(nvm env --use-on-cd --resolve-engines --corepack-enabled --shell bash)""
     }
 
     #[test]
-    fn test_remove_flag_from_init() {
+    fn remove_flag_from_init() {
         let content = r#"eval "$(fnm env --use-on-cd --shell bash)""#;
         let result = ShellConfig::remove_flag_from_init(content, "fnm env", "--use-on-cd");
         assert!(!result.contains("--use-on-cd"));
@@ -330,7 +330,7 @@ eval "$(nvm env --use-on-cd --resolve-engines --corepack-enabled --shell bash)""
     }
 
     #[test]
-    fn test_remove_flag_preserves_others() {
+    fn remove_flag_preserves_others() {
         let content = r#"eval "$(fnm env --use-on-cd --resolve-engines --shell bash)""#;
         let result = ShellConfig::remove_flag_from_init(content, "fnm env", "--use-on-cd");
         assert!(!result.contains("--use-on-cd"));
@@ -338,7 +338,7 @@ eval "$(nvm env --use-on-cd --resolve-engines --corepack-enabled --shell bash)""
     }
 
     #[test]
-    fn test_remove_flag_does_not_match_prefix() {
+    fn remove_flag_does_not_match_prefix() {
         let content = r#"eval "$(fnm env --use-on-cd-auto --shell bash)""#;
         let result = ShellConfig::remove_flag_from_init(content, "fnm env", "--use-on-cd");
         assert!(
@@ -348,7 +348,7 @@ eval "$(nvm env --use-on-cd --resolve-engines --corepack-enabled --shell bash)""
     }
 
     #[test]
-    fn test_remove_flag_exact_match_with_similar_prefix() {
+    fn remove_flag_exact_match_with_similar_prefix() {
         let content = r#"eval "$(fnm env --use-on-cd-auto --use-on-cd --shell bash)""#;
         let result = ShellConfig::remove_flag_from_init(content, "fnm env", "--use-on-cd");
         assert!(!result.contains(" --use-on-cd "));
@@ -356,7 +356,7 @@ eval "$(nvm env --use-on-cd --resolve-engines --corepack-enabled --shell bash)""
     }
 
     #[test]
-    fn test_remove_flag_only_flag() {
+    fn remove_flag_only_flag() {
         let content = r#"eval "$(fnm env --use-on-cd)""#;
         let result = ShellConfig::remove_flag_from_init(content, "fnm env", "--use-on-cd");
         assert!(!result.contains("--use-on-cd"));
@@ -364,7 +364,7 @@ eval "$(nvm env --use-on-cd --resolve-engines --corepack-enabled --shell bash)""
     }
 
     #[test]
-    fn test_update_flags_add() {
+    fn update_flags_add() {
         let mut config = create_test_config(r#"eval "$(fnm env --shell bash)""#);
         let options = ShellInitOptions {
             use_on_cd: true,
@@ -378,7 +378,7 @@ eval "$(nvm env --use-on-cd --resolve-engines --corepack-enabled --shell bash)""
     }
 
     #[test]
-    fn test_update_flags_remove() {
+    fn update_flags_remove() {
         let mut config = create_test_config(r#"eval "$(fnm env --use-on-cd --shell bash)""#);
         let options = ShellInitOptions {
             use_on_cd: false,
@@ -392,7 +392,7 @@ eval "$(nvm env --use-on-cd --resolve-engines --corepack-enabled --shell bash)""
     }
 
     #[test]
-    fn test_update_flags_no_change() {
+    fn update_flags_no_change() {
         let mut config = create_test_config(r#"eval "$(fnm env --use-on-cd --shell bash)""#);
         let options = ShellInitOptions {
             use_on_cd: true,
@@ -405,7 +405,7 @@ eval "$(nvm env --use-on-cd --resolve-engines --corepack-enabled --shell bash)""
     }
 
     #[test]
-    fn test_shell_config_edit_has_changes() {
+    fn shell_config_edit_has_changes() {
         let edit = ShellConfigEdit {
             modified: "new".to_string(),
             changes: vec!["Added something".to_string()],
@@ -414,7 +414,7 @@ eval "$(nvm env --use-on-cd --resolve-engines --corepack-enabled --shell bash)""
     }
 
     #[test]
-    fn test_shell_config_edit_no_changes() {
+    fn shell_config_edit_no_changes() {
         let edit = ShellConfigEdit {
             modified: "same".to_string(),
             changes: vec![],
