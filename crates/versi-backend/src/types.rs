@@ -4,7 +4,7 @@ use std::fmt;
 use std::fmt::Write as _;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct NodeVersion {
     pub major: u32,
     pub minor: u32,

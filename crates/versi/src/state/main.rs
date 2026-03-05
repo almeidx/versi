@@ -406,10 +406,10 @@ impl VersionCache {
                 .entry(version.version.major)
                 .and_modify(|existing| {
                     if version.version > *existing {
-                        *existing = version.version.clone();
+                        *existing = version.version;
                     }
                 })
-                .or_insert_with(|| version.version.clone());
+                .or_insert_with(|| version.version);
         }
     }
 
@@ -418,7 +418,7 @@ impl VersionCache {
         for version in &self.versions {
             if let Some(codename) = &version.lts_codename {
                 self.lts_by_version
-                    .insert(version.version.clone(), codename.clone());
+                    .insert(version.version, codename.clone());
             }
         }
     }

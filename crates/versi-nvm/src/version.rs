@@ -165,7 +165,7 @@ pub fn parse_windows_remote(output: &str) -> Vec<RemoteVersion> {
 
         let index = versions.len();
         versions.push(RemoteVersion {
-            version: version.clone(),
+            version,
             lts_codename: is_lts.then(|| "LTS".to_string()),
             is_latest: false,
         });

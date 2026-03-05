@@ -78,10 +78,10 @@ fn latest_by_major<T>(
             .entry(v.major)
             .and_modify(|existing: &mut NodeVersion| {
                 if *v > *existing {
-                    *existing = v.clone();
+                    *existing = *v;
                 }
             })
-            .or_insert_with(|| v.clone());
+            .or_insert_with(|| *v);
     }
     latest
 }

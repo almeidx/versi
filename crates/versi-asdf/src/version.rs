@@ -43,7 +43,7 @@ pub fn parse_installed_versions(output: &str) -> Vec<InstalledVersion> {
         let Some(version) = line
             .split_whitespace()
             .find_map(parse_version_token)
-            .filter(|version| seen.insert(version.clone()))
+            .filter(|version| seen.insert(*version))
         else {
             continue;
         };
@@ -73,7 +73,7 @@ pub fn parse_remote_versions(output: &str) -> Vec<RemoteVersion> {
         let Some(version) = line
             .split_whitespace()
             .find_map(parse_version_token)
-            .filter(|version| seen.insert(version.clone()))
+            .filter(|version| seen.insert(*version))
         else {
             continue;
         };

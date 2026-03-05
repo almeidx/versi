@@ -82,7 +82,7 @@ async fn fnm_install_set_default_and_uninstall_roundtrip() {
         .default_version()
         .await
         .expect("read default version");
-    assert_eq!(default_version, Some(expected_default.clone()));
+    assert_eq!(default_version, Some(expected_default));
 
     backend
         .uninstall(&version)
