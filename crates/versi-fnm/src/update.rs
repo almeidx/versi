@@ -3,7 +3,7 @@ use versi_core::check_github_backend_update;
 
 const FNM_GITHUB_REPO: &str = "Schniz/fnm";
 
-pub async fn check_for_fnm_update(
+pub(crate) async fn check_for_fnm_update(
     client: &reqwest::Client,
     current_version: &str,
 ) -> Result<Option<BackendUpdate>, BackendError> {

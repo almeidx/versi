@@ -6,7 +6,7 @@ use crate::detection::NvmVariant;
 const NVM_UNIX_REPO: &str = "nvm-sh/nvm";
 const NVM_WINDOWS_REPO: &str = "coreybutler/nvm-windows";
 
-pub async fn check_for_nvm_update(
+pub(crate) async fn check_for_nvm_update(
     client: &reqwest::Client,
     current_version: &str,
     variant: &NvmVariant,

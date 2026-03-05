@@ -7,7 +7,7 @@ fn normalize_asdf_version(version: &str) -> &str {
     version.trim().trim_start_matches("asdf ")
 }
 
-pub async fn check_for_asdf_update(
+pub(crate) async fn check_for_asdf_update(
     client: &reqwest::Client,
     current_version: &str,
 ) -> Result<Option<BackendUpdate>, BackendError> {

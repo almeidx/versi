@@ -3,7 +3,7 @@ use versi_core::check_github_backend_update;
 
 const VOLTA_GITHUB_REPO: &str = "volta-cli/volta";
 
-pub async fn check_for_volta_update(
+pub(crate) async fn check_for_volta_update(
     client: &reqwest::Client,
     current_version: &str,
 ) -> Result<Option<BackendUpdate>, BackendError> {
