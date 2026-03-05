@@ -38,4 +38,4 @@ pub use traits::{
     ManagerCapabilities, ShellInitOptions, VersionManager,
 };
 /// Version and grouping models shared across backend implementations.
-pub use types::{InstalledVersion, NodeVersion, RemoteVersion, VersionGroup, VersionParseError};
+pub use types::{InstalledVersion, NodeVersion, RemoteVersion, VersionGroup};
