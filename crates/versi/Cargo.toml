@@ -36,7 +36,7 @@ dirs.workspace = true
 open.workspace = true
 log.workspace = true
 simplelog.workspace = true
-fs2.workspace = true
+fd-lock.workspace = true
 thiserror.workspace = true
 rfd = "0.17.2"
 
