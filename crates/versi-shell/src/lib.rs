@@ -13,8 +13,6 @@ mod config;
 mod detect;
 mod verify;
 
-pub mod shells;
-
 /// Shell config model and edit result used for idempotent file updates.
 pub use config::{ConfigError, ShellConfig, ShellConfigEdit};
 /// Shell detection models and entry points.
