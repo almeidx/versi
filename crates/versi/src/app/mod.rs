@@ -206,7 +206,7 @@ impl Versi {
 
         let http_client = match reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(settings.http_timeout_secs))
-            .user_agent(format!("versi/{}", env!("CARGO_PKG_VERSION")))
+            .user_agent(versi_core::http::USER_AGENT)
             .build()
         {
             Ok(client) => client,
@@ -800,7 +800,6 @@ mod tests {
                 version: NodeVersion::new(20, 11, 0),
                 is_default: true,
                 lts_codename: None,
-                install_date: None,
                 disk_size: None,
             }]),
         );
@@ -838,7 +837,6 @@ mod tests {
                 version: NodeVersion::new(20, 11, 0),
                 is_default: true,
                 lts_codename: None,
-                install_date: None,
                 disk_size: None,
             }]),
         );

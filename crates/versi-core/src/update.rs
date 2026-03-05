@@ -2,7 +2,7 @@ use semver::Version;
 use serde::Deserialize;
 use thiserror::Error;
 
-use crate::http::response_snippet;
+use crate::http::{USER_AGENT, response_snippet};
 
 const GITHUB_REPO: &str = "almeidx/versi";
 
@@ -78,7 +78,7 @@ pub async fn check_for_update(
 
     let response = client
         .get(&url)
-        .header("User-Agent", "versi")
+        .header("User-Agent", USER_AGENT)
         .send()
         .await
         .map_err(UpdateError::Request)?;
@@ -224,7 +224,7 @@ pub async fn check_github_release(
 
     let response = client
         .get(&url)
-        .header("User-Agent", "versi")
+        .header("User-Agent", USER_AGENT)
         .send()
         .await
         .map_err(UpdateError::Request)?;

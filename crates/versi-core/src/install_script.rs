@@ -116,10 +116,7 @@ fn build_download_client() -> Result<reqwest::Client, InstallScriptError> {
     reqwest::Client::builder()
         .timeout(INSTALL_SCRIPT_TIMEOUT)
         .connect_timeout(INSTALL_SCRIPT_CONNECT_TIMEOUT)
-        .user_agent(format!(
-            "versi/{}/installer-script",
-            env!("CARGO_PKG_VERSION")
-        ))
+        .user_agent(crate::http::USER_AGENT)
         .build()
         .map_err(InstallScriptError::ClientBuild)
 }

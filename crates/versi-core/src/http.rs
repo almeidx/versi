@@ -1,3 +1,5 @@
+pub const USER_AGENT: &str = concat!("Versi/", env!("CARGO_PKG_VERSION"));
+
 pub(crate) fn response_snippet(body: &str, max_chars: usize) -> String {
     let snippet: String = body.chars().take(max_chars).collect();
     if snippet.is_empty() {

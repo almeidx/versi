@@ -268,7 +268,7 @@ async fn fetch_latest_release(
 ) -> Result<GitHubRelease, versi_backend::BackendError> {
     let release_response = client
         .get(ASDF_RELEASES_API)
-        .header("User-Agent", "versi")
+        .header("User-Agent", versi_core::http::USER_AGENT)
         .send()
         .await
         .map_err(|error| {
@@ -327,7 +327,7 @@ async fn download_release_asset(
 ) -> Result<Vec<u8>, versi_backend::BackendError> {
     let response = client
         .get(download_url)
-        .header("User-Agent", "versi")
+        .header("User-Agent", versi_core::http::USER_AGENT)
         .send()
         .await
         .map_err(|error| {
