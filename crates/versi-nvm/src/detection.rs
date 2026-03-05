@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 use tokio::process::Command;
 
+#[cfg(unix)]
+use versi_backend::download_and_prepare_install_script;
 #[cfg(any(test, windows))]
 use versi_core::InstallerAttempt;
-#[cfg(unix)]
-use versi_core::download_install_script;
 #[cfg(unix)]
 use versi_core::temp_script_path;
 use versi_platform::HideWindow;
@@ -223,7 +223,7 @@ pub async fn install_nvm() -> Result<(), versi_backend::BackendError> {
     {
         let script_path = temp_script_path("nvm-install", "sh");
         let result = async {
-            download_and_prepare_script(NVM_INSTALL_SCRIPT_URL, &script_path).await?;
+            download_and_prepare_install_script(NVM_INSTALL_SCRIPT_URL, &script_path).await?;
             Command::new("bash")
                 .arg(&script_path)
                 .hide_window()
@@ -263,19 +263,6 @@ pub async fn install_nvm() -> Result<(), versi_backend::BackendError> {
             ),
         ))
     }
-}
-
-#[cfg(unix)]
-async fn download_and_prepare_script(
-    url: &str,
-    path: &std::path::Path,
-) -> Result<(), versi_backend::BackendError> {
-    download_install_script(url, path).await.map_err(|error| {
-        versi_backend::BackendError::install_failed(
-            "download installer script",
-            format!("failed to download installer script: {error}"),
-        )
-    })
 }
 
 #[cfg(test)]

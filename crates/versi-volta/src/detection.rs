@@ -3,10 +3,8 @@ use std::path::{Path, PathBuf};
 use tokio::process::Command;
 use which::which;
 
-use versi_backend::{BackendDetection, BackendError};
+use versi_backend::{BackendDetection, BackendError, download_and_prepare_install_script};
 use versi_core::HideWindow;
-#[cfg(unix)]
-use versi_core::download_install_script;
 use versi_core::get_cli_version;
 #[cfg(unix)]
 use versi_core::temp_script_path;
@@ -152,7 +150,7 @@ pub(crate) async fn install_volta() -> Result<(), BackendError> {
     {
         let script_path = temp_script_path("volta-install", "sh");
         let result = async {
-            download_and_prepare_script(VOLTA_INSTALL_SCRIPT_URL, &script_path).await?;
+            download_and_prepare_install_script(VOLTA_INSTALL_SCRIPT_URL, &script_path).await?;
             Command::new("bash")
                 .arg(&script_path)
                 .hide_window()
@@ -201,19 +199,6 @@ pub(crate) async fn install_volta() -> Result<(), BackendError> {
             ))
         }
     }
-}
-
-#[cfg(unix)]
-async fn download_and_prepare_script(
-    url: &str,
-    path: &std::path::Path,
-) -> Result<(), versi_backend::BackendError> {
-    download_install_script(url, path).await.map_err(|error| {
-        versi_backend::BackendError::install_failed(
-            "download installer script",
-            format!("failed to download installer script: {error}"),
-        )
-    })
 }
 
 #[cfg(test)]

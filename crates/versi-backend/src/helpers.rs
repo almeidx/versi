@@ -1,6 +1,29 @@
 use crate::error::BackendError;
 use crate::types::{InstalledVersion, NodeVersion};
 
+/// Download an install script and map errors to [`BackendError`].
+///
+/// This is a thin adapter around [`versi_core::download_install_script`] that
+/// converts the core error type into the backend error model.
+///
+/// # Errors
+///
+/// Returns [`BackendError::InstallFailed`] when the download or filesystem
+/// preparation fails.
+pub async fn download_and_prepare_install_script(
+    url: &str,
+    path: &std::path::Path,
+) -> Result<(), BackendError> {
+    versi_core::download_install_script(url, path)
+        .await
+        .map_err(|error| {
+            BackendError::install_failed(
+                "download installer script",
+                format!("failed to download installer script: {error}"),
+            )
+        })
+}
+
 const SENTINELS: &[&str] = &["none", "system"];
 
 /// Parse the output of a "current version" command into a [`NodeVersion`].
