@@ -9,7 +9,7 @@
 //! - Small platform command helpers (for example window-hiding adapters).
 
 pub mod auto_update;
-pub mod commands;
+mod commands;
 pub mod http;
 mod install_script;
 mod metadata;
