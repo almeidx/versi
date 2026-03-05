@@ -100,7 +100,7 @@ async fn export_settings_to_path(
     path: &std::path::Path,
 ) -> Result<std::path::PathBuf, AppError> {
     let content = serde_json::to_string_pretty(settings)
-        .map_err(|error| AppError::settings_export_failed("serialize", error))?;
+        .map_err(|error| AppError::settings_export_failed("serialize", error.to_string()))?;
     tokio::fs::write(path, content)
         .await
         .map_err(|error| AppError::settings_export_failed("write", error))?;
@@ -113,7 +113,8 @@ async fn import_settings_from_path(
     let content = tokio::fs::read_to_string(path)
         .await
         .map_err(|error| AppError::settings_import_failed("read", error))?;
-    serde_json::from_str(&content).map_err(|error| AppError::settings_import_failed("parse", error))
+    serde_json::from_str(&content)
+        .map_err(|error| AppError::settings_import_failed("parse", error.to_string()))
 }
 
 #[cfg(test)]
