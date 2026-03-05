@@ -45,22 +45,22 @@ fn nvm_windows_install_attempts() -> &'static [InstallerAttempt] {
 }
 
 #[derive(Debug, Clone)]
-pub struct NvmDetection {
-    pub found: bool,
-    pub nvm_dir: Option<PathBuf>,
-    pub nvm_exe: Option<PathBuf>,
-    pub version: Option<String>,
-    pub variant: NvmVariant,
+pub(crate) struct NvmDetection {
+    pub(crate) found: bool,
+    pub(crate) nvm_dir: Option<PathBuf>,
+    pub(crate) nvm_exe: Option<PathBuf>,
+    pub(crate) version: Option<String>,
+    pub(crate) variant: NvmVariant,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum NvmVariant {
+pub(crate) enum NvmVariant {
     Unix,
     Windows,
     NotFound,
 }
 
-pub async fn detect_nvm() -> NvmDetection {
+pub(crate) async fn detect_nvm() -> NvmDetection {
     if let Some(detection) = detect_unix_nvm().await {
         return detection;
     }
@@ -199,7 +199,7 @@ async fn get_windows_nvm_version(path: &Path) -> Option<String> {
     }
 }
 
-pub fn detect_nvm_environment(detection: &NvmDetection) -> Option<NvmEnvironment> {
+pub(crate) fn detect_nvm_environment(detection: &NvmDetection) -> Option<NvmEnvironment> {
     match detection.variant {
         NvmVariant::Unix => detection.nvm_dir.as_ref().map(|dir| NvmEnvironment::Unix {
             nvm_dir: dir.clone(),
@@ -214,7 +214,7 @@ pub fn detect_nvm_environment(detection: &NvmDetection) -> Option<NvmEnvironment
     }
 }
 
-pub async fn install_nvm() -> Result<(), versi_backend::BackendError> {
+pub(crate) async fn install_nvm() -> Result<(), versi_backend::BackendError> {
     #[cfg(unix)]
     {
         return versi_backend::run_unix_install_script(NVM_INSTALL_SCRIPT_URL, "nvm-install").await;
