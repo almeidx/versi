@@ -163,7 +163,7 @@ impl Versi {
                                 in_path: true,
                                 data_dir: None,
                             })
-                            .shell_init_command(shell_type_to_str(config.shell_type), &options)
+                            .shell_init_command(config.shell_type.shell_arg(), &options)
                             .ok_or_else(|| AppError::shell_not_supported(shell_name))?;
 
                         let edit = config.add_init(&init_command, &backend_label);
@@ -219,16 +219,6 @@ impl Versi {
     }
 }
 
-fn shell_type_to_str(shell_type: versi_shell::ShellType) -> &'static str {
-    match shell_type {
-        versi_shell::ShellType::Bash => "bash",
-        versi_shell::ShellType::Zsh => "zsh",
-        versi_shell::ShellType::Fish => "fish",
-        versi_shell::ShellType::PowerShell => "powershell",
-        versi_shell::ShellType::Cmd => "cmd",
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -237,7 +227,7 @@ mod tests {
 
     use versi_backend::BackendProvider;
 
-    use super::{Versi, shell_type_to_str};
+    use super::Versi;
     use crate::backend_kind::BackendKind;
     use crate::error::{AppError, AppErrorDetail};
     use crate::settings::AppSettings;
@@ -509,17 +499,5 @@ mod tests {
         assert_eq!(state.detected_shells[0].error, Some(err));
         assert!(!state.detected_shells[0].configured);
         assert!(!state.detected_shells[0].configuring);
-    }
-
-    #[test]
-    fn shell_type_to_str_maps_expected_values() {
-        assert_eq!(shell_type_to_str(versi_shell::ShellType::Bash), "bash");
-        assert_eq!(shell_type_to_str(versi_shell::ShellType::Zsh), "zsh");
-        assert_eq!(shell_type_to_str(versi_shell::ShellType::Fish), "fish");
-        assert_eq!(
-            shell_type_to_str(versi_shell::ShellType::PowerShell),
-            "powershell"
-        );
-        assert_eq!(shell_type_to_str(versi_shell::ShellType::Cmd), "cmd");
     }
 }
