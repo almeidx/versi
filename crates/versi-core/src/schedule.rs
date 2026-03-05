@@ -65,24 +65,6 @@ impl ReleaseSchedule {
             .get(&major)
             .and_then(|s| s.codename.as_deref())
     }
-
-    #[must_use]
-    pub fn active_versions(&self) -> Vec<u32> {
-        self.versions
-            .keys()
-            .filter(|&&major| self.is_active(major))
-            .copied()
-            .collect()
-    }
-
-    #[must_use]
-    pub fn active_lts_versions(&self) -> Vec<u32> {
-        self.versions
-            .keys()
-            .filter(|&&major| self.is_active(major) && self.is_lts(major))
-            .copied()
-            .collect()
-    }
 }
 
 /// Fetch and parse the Node.js release schedule.
@@ -230,14 +212,5 @@ mod tests {
     fn test_is_active_eol_version() {
         let schedule = create_test_schedule();
         assert!(!schedule.is_active(16));
-    }
-
-    #[test]
-    fn test_active_lts_versions() {
-        let schedule = create_test_schedule();
-        let active_lts = schedule.active_lts_versions();
-        assert!(active_lts.contains(&20));
-        assert!(!active_lts.contains(&23));
-        assert!(!active_lts.contains(&16));
     }
 }

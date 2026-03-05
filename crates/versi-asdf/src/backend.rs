@@ -38,12 +38,6 @@ impl AsdfBackend {
     }
 
     #[must_use]
-    pub fn with_asdf_data_dir(mut self, dir: PathBuf) -> Self {
-        self.info.data_dir = Some(dir);
-        self
-    }
-
-    #[must_use]
     pub fn with_in_path(mut self, in_path: bool) -> Self {
         self.info.in_path = in_path;
         self

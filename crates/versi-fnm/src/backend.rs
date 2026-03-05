@@ -36,7 +36,6 @@ struct InstallProgressParser {
 #[derive(Clone)]
 pub struct FnmBackend {
     info: BackendInfo,
-    node_dist_mirror: Option<String>,
     command_env: CommandEnvironment,
 }
 
@@ -54,7 +53,6 @@ impl FnmBackend {
                 data_dir,
                 in_path: true,
             },
-            node_dist_mirror: None,
             command_env,
         }
     }
@@ -62,12 +60,6 @@ impl FnmBackend {
     #[must_use]
     pub fn with_fnm_dir(mut self, dir: PathBuf) -> Self {
         self.info.data_dir = Some(dir);
-        self
-    }
-
-    #[must_use]
-    pub fn with_node_dist_mirror(mut self, mirror: String) -> Self {
-        self.node_dist_mirror = Some(mirror);
         self
     }
 
@@ -87,7 +79,6 @@ impl FnmBackend {
                 data_dir: None,
                 in_path: false,
             },
-            node_dist_mirror: None,
             command_env: CommandEnvironment::Wsl {
                 distro,
                 binary_path: fnm_path,
@@ -103,11 +94,6 @@ impl FnmBackend {
         if let Some(dir) = &self.info.data_dir {
             debug!("Setting FNM_DIR={}", dir.display());
             cmd.env("FNM_DIR", dir);
-        }
-
-        if let Some(mirror) = &self.node_dist_mirror {
-            debug!("Setting FNM_NODE_DIST_MIRROR={mirror}");
-            cmd.env("FNM_NODE_DIST_MIRROR", mirror);
         }
     }
 
