@@ -6,4 +6,3 @@ mod version;
 
 pub use backend::AsdfBackend;
 pub use provider::AsdfProvider;
-pub use version::{parse_current_version, parse_installed_versions, parse_remote_versions};
