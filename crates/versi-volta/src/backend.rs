@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use versi_backend::{
     BackendError, BackendInfo, CommandEnvironment, InstalledVersion, ManagerCapabilities,
     NodeVersion, RemoteVersion, ShellInitOptions, VersionManager, execute_backend_command,
+    strip_version_prefix,
 };
 
 use crate::version::{
@@ -73,15 +74,14 @@ impl VoltaBackend {
     }
 
     fn normalized_node_spec(version: &str) -> String {
-        let normalized = version.trim().trim_start_matches('v');
-        format!("node@{normalized}")
+        format!("node@{}", strip_version_prefix(version))
     }
 
     async fn fetch_remote_versions(&self) -> Result<Vec<RemoteVersion>, BackendError> {
         let response = self
             .http_client
             .get(NODE_INDEX_URL)
-            .header("User-Agent", "versi")
+            .header("User-Agent", versi_core::http::USER_AGENT)
             .send()
             .await
             .map_err(|error| BackendError::network_request_from("volta remote versions", error))?;

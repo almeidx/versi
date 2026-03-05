@@ -13,13 +13,14 @@ const SENTINELS: &[&str] = &["none", "system"];
 /// Returns [`BackendError::ParseError`] when the trimmed output is
 /// present but cannot be parsed as a valid semver version string.
 pub fn parse_current_version(output: &str) -> Result<Option<NodeVersion>, BackendError> {
-    let trimmed = output.trim().strip_prefix('v').unwrap_or(output.trim());
+    let trimmed = output.trim();
 
     if trimmed.is_empty() || SENTINELS.contains(&trimmed) {
         return Ok(None);
     }
 
-    trimmed.parse().map(Some).map_err(BackendError::from)
+    let version_str = trimmed.strip_prefix('v').unwrap_or(trimmed);
+    version_str.parse().map(Some).map_err(BackendError::from)
 }
 
 #[must_use]
@@ -30,9 +31,14 @@ pub fn find_default_version(versions: Vec<InstalledVersion>) -> Option<NodeVersi
         .map(|v| v.version)
 }
 
+#[must_use]
+pub fn strip_version_prefix(version: &str) -> &str {
+    version.trim().strip_prefix('v').unwrap_or(version.trim())
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{find_default_version, parse_current_version};
+    use super::{find_default_version, parse_current_version, strip_version_prefix};
     use crate::types::NodeVersion;
 
     #[test]
@@ -89,7 +95,6 @@ mod tests {
             version: version.parse().unwrap(),
             is_default,
             lts_codename: None,
-            install_date: None,
             disk_size: None,
         }
     }
@@ -116,5 +121,13 @@ mod tests {
     #[test]
     fn find_default_returns_none_for_empty_list() {
         assert_eq!(find_default_version(vec![]), None);
+    }
+
+    #[test]
+    fn strip_version_prefix_removes_v() {
+        assert_eq!(strip_version_prefix("v20.11.0"), "20.11.0");
+        assert_eq!(strip_version_prefix("20.11.0"), "20.11.0");
+        assert_eq!(strip_version_prefix("  v22.1.0  "), "22.1.0");
+        assert_eq!(strip_version_prefix("  22.1.0  "), "22.1.0");
     }
 }

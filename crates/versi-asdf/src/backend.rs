@@ -8,7 +8,7 @@ use versi_core::HideWindow;
 use versi_backend::{
     BackendError, BackendInfo, CommandEnvironment, InstalledVersion, ManagerCapabilities,
     NodeVersion, RemoteVersion, ShellInitOptions, VersionManager, build_backend_command,
-    command_output_to_result,
+    command_output_to_result, strip_version_prefix,
 };
 
 use crate::version::{parse_current_version, parse_installed_versions, parse_remote_versions};
@@ -168,10 +168,6 @@ impl AsdfBackend {
     }
 }
 
-fn normalize_version(version: &str) -> String {
-    version.trim().trim_start_matches('v').to_string()
-}
-
 #[async_trait]
 impl VersionManager for AsdfBackend {
     fn name(&self) -> &'static str {
@@ -224,22 +220,22 @@ impl VersionManager for AsdfBackend {
     }
 
     async fn install(&self, version: &str) -> Result<(), BackendError> {
-        let normalized = normalize_version(version);
-        self.execute(&["install", "nodejs", &normalized], false)
+        let normalized = strip_version_prefix(version);
+        self.execute(&["install", "nodejs", normalized], false)
             .await?;
         Ok(())
     }
 
     async fn uninstall(&self, version: &str) -> Result<(), BackendError> {
-        let normalized = normalize_version(version);
-        self.execute(&["uninstall", "nodejs", &normalized], false)
+        let normalized = strip_version_prefix(version);
+        self.execute(&["uninstall", "nodejs", normalized], false)
             .await?;
         Ok(())
     }
 
     async fn set_default(&self, version: &str) -> Result<(), BackendError> {
-        let normalized = normalize_version(version);
-        self.execute(&["set", "-u", "nodejs", &normalized], false)
+        let normalized = strip_version_prefix(version);
+        self.execute(&["set", "-u", "nodejs", normalized], false)
             .await?;
         Ok(())
     }
