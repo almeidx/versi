@@ -22,7 +22,7 @@ pub use command::{
     execute_backend_command_with,
 };
 /// Error type shared by backend providers and managers.
-pub use error::{BackendError, NetworkStage};
+pub use error::BackendError;
 /// Shared helpers for common backend patterns.
 pub use helpers::{
     download_and_prepare_install_script, find_default_version, parse_current_version,
@@ -36,6 +36,4 @@ pub use traits::{
     ManagerCapabilities, ShellInitOptions, VersionManager,
 };
 /// Version and grouping models shared across backend implementations.
-pub use types::{
-    InstalledVersion, NodeVersion, RemoteVersion, VersionComponent, VersionGroup, VersionParseError,
-};
+pub use types::{InstalledVersion, NodeVersion, RemoteVersion, VersionGroup, VersionParseError};

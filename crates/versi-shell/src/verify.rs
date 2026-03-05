@@ -151,7 +151,7 @@ async fn functional_test(shell_type: &ShellType, backend_binary: &str) -> bool {
     }
 }
 
-pub fn get_config_path_for_shell(shell_type: &ShellType) -> Option<PathBuf> {
+fn get_config_path_for_shell(shell_type: &ShellType) -> Option<PathBuf> {
     shell_type.config_files().into_iter().find(|p| p.exists())
 }
 

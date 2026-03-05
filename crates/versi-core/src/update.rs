@@ -48,7 +48,7 @@ pub enum UpdateError {
     Parse(#[source] reqwest::Error),
 }
 
-pub fn asset_name(version: &str) -> Option<String> {
+fn asset_name(version: &str) -> Option<String> {
     let name = if cfg!(target_os = "macos") && cfg!(target_arch = "aarch64") {
         format!("versi-{version}-macos-arm64.zip")
     } else if cfg!(target_os = "macos") && cfg!(target_arch = "x86_64") {
