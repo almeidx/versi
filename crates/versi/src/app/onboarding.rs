@@ -141,7 +141,7 @@ impl Versi {
                 async move {
                     use versi_shell::{ShellConfig, get_or_create_config_path};
 
-                    let config_path = get_or_create_config_path(&shell_type)
+                    let config_path = get_or_create_config_path(shell_type)
                         .ok_or_else(|| AppError::shell_config_path_not_found(shell_name))?;
 
                     let mut config = ShellConfig::load(shell_type, config_path)
@@ -163,7 +163,7 @@ impl Versi {
                                 in_path: true,
                                 data_dir: None,
                             })
-                            .shell_init_command(shell_type_to_str(&config.shell_type), &options)
+                            .shell_init_command(shell_type_to_str(config.shell_type), &options)
                             .ok_or_else(|| AppError::shell_not_supported(shell_name))?;
 
                         let edit = config.add_init(&init_command, &backend_label);
@@ -219,7 +219,7 @@ impl Versi {
     }
 }
 
-fn shell_type_to_str(shell_type: &versi_shell::ShellType) -> &'static str {
+fn shell_type_to_str(shell_type: versi_shell::ShellType) -> &'static str {
     match shell_type {
         versi_shell::ShellType::Bash => "bash",
         versi_shell::ShellType::Zsh => "zsh",
@@ -513,13 +513,13 @@ mod tests {
 
     #[test]
     fn shell_type_to_str_maps_expected_values() {
-        assert_eq!(shell_type_to_str(&versi_shell::ShellType::Bash), "bash");
-        assert_eq!(shell_type_to_str(&versi_shell::ShellType::Zsh), "zsh");
-        assert_eq!(shell_type_to_str(&versi_shell::ShellType::Fish), "fish");
+        assert_eq!(shell_type_to_str(versi_shell::ShellType::Bash), "bash");
+        assert_eq!(shell_type_to_str(versi_shell::ShellType::Zsh), "zsh");
+        assert_eq!(shell_type_to_str(versi_shell::ShellType::Fish), "fish");
         assert_eq!(
-            shell_type_to_str(&versi_shell::ShellType::PowerShell),
+            shell_type_to_str(versi_shell::ShellType::PowerShell),
             "powershell"
         );
-        assert_eq!(shell_type_to_str(&versi_shell::ShellType::Cmd), "cmd");
+        assert_eq!(shell_type_to_str(versi_shell::ShellType::Cmd), "cmd");
     }
 }

@@ -84,7 +84,7 @@ impl WslShellConfigError {
 }
 
 pub async fn verify_shell_config(
-    shell_type: &ShellType,
+    shell_type: ShellType,
     marker: &str,
     backend_binary: &str,
 ) -> VerificationResult {
@@ -92,7 +92,7 @@ pub async fn verify_shell_config(
     let existing_config = config_files.iter().find(|p| p.exists());
 
     match existing_config {
-        Some(config_path) => match ShellConfig::load(shell_type.clone(), config_path.clone()) {
+        Some(config_path) => match ShellConfig::load(shell_type, config_path.clone()) {
             Ok(config) => {
                 if config.has_init(marker) {
                     let options = config.detect_options(marker);
@@ -109,7 +109,7 @@ pub async fn verify_shell_config(
     }
 }
 
-async fn functional_test(shell_type: &ShellType, backend_binary: &str) -> bool {
+async fn functional_test(shell_type: ShellType, backend_binary: &str) -> bool {
     let version_cmd = format!("{backend_binary} --version");
     match shell_type {
         ShellType::Bash => Command::new("bash")
@@ -151,12 +151,12 @@ async fn functional_test(shell_type: &ShellType, backend_binary: &str) -> bool {
     }
 }
 
-fn get_config_path_for_shell(shell_type: &ShellType) -> Option<PathBuf> {
+fn get_config_path_for_shell(shell_type: ShellType) -> Option<PathBuf> {
     shell_type.config_files().into_iter().find(|p| p.exists())
 }
 
 #[must_use]
-pub fn get_or_create_config_path(shell_type: &ShellType) -> Option<PathBuf> {
+pub fn get_or_create_config_path(shell_type: ShellType) -> Option<PathBuf> {
     if let Some(existing) = get_config_path_for_shell(shell_type) {
         return Some(existing);
     }
@@ -166,7 +166,7 @@ pub fn get_or_create_config_path(shell_type: &ShellType) -> Option<PathBuf> {
 
 #[cfg(target_os = "windows")]
 pub async fn verify_wsl_shell_config(
-    shell_type: &ShellType,
+    shell_type: ShellType,
     distro: &str,
     marker: &str,
     backend_binary: &str,
@@ -244,7 +244,7 @@ pub async fn verify_wsl_shell_config(
 }
 
 #[cfg(target_os = "windows")]
-async fn wsl_functional_test(shell_type: &ShellType, distro: &str, backend_binary: &str) -> bool {
+async fn wsl_functional_test(shell_type: ShellType, distro: &str, backend_binary: &str) -> bool {
     use log::debug;
 
     let version_cmd = format!("{} --version", backend_binary);
@@ -283,7 +283,7 @@ async fn wsl_functional_test(shell_type: &ShellType, distro: &str, backend_binar
 /// Returns an error if the target shell is unsupported, or if reading/updating
 /// the remote config file fails.
 pub async fn configure_wsl_shell_config(
-    shell_type: &ShellType,
+    shell_type: ShellType,
     distro: &str,
     marker: &str,
     label: &str,
@@ -293,7 +293,7 @@ pub async fn configure_wsl_shell_config(
     let config_path = wsl_config_path(shell_type)?;
     let content = read_wsl_config_file(distro, config_path).await?;
     let mut config = ShellConfig {
-        shell_type: shell_type.clone(),
+        shell_type,
         config_path: PathBuf::from(config_path),
         content,
     };
@@ -312,7 +312,7 @@ pub async fn configure_wsl_shell_config(
 }
 
 #[cfg(target_os = "windows")]
-fn wsl_config_path(shell_type: &ShellType) -> Result<&'static str, WslShellConfigError> {
+fn wsl_config_path(shell_type: ShellType) -> Result<&'static str, WslShellConfigError> {
     match shell_type {
         ShellType::Bash => Ok("$HOME/.bashrc"),
         ShellType::Zsh => Ok("$HOME/.zshrc"),
@@ -416,7 +416,7 @@ async fn write_wsl_config_file(
 
 #[cfg(not(target_os = "windows"))]
 pub async fn verify_wsl_shell_config(
-    _shell_type: &ShellType,
+    _shell_type: ShellType,
     _distro: &str,
     _marker: &str,
     _backend_binary: &str,
@@ -432,7 +432,7 @@ pub async fn verify_wsl_shell_config(
 /// # Errors
 /// Always returns an error on non-Windows platforms because WSL is unavailable.
 pub async fn configure_wsl_shell_config(
-    _shell_type: &ShellType,
+    _shell_type: ShellType,
     _distro: &str,
     _marker: &str,
     _label: &str,
@@ -456,14 +456,14 @@ mod tests {
 
     #[test]
     fn cmd_shell_has_no_config_path() {
-        assert!(get_config_path_for_shell(&ShellType::Cmd).is_none());
-        assert!(get_or_create_config_path(&ShellType::Cmd).is_none());
+        assert!(get_config_path_for_shell(ShellType::Cmd).is_none());
+        assert!(get_or_create_config_path(ShellType::Cmd).is_none());
     }
 
     #[cfg(not(target_os = "windows"))]
     #[tokio::test]
     async fn wsl_verify_returns_platform_error_on_non_windows() {
-        let result = verify_wsl_shell_config(&ShellType::Bash, "Ubuntu", "fnm env", "fnm").await;
+        let result = verify_wsl_shell_config(ShellType::Bash, "Ubuntu", "fnm env", "fnm").await;
 
         assert!(matches!(
             result,
@@ -477,7 +477,7 @@ mod tests {
     #[tokio::test]
     async fn wsl_configure_returns_platform_error_on_non_windows() {
         let result = configure_wsl_shell_config(
-            &ShellType::Bash,
+            ShellType::Bash,
             "Ubuntu",
             "fnm env",
             "fnm",

@@ -221,7 +221,7 @@ fn detect_onboarding_shell_statuses() -> Vec<ShellConfigStatus> {
     shells
         .into_iter()
         .map(|shell| ShellConfigStatus {
-            shell_type: shell.shell_type.clone(),
+            shell_type: shell.shell_type,
             shell_name: shell.shell_type.name().to_string(),
             configured: shell.is_configured,
             config_path: shell.config_file,

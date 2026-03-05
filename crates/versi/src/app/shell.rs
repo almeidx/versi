@@ -49,15 +49,15 @@ impl Versi {
                 for shell in shells {
                     #[cfg(target_os = "windows")]
                     let result = if let Some(distro) = &wsl_distro {
-                        verify_wsl_shell_config(&shell.shell_type, distro, &marker, &backend_name)
+                        verify_wsl_shell_config(shell.shell_type, distro, &marker, &backend_name)
                             .await
                     } else {
-                        verify_shell_config(&shell.shell_type, &marker, &backend_name).await
+                        verify_shell_config(shell.shell_type, &marker, &backend_name).await
                     };
                     #[cfg(not(target_os = "windows"))]
                     let result = {
                         let _ = &wsl_distro;
-                        verify_shell_config(&shell.shell_type, &marker, &backend_name).await
+                        verify_shell_config(shell.shell_type, &marker, &backend_name).await
                     };
                     results.push((shell.shell_type, result));
                 }
@@ -151,7 +151,7 @@ impl Versi {
             None
         };
 
-        let shell_type_for_callback = shell_type.clone();
+        let shell_type_for_callback = shell_type;
         Task::perform(
             async move {
                 use versi_shell::{ShellConfig, get_or_create_config_path};
@@ -170,7 +170,7 @@ impl Versi {
                         .ok_or_else(|| AppError::shell_not_supported(shell_name))?;
 
                     versi_shell::configure_wsl_shell_config(
-                        &shell_type,
+                        shell_type,
                         &distro,
                         &marker,
                         &label,
@@ -185,10 +185,10 @@ impl Versi {
                     return Ok::<_, AppError>(());
                 }
 
-                let config_path = get_or_create_config_path(&shell_type)
+                let config_path = get_or_create_config_path(shell_type)
                     .ok_or_else(|| AppError::shell_config_path_not_found(shell_name))?;
 
-                let mut config = ShellConfig::load(shell_type.clone(), config_path)
+                let mut config = ShellConfig::load(shell_type, config_path)
                     .map_err(|e| AppError::shell_config_failed(shell_name, "load config", e))?;
 
                 if config.has_init(&marker) {
@@ -220,13 +220,13 @@ impl Versi {
 
                 Ok::<_, AppError>(())
             },
-            move |result| Message::ShellConfigured(shell_type_for_callback.clone(), result),
+            move |result| Message::ShellConfigured(shell_type_for_callback, result),
         )
     }
 
     pub(super) fn handle_shell_configured(
         &mut self,
-        shell_type: &versi_shell::ShellType,
+        shell_type: versi_shell::ShellType,
         result: &Result<(), AppError>,
     ) {
         if let AppState::Main(state) = &mut self.state
@@ -234,7 +234,7 @@ impl Versi {
                 .settings_state
                 .shell_statuses
                 .iter_mut()
-                .find(|s| &s.shell_type == shell_type)
+                .find(|s| s.shell_type == shell_type)
         {
             shell.configuring = false;
             match result {
@@ -265,8 +265,7 @@ impl Versi {
 
                 for shell in shells {
                     if let Some(config_path) = shell.config_file
-                        && let Ok(mut config) =
-                            ShellConfig::load(shell.shell_type.clone(), config_path)
+                        && let Ok(mut config) = ShellConfig::load(shell.shell_type, config_path)
                         && config.has_init(&marker)
                     {
                         let edit = config.update_flags(&marker, &options);
@@ -398,7 +397,7 @@ mod tests {
             configuring: true,
         }];
 
-        app.handle_shell_configured(&versi_shell::ShellType::Zsh, &Ok(()));
+        app.handle_shell_configured(versi_shell::ShellType::Zsh, &Ok(()));
 
         let status = &app.main_state().settings_state.shell_statuses[0];
         assert!(!status.configuring);
@@ -416,7 +415,7 @@ mod tests {
         }];
 
         let error = AppError::shell_config_failed("Zsh", "write config", "permission denied");
-        app.handle_shell_configured(&versi_shell::ShellType::Zsh, &Err(error));
+        app.handle_shell_configured(versi_shell::ShellType::Zsh, &Err(error));
 
         let status = &app.main_state().settings_state.shell_statuses[0];
         assert!(!status.configuring);
@@ -433,7 +432,7 @@ mod tests {
             configuring: true,
         }];
 
-        app.handle_shell_configured(&versi_shell::ShellType::Fish, &Ok(()));
+        app.handle_shell_configured(versi_shell::ShellType::Fish, &Ok(()));
 
         let status = &app.main_state().settings_state.shell_statuses[0];
         assert!(status.configuring);

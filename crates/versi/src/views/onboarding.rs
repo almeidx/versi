@@ -278,7 +278,7 @@ fn configure_shell_step(
             } else {
                 container(
                     button(text("Configure").size(14))
-                        .on_press(Message::OnboardingConfigureShell(shell.shell_type.clone()))
+                        .on_press(Message::OnboardingConfigureShell(shell.shell_type))
                         .style(styles::secondary_button)
                         .padding([6, 12]),
                 )

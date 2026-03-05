@@ -44,7 +44,7 @@ impl Versi {
             }
             Message::ConfigureShell(shell_type) => Ok(self.handle_configure_shell(shell_type)),
             Message::ShellConfigured(shell_type, result) => {
-                Ok(self.handle_shell_configured_message(&shell_type, &result))
+                Ok(self.handle_shell_configured_message(shell_type, &result))
             }
             Message::PreferredBackendChanged(name) => {
                 Ok(self.handle_preferred_backend_changed(name))
@@ -247,7 +247,7 @@ impl Versi {
 
     fn handle_shell_configured_message(
         &mut self,
-        shell_type: &versi_shell::ShellType,
+        shell_type: versi_shell::ShellType,
         result: &Result<(), crate::error::AppError>,
     ) -> Task<Message> {
         self.handle_shell_configured(shell_type, result);

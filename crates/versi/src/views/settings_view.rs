@@ -372,7 +372,7 @@ fn shell_status_row(shell: &crate::state::ShellSetupStatus) -> iced::widget::Row
             .color(crate::theme::tokens::EOL_ORANGE),
         Space::new().width(Length::Fill),
         button(text("Configure").size(11))
-            .on_press(Message::ConfigureShell(shell.shell_type.clone()))
+            .on_press(Message::ConfigureShell(shell.shell_type))
             .style(styles::secondary_button)
             .padding([4, 10]),
     ]

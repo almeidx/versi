@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use which::which;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ShellType {
     Bash,
     Zsh,
@@ -104,7 +104,7 @@ pub fn detect_native_shells() -> Vec<ShellInfo> {
     #[cfg(unix)]
     {
         if let Ok(path) = which("bash") {
-            let config_file = find_existing_config(&ShellType::Bash);
+            let config_file = find_existing_config(ShellType::Bash);
             shells.push(ShellInfo {
                 shell_type: ShellType::Bash,
                 path: Some(path),
@@ -114,7 +114,7 @@ pub fn detect_native_shells() -> Vec<ShellInfo> {
         }
 
         if let Ok(path) = which("zsh") {
-            let config_file = find_existing_config(&ShellType::Zsh);
+            let config_file = find_existing_config(ShellType::Zsh);
             shells.push(ShellInfo {
                 shell_type: ShellType::Zsh,
                 path: Some(path),
@@ -124,7 +124,7 @@ pub fn detect_native_shells() -> Vec<ShellInfo> {
         }
 
         if let Ok(path) = which("fish") {
-            let config_file = find_existing_config(&ShellType::Fish);
+            let config_file = find_existing_config(ShellType::Fish);
             shells.push(ShellInfo {
                 shell_type: ShellType::Fish,
                 path: Some(path),
@@ -152,7 +152,7 @@ pub fn detect_native_shells() -> Vec<ShellInfo> {
             });
 
         if powershell_path.is_some() {
-            let config_file = find_existing_config(&ShellType::PowerShell);
+            let config_file = find_existing_config(ShellType::PowerShell);
             shells.push(ShellInfo {
                 shell_type: ShellType::PowerShell,
                 path: powershell_path,
@@ -244,7 +244,7 @@ pub fn detect_wsl_shells(_distro: &str) -> Vec<ShellInfo> {
     Vec::new()
 }
 
-fn find_existing_config(shell: &ShellType) -> Option<PathBuf> {
+fn find_existing_config(shell: ShellType) -> Option<PathBuf> {
     shell.config_files().into_iter().find(|path| path.exists())
 }
 
@@ -304,9 +304,9 @@ mod tests {
     }
 
     #[test]
-    fn test_shell_type_clone() {
+    fn test_shell_type_copy() {
         let shell = ShellType::Bash;
-        let cloned = shell.clone();
-        assert_eq!(shell, cloned);
+        let copied = shell;
+        assert_eq!(shell, copied);
     }
 }
