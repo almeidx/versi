@@ -25,7 +25,7 @@ fn parse_runtime_line(line: &str) -> Option<RuntimeLine> {
 }
 
 #[must_use]
-pub fn parse_installed_versions(output: &str) -> Vec<InstalledVersion> {
+pub(crate) fn parse_installed_versions(output: &str) -> Vec<InstalledVersion> {
     let mut versions: Vec<InstalledVersion> = Vec::new();
 
     for line in output.lines() {
@@ -51,7 +51,7 @@ pub fn parse_installed_versions(output: &str) -> Vec<InstalledVersion> {
 }
 
 #[must_use]
-pub fn parse_first_runtime_version(output: &str) -> Option<NodeVersion> {
+pub(crate) fn parse_first_runtime_version(output: &str) -> Option<NodeVersion> {
     output
         .lines()
         .find_map(parse_runtime_line)
@@ -87,7 +87,7 @@ impl LtsValue {
 /// # Errors
 ///
 /// Returns an error if the response body is not valid JSON for the expected schema.
-pub fn parse_node_index_remote_versions(
+pub(crate) fn parse_node_index_remote_versions(
     body: &str,
 ) -> Result<Vec<RemoteVersion>, serde_json::Error> {
     let entries: Vec<NodeIndexEntry> = serde_json::from_str(body)?;

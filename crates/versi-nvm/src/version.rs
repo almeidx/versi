@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use log::debug;
 use versi_backend::{InstalledVersion, NodeVersion, RemoteVersion};
 
-pub fn parse_unix_installed(output: &str) -> Vec<InstalledVersion> {
+pub(crate) fn parse_unix_installed(output: &str) -> Vec<InstalledVersion> {
     let mut default_version: Option<NodeVersion> = None;
 
     for line in output.lines() {
@@ -71,7 +71,7 @@ pub fn parse_unix_installed(output: &str) -> Vec<InstalledVersion> {
     versions
 }
 
-pub fn parse_windows_installed(output: &str) -> Vec<InstalledVersion> {
+pub(crate) fn parse_windows_installed(output: &str) -> Vec<InstalledVersion> {
     let mut versions = Vec::new();
 
     for line in output.lines() {
@@ -110,7 +110,7 @@ pub fn parse_windows_installed(output: &str) -> Vec<InstalledVersion> {
     versions
 }
 
-pub fn parse_unix_remote(output: &str) -> Vec<RemoteVersion> {
+pub(crate) fn parse_unix_remote(output: &str) -> Vec<RemoteVersion> {
     let mut versions = Vec::new();
 
     for line in output.lines() {
@@ -150,7 +150,7 @@ pub fn parse_unix_remote(output: &str) -> Vec<RemoteVersion> {
     versions
 }
 
-pub fn parse_windows_remote(output: &str) -> Vec<RemoteVersion> {
+pub(crate) fn parse_windows_remote(output: &str) -> Vec<RemoteVersion> {
     let mut versions: Vec<RemoteVersion> = Vec::new();
     let mut index_by_version: HashMap<NodeVersion, usize> = HashMap::new();
     let mut lts_column = None;

@@ -30,7 +30,7 @@ fn parse_version_token(token: &str) -> Option<NodeVersion> {
 }
 
 #[must_use]
-pub fn parse_installed_versions(output: &str) -> Vec<InstalledVersion> {
+pub(crate) fn parse_installed_versions(output: &str) -> Vec<InstalledVersion> {
     let mut versions = Vec::new();
     let mut seen = HashSet::new();
 
@@ -60,7 +60,7 @@ pub fn parse_installed_versions(output: &str) -> Vec<InstalledVersion> {
 }
 
 #[must_use]
-pub fn parse_remote_versions(output: &str) -> Vec<RemoteVersion> {
+pub(crate) fn parse_remote_versions(output: &str) -> Vec<RemoteVersion> {
     let mut versions = Vec::new();
     let mut seen = HashSet::new();
 
@@ -89,7 +89,7 @@ pub fn parse_remote_versions(output: &str) -> Vec<RemoteVersion> {
 }
 
 #[must_use]
-pub fn parse_current_version(output: &str) -> Option<NodeVersion> {
+pub(crate) fn parse_current_version(output: &str) -> Option<NodeVersion> {
     for line in output.lines() {
         let line = line.trim();
         if line.is_empty() {

@@ -1,7 +1,7 @@
 use versi_backend::{InstalledVersion, RemoteVersion};
 
 #[must_use]
-pub fn parse_installed_versions(output: &str) -> Vec<InstalledVersion> {
+pub(crate) fn parse_installed_versions(output: &str) -> Vec<InstalledVersion> {
     output
         .lines()
         .filter_map(|line| {
@@ -31,7 +31,7 @@ pub fn parse_installed_versions(output: &str) -> Vec<InstalledVersion> {
 }
 
 #[must_use]
-pub fn parse_remote_versions(output: &str) -> Vec<RemoteVersion> {
+pub(crate) fn parse_remote_versions(output: &str) -> Vec<RemoteVersion> {
     output
         .lines()
         .filter_map(|line| {
