@@ -5406,7 +5406,6 @@ dependencies = [
  "dirs",
  "log",
  "reqwest",
- "sha2",
  "tempfile",
  "tokio",
  "versi-backend",
