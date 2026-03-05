@@ -49,8 +49,7 @@ impl SecurityAdvisory {
         !patched
     }
 
-    #[must_use]
-    pub fn affected_environment_matches(&self, platform: &str) -> bool {
+    fn affected_environment_matches(&self, platform: &str) -> bool {
         if self.affected_environments.is_empty() {
             return true;
         }

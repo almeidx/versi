@@ -158,8 +158,7 @@ pub async fn check_github_backend_update(
     Ok(backend_update_from_release(release, current_version))
 }
 
-#[must_use]
-pub fn is_newer_version(latest: &str, current: &str) -> bool {
+fn is_newer_version(latest: &str, current: &str) -> bool {
     match (parse_semver(latest), parse_semver(current)) {
         (Some(latest), Some(current)) => latest > current,
         _ => latest != current,
@@ -216,7 +215,7 @@ fn parse_sha256_digest(digest: &str) -> Option<String> {
 /// # Errors
 /// Returns an error when the HTTP request itself fails or the successful
 /// response body cannot be deserialized.
-pub async fn check_github_release(
+async fn check_github_release(
     client: &reqwest::Client,
     repo: &str,
 ) -> Result<Option<GitHubRelease>, UpdateError> {
