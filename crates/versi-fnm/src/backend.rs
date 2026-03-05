@@ -11,8 +11,8 @@ use versi_core::HideWindow;
 use versi_backend::{
     BackendError, BackendInfo, CommandEnvironment, InstallProgress, InstalledVersion,
     ManagerCapabilities, NodeVersion, RemoteVersion, ShellInitOptions, VersionManager,
-    build_backend_command, execute_backend_command_with, find_default_version,
-    parse_current_version, sanitize_terminal_text,
+    build_backend_command, combine_error_output, execute_backend_command_with,
+    find_default_version, parse_current_version, sanitize_terminal_text,
 };
 
 use crate::version::{parse_installed_versions, parse_remote_versions};
@@ -231,7 +231,7 @@ impl FnmBackend {
         } else {
             let stderr_text = String::from_utf8_lossy(&stderr_bytes);
             let stdout_text = String::from_utf8_lossy(&stdout_bytes);
-            let details = combined_error_output(stderr_text.as_ref(), stdout_text.as_ref());
+            let details = combine_error_output(&stderr_text, &stdout_text);
             error!("fnm install failed for {version}: {details}");
             Err(BackendError::CommandFailed { stderr: details })
         }
@@ -322,20 +322,6 @@ where
     }
 
     Ok((bytes, parser))
-}
-
-fn combined_error_output(stderr: &str, stdout: &str) -> String {
-    let stderr = stderr.trim();
-    let stdout = stdout.trim();
-
-    if stderr.is_empty() {
-        return stdout.to_string();
-    }
-    if stdout.is_empty() {
-        return stderr.to_string();
-    }
-
-    format!("{stderr}\n{stdout}")
 }
 
 fn parse_download_progress(line: &str) -> Option<(u64, u64)> {

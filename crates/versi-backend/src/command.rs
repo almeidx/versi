@@ -102,6 +102,18 @@ pub async fn execute_backend_command_with(
     })
 }
 
+#[must_use]
+pub fn combine_error_output(stderr: &str, stdout: &str) -> String {
+    let stderr = stderr.trim();
+    let stdout = stdout.trim();
+
+    match (stderr.is_empty(), stdout.is_empty()) {
+        (true, _) => stdout.to_string(),
+        (_, true) => stderr.to_string(),
+        _ => format!("{stderr}\n{stdout}"),
+    }
+}
+
 /// Convert a finished [`Output`] into a `Result<String, BackendError>`.
 ///
 /// On success stdout is returned as-is (callers that need further
@@ -118,16 +130,12 @@ pub fn command_output_to_result(output: &Output) -> Result<String, BackendError>
         return Ok(String::from_utf8_lossy(&output.stdout).into_owned());
     }
 
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
 
-    let combined = match (stderr.is_empty(), stdout.is_empty()) {
-        (true, _) => stdout,
-        (_, true) => stderr,
-        _ => format!("{stderr}\n{stdout}"),
-    };
-
-    Err(BackendError::CommandFailed { stderr: combined })
+    Err(BackendError::CommandFailed {
+        stderr: combine_error_output(&stderr, &stdout),
+    })
 }
 
 #[cfg(test)]
