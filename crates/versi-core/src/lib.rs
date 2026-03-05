@@ -27,11 +27,8 @@ pub use windows_installer::{InstallerAttempt, InstallerAttemptError};
 pub use commands::HideWindow;
 /// Runs `<path> --version`, strips `prefix`, and returns the version string.
 pub use commands::get_cli_version;
-/// Installer script download helper with retry/verification policy.
-pub use install_script::{
-    InstallScriptError, download_install_script, download_install_script_unverified,
-    download_install_script_verified, temp_script_path,
-};
+/// Installer script download helper with retry policy.
+pub use install_script::{InstallScriptError, download_install_script, temp_script_path};
 /// Release metadata model and fetch helper.
 pub use metadata::{MetadataError, VersionMeta, fetch_version_metadata};
 /// Node release schedule model and fetch helper.
