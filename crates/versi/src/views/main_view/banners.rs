@@ -295,7 +295,7 @@ fn format_versions_preview(versions: &[String], limit: usize) -> String {
     let head = versions
         .iter()
         .take(limit)
-        .cloned()
+        .map(String::as_str)
         .collect::<Vec<_>>()
         .join(", ");
 

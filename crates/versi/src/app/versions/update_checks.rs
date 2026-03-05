@@ -22,11 +22,11 @@ pub(super) fn handle_check_for_app_update(app: &mut Versi) -> Task<Message> {
         state.app_update_check_in_flight = true;
     }
 
-    let current_version = env!("CARGO_PKG_VERSION").to_string();
+    let current_version = env!("CARGO_PKG_VERSION");
     let client = app.http_client.clone();
     Task::perform(
         async move {
-            check_for_update(&client, &current_version)
+            check_for_update(&client, current_version)
                 .await
                 .map_err(|error| AppError::update_check_failed("App", error))
         },
