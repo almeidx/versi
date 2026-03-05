@@ -33,7 +33,7 @@ struct InstallProgressParser {
     last_total_bytes: Option<u64>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct FnmBackend {
     info: BackendInfo,
     command_env: CommandEnvironment,
@@ -251,8 +251,7 @@ impl InstallProgressParser {
 
     fn finish(&mut self, progress_tx: &mpsc::Sender<InstallProgress>) {
         if !self.remainder.is_empty() {
-            let line = self.remainder.clone();
-            self.remainder.clear();
+            let line = std::mem::take(&mut self.remainder);
             self.process_line(&line, progress_tx);
         }
 

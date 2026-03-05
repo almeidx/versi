@@ -13,7 +13,7 @@ use versi_backend::{
 
 use crate::version::{parse_current_version, parse_installed_versions, parse_remote_versions};
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct AsdfBackend {
     info: BackendInfo,
     command_env: CommandEnvironment,
