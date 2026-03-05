@@ -1,5 +1,4 @@
 use crate::detect::ShellType;
-use std::fmt::Write as _;
 use std::fs;
 use std::path::PathBuf;
 use thiserror::Error;
@@ -73,7 +72,6 @@ impl ShellConfig {
         let modified = format!("{}{}", self.content, addition);
 
         ShellConfigEdit {
-            original: self.content.clone(),
             modified,
             changes: vec![format!("Add initialization: {}", init_command)],
         }
@@ -83,7 +81,6 @@ impl ShellConfig {
     pub fn update_flags(&mut self, marker: &str, options: &ShellInitOptions) -> ShellConfigEdit {
         if !self.has_init(marker) {
             return ShellConfigEdit {
-                original: self.content.clone(),
                 modified: self.content.clone(),
                 changes: vec![],
             };
@@ -110,11 +107,7 @@ impl ShellConfig {
             }
         }
 
-        ShellConfigEdit {
-            original: self.content.clone(),
-            modified,
-            changes,
-        }
+        ShellConfigEdit { modified, changes }
     }
 
     /// Persist an edit to disk and update in-memory content.
@@ -207,7 +200,6 @@ impl ShellConfig {
 }
 
 pub struct ShellConfigEdit {
-    pub original: String,
     pub modified: String,
     pub changes: Vec<String>,
 }
@@ -216,21 +208,6 @@ impl ShellConfigEdit {
     #[must_use]
     pub fn has_changes(&self) -> bool {
         !self.changes.is_empty()
-    }
-
-    #[must_use]
-    pub fn diff_preview(&self) -> String {
-        if !self.has_changes() {
-            return "No changes needed.".to_string();
-        }
-
-        let mut preview = String::new();
-
-        for change in &self.changes {
-            let _ = writeln!(preview, "+ {change}");
-        }
-
-        preview
     }
 }
 
@@ -425,7 +402,6 @@ eval "$(nvm env --use-on-cd --resolve-engines --corepack-enabled --shell bash)""
     #[test]
     fn test_shell_config_edit_has_changes() {
         let edit = ShellConfigEdit {
-            original: String::new(),
             modified: "new".to_string(),
             changes: vec!["Added something".to_string()],
         };
@@ -435,32 +411,9 @@ eval "$(nvm env --use-on-cd --resolve-engines --corepack-enabled --shell bash)""
     #[test]
     fn test_shell_config_edit_no_changes() {
         let edit = ShellConfigEdit {
-            original: "same".to_string(),
             modified: "same".to_string(),
             changes: vec![],
         };
         assert!(!edit.has_changes());
-    }
-
-    #[test]
-    fn test_diff_preview_with_changes() {
-        let edit = ShellConfigEdit {
-            original: String::new(),
-            modified: "new".to_string(),
-            changes: vec!["Added fnm".to_string()],
-        };
-        let preview = edit.diff_preview();
-        assert!(preview.contains("+ Added fnm"));
-    }
-
-    #[test]
-    fn test_diff_preview_no_changes() {
-        let edit = ShellConfigEdit {
-            original: String::new(),
-            modified: String::new(),
-            changes: vec![],
-        };
-        let preview = edit.diff_preview();
-        assert_eq!(preview, "No changes needed.");
     }
 }
