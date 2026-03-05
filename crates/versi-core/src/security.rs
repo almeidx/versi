@@ -85,6 +85,7 @@ pub async fn fetch_security_advisories(
 ) -> Result<HashMap<String, SecurityAdvisory>, SecurityAdvisoryError> {
     let response = client
         .get(SECURITY_INDEX_URL)
+        .header("User-Agent", crate::http::USER_AGENT)
         .send()
         .await
         .map_err(SecurityAdvisoryError::Request)?;

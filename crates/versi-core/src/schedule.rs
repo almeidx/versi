@@ -94,6 +94,7 @@ pub async fn fetch_release_schedule(
 ) -> Result<ReleaseSchedule, ScheduleError> {
     let response = client
         .get(SCHEDULE_URL)
+        .header("User-Agent", crate::http::USER_AGENT)
         .send()
         .await
         .map_err(ScheduleError::Request)?;

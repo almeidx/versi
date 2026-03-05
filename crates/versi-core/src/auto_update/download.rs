@@ -15,6 +15,7 @@ pub(super) async fn download_file(
 ) -> Result<(), AutoUpdateError> {
     let response = client
         .get(url)
+        .header("User-Agent", crate::http::USER_AGENT)
         .send()
         .await
         .map_err(|error| AutoUpdateError::http("download request failed", error))?;

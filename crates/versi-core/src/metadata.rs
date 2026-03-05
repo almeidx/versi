@@ -69,6 +69,7 @@ pub async fn fetch_version_metadata(
 ) -> Result<HashMap<String, VersionMeta>, MetadataError> {
     let response = client
         .get(INDEX_URL)
+        .header("User-Agent", crate::http::USER_AGENT)
         .send()
         .await
         .map_err(MetadataError::Request)?;
