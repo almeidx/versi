@@ -201,25 +201,25 @@ pub fn detect_wsl_shells(distro: &str) -> Vec<ShellInfo> {
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 debug!("WSL shell detection output: {}", stdout);
                 for line in stdout.lines() {
-                    let parts: Vec<&str> = line.split(':').collect();
-                    if parts.len() >= 2 {
-                        let shell_name = parts[0].trim();
-                        let shell_path = parts[1].trim();
+                    let Some((shell_name, shell_path)) = line.split_once(':') else {
+                        continue;
+                    };
+                    let shell_name = shell_name.trim();
+                    let shell_path = shell_path.trim();
 
-                        let shell_type = match shell_name {
-                            "bash" => ShellType::Bash,
-                            "zsh" => ShellType::Zsh,
-                            "fish" => ShellType::Fish,
-                            _ => continue,
-                        };
+                    let shell_type = match shell_name {
+                        "bash" => ShellType::Bash,
+                        "zsh" => ShellType::Zsh,
+                        "fish" => ShellType::Fish,
+                        _ => continue,
+                    };
 
-                        shells.push(ShellInfo {
-                            shell_type,
-                            path: Some(PathBuf::from(shell_path)),
-                            config_file: None,
-                            is_configured: false,
-                        });
-                    }
+                    shells.push(ShellInfo {
+                        shell_type,
+                        path: Some(PathBuf::from(shell_path)),
+                        config_file: None,
+                        is_configured: false,
+                    });
                 }
             } else {
                 let stderr = String::from_utf8_lossy(&output.stderr);

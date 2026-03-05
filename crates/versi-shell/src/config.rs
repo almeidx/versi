@@ -48,21 +48,26 @@ impl ShellConfig {
 
     #[must_use]
     pub fn detect_options(&self, marker: &str) -> Option<ShellInitOptions> {
-        let marker_lines: String = self
-            .content
-            .lines()
-            .filter(|line| line.contains(marker))
-            .collect::<Vec<_>>()
-            .join("\n");
+        let mut found = false;
+        let mut use_on_cd = false;
+        let mut resolve_engines = false;
+        let mut corepack_enabled = false;
 
-        if marker_lines.is_empty() {
+        for line in self.content.lines().filter(|line| line.contains(marker)) {
+            found = true;
+            use_on_cd = use_on_cd || line.contains("--use-on-cd");
+            resolve_engines = resolve_engines || line.contains("--resolve-engines");
+            corepack_enabled = corepack_enabled || line.contains("--corepack-enabled");
+        }
+
+        if !found {
             return None;
         }
 
         Some(ShellInitOptions {
-            use_on_cd: marker_lines.contains("--use-on-cd"),
-            resolve_engines: marker_lines.contains("--resolve-engines"),
-            corepack_enabled: marker_lines.contains("--corepack-enabled"),
+            use_on_cd,
+            resolve_engines,
+            corepack_enabled,
         })
     }
 
