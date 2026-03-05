@@ -35,6 +35,7 @@ pub struct MainState {
     pub bulk_run: Option<BulkRunState>,
     pub install_progress: HashMap<String, InstallProgress>,
     pub toasts: Vec<Toast>,
+    next_toast_id: usize,
     pub modal: Option<Modal>,
     pub search_query: String,
     pub backend: Arc<dyn VersionManager>,
@@ -132,6 +133,7 @@ impl MainState {
             bulk_run: None,
             install_progress: HashMap::new(),
             toasts: Vec::new(),
+            next_toast_id: 0,
             modal: None,
             search_query: String::new(),
             backend,
@@ -261,8 +263,10 @@ impl MainState {
         self.toasts.retain(|t| t.id != id);
     }
 
-    pub fn next_toast_id(&self) -> usize {
-        self.toasts.iter().map(|t| t.id).max().unwrap_or(0) + 1
+    pub fn next_toast_id(&mut self) -> usize {
+        let id = self.next_toast_id;
+        self.next_toast_id += 1;
+        id
     }
 
     pub fn navigable_versions(&self, search_results_limit: usize) -> Vec<String> {
@@ -560,7 +564,6 @@ mod tests {
             version,
             is_default,
             lts_codename: None,
-            install_date: None,
             disk_size: None,
         }
     }
@@ -625,7 +628,6 @@ mod tests {
             version: NodeVersion::new(20, 11, 0),
             is_default: true,
             lts_codename: Some("Iron".to_string()),
-            install_date: None,
             disk_size: None,
         }];
         state

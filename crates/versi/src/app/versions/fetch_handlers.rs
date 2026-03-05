@@ -72,12 +72,11 @@ pub(super) fn handle_remote_versions_fetched(
         state.available_versions.loading = false;
         match result {
             Ok(versions) => {
-                state.available_versions.set_versions(versions.clone());
+                state.available_versions.set_versions(versions);
                 state.available_versions.fetched_at = Some(Instant::now());
                 state.available_versions.remote.error = None;
                 state.available_versions.loaded_from_disk = false;
 
-                // Show badge if any installed major line has a newer version available
                 let env = state.active_environment();
                 let installed_majors: std::collections::HashSet<u32> = env
                     .installed_versions
@@ -93,7 +92,7 @@ pub(super) fn handle_remote_versions_fetched(
                 });
                 super::super::platform::set_update_badge(has_update);
 
-                enqueue_cache_save_remote_versions(versions);
+                enqueue_cache_save_remote_versions(state.available_versions.versions.clone());
             }
             Err(error) => {
                 state.available_versions.remote.error = Some(error);
@@ -154,10 +153,9 @@ pub(super) fn handle_release_schedule_fetched(
 
         match result {
             Ok(schedule) => {
-                state.available_versions.schedule = Some(schedule.clone());
+                enqueue_cache_save_release_schedule(schedule.clone());
+                state.available_versions.schedule = Some(schedule);
                 state.available_versions.schedule_fetch.error = None;
-
-                enqueue_cache_save_release_schedule(schedule);
             }
             Err(error) => {
                 debug!("Release schedule fetch failed: {error}");
@@ -219,10 +217,9 @@ pub(super) fn handle_version_metadata_fetched(
 
         match result {
             Ok(metadata) => {
-                state.available_versions.metadata = Some(metadata.clone());
+                enqueue_cache_save_version_metadata(metadata.clone());
+                state.available_versions.metadata = Some(metadata);
                 state.available_versions.metadata_fetch.error = None;
-
-                enqueue_cache_save_version_metadata(metadata);
             }
             Err(error) => {
                 debug!("Version metadata fetch failed: {error}");
@@ -283,9 +280,9 @@ pub(super) fn handle_security_advisories_fetched(
         state.available_versions.security_last_checked_at = Some(Instant::now());
         match result {
             Ok(advisories) => {
-                state.available_versions.security_advisories = Some(advisories.clone());
+                enqueue_cache_save_security_advisories(advisories.clone());
+                state.available_versions.security_advisories = Some(advisories);
                 state.available_versions.security_fetch.error = None;
-                enqueue_cache_save_security_advisories(advisories);
             }
             Err(error) => {
                 debug!("Security advisories fetch failed: {error}");

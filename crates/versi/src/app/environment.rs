@@ -26,6 +26,36 @@ fn environment_needs_load(env: &crate::state::EnvironmentState) -> bool {
     env.installed_versions.is_empty() && env.load_cancel_token.is_none()
 }
 
+fn spawn_environment_load(
+    env_id: EnvironmentId,
+    request_seq: u64,
+    cancel_token: CancellationToken,
+    backend: std::sync::Arc<dyn versi_backend::VersionManager>,
+    fetch_timeout: std::time::Duration,
+) -> Task<Message> {
+    Task::perform(
+        async move {
+            let result = tokio::select! {
+                () = cancel_token.cancelled() => {
+                    Err(AppError::operation_cancelled("Loading versions"))
+                }
+                result = run_with_timeout(
+                    fetch_timeout,
+                    "Loading versions",
+                    backend.list_installed(),
+                    AppError::environment_load_failed,
+                ) => result
+            };
+            (env_id, request_seq, result)
+        },
+        |(env_id, request_seq, result)| Message::EnvironmentLoaded {
+            env_id,
+            request_seq,
+            result,
+        },
+    )
+}
+
 fn collect_background_preload_targets(
     state: &MainState,
     active_env_id: &EnvironmentId,
@@ -189,50 +219,11 @@ impl Versi {
 
             let load_task = if needs_load {
                 info!("Loading versions for environment: {env_id:?}");
-                let env = state.active_environment_mut();
-                if let Some(token) = env.load_cancel_token.take() {
-                    token.cancel();
-                }
-                env.loading = true;
-                env.error = None;
-                env.load_request_seq = env.load_request_seq.wrapping_add(1);
-                let request_seq = env.load_request_seq;
-                let cancel_token = CancellationToken::new();
-                env.load_cancel_token = Some(cancel_token.clone());
-
+                let (env_id, request_seq, cancel_token) =
+                    state.active_environment_mut().prepare_load();
                 let backend = state.backend.clone();
                 let fetch_timeout = Duration::from_secs(self.settings.fetch_timeout_secs);
-
-                Task::perform(
-                    async move {
-                        debug!("Fetching installed versions for {env_id:?}...");
-                        let result = tokio::select! {
-                            () = cancel_token.cancelled() => {
-                                Err(AppError::operation_cancelled("Loading versions"))
-                            }
-                            result = run_with_timeout(
-                                fetch_timeout,
-                                "Loading versions",
-                                backend.list_installed(),
-                                AppError::environment_load_failed,
-                            ) => result
-                        };
-
-                        if let Ok(versions) = &result {
-                            debug!(
-                                "Environment {:?} loaded: {} versions",
-                                env_id,
-                                versions.len(),
-                            );
-                        }
-                        (env_id, request_seq, result)
-                    },
-                    |(env_id, request_seq, result)| Message::EnvironmentLoaded {
-                        env_id,
-                        request_seq,
-                        result,
-                    },
-                )
+                spawn_environment_load(env_id, request_seq, cancel_token, backend, fetch_timeout)
             } else {
                 Task::none()
             };
@@ -286,35 +277,14 @@ impl Versi {
                 &env_provider,
             );
 
-            let env = &mut state.environments[env_idx];
-            env.loading = true;
-            env.error = None;
-            env.load_request_seq = env.load_request_seq.wrapping_add(1);
-            let request_seq = env.load_request_seq;
-            let cancel_token = CancellationToken::new();
-            env.load_cancel_token = Some(cancel_token.clone());
-
+            let (env_id, request_seq, cancel_token) = state.environments[env_idx].prepare_load();
             let fetch_timeout = Duration::from_secs(self.settings.fetch_timeout_secs);
-            return Task::perform(
-                async move {
-                    let result = tokio::select! {
-                        () = cancel_token.cancelled() => {
-                            Err(AppError::operation_cancelled("Loading versions"))
-                        }
-                        result = run_with_timeout(
-                            fetch_timeout,
-                            "Loading versions",
-                            backend.list_installed(),
-                            AppError::environment_load_failed,
-                        ) => result
-                    };
-                    (target_env_id, request_seq, result)
-                },
-                |(env_id, request_seq, result)| Message::EnvironmentLoaded {
-                    env_id,
-                    request_seq,
-                    result,
-                },
+            return spawn_environment_load(
+                env_id,
+                request_seq,
+                cancel_token,
+                backend,
+                fetch_timeout,
             );
         }
         Task::none()
@@ -322,42 +292,16 @@ impl Versi {
 
     pub(super) fn handle_refresh_environment(&mut self) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            let env = state.active_environment_mut();
-            if let Some(token) = env.load_cancel_token.take() {
-                token.cancel();
-            }
-            env.loading = true;
-            env.error = None;
-            env.load_request_seq = env.load_request_seq.wrapping_add(1);
-            let env_id = env.id.clone();
-            let request_seq = env.load_request_seq;
-            let cancel_token = CancellationToken::new();
-            env.load_cancel_token = Some(cancel_token.clone());
-
+            let (env_id, request_seq, cancel_token) = state.active_environment_mut().prepare_load();
             state.refresh_rotation = std::f32::consts::TAU / 40.0;
             let backend = state.backend.clone();
             let fetch_timeout = Duration::from_secs(self.settings.fetch_timeout_secs);
-
-            return Task::perform(
-                async move {
-                    let result = tokio::select! {
-                        () = cancel_token.cancelled() => {
-                            Err(AppError::operation_cancelled("Loading versions"))
-                        }
-                        result = run_with_timeout(
-                            fetch_timeout,
-                            "Loading versions",
-                            backend.list_installed(),
-                            AppError::environment_load_failed,
-                        ) => result
-                    };
-                    (env_id, request_seq, result)
-                },
-                |(env_id, request_seq, result)| Message::EnvironmentLoaded {
-                    env_id,
-                    request_seq,
-                    result,
-                },
+            return spawn_environment_load(
+                env_id,
+                request_seq,
+                cancel_token,
+                backend,
+                fetch_timeout,
             );
         }
         Task::none()
@@ -451,7 +395,6 @@ mod tests {
             version: version.parse().expect("test version should parse"),
             is_default,
             lts_codename: None,
-            install_date: None,
             disk_size: None,
         }
     }
@@ -617,7 +560,6 @@ mod tests {
                 version: NodeVersion::new(20, 11, 0),
                 is_default: true,
                 lts_codename: None,
-                install_date: None,
                 disk_size: None,
             }]),
         );

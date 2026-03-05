@@ -67,6 +67,18 @@ impl EnvironmentState {
         }
     }
 
+    pub fn prepare_load(&mut self) -> (EnvironmentId, u64, CancellationToken) {
+        if let Some(token) = self.load_cancel_token.take() {
+            token.cancel();
+        }
+        self.loading = true;
+        self.error = None;
+        self.load_request_seq = self.load_request_seq.wrapping_add(1);
+        let cancel_token = CancellationToken::new();
+        self.load_cancel_token = Some(cancel_token.clone());
+        (self.id.clone(), self.load_request_seq, cancel_token)
+    }
+
     pub fn update_versions(&mut self, versions: Vec<InstalledVersion>) {
         self.default_version = versions
             .iter()
@@ -82,7 +94,6 @@ impl EnvironmentState {
 
 #[cfg(test)]
 mod tests {
-    use chrono::Utc;
     use std::time::{Duration, Instant};
     use versi_backend::NodeVersion;
     use versi_platform::EnvironmentId;
@@ -95,7 +106,6 @@ mod tests {
             version: version.parse().expect("test version should parse"),
             is_default,
             lts_codename: Some("LTS".to_string()),
-            install_date: Some(Utc::now()),
             disk_size: Some(1024),
         }
     }
@@ -173,7 +183,6 @@ mod tests {
                     version: NodeVersion::new(major, minor, 0),
                     is_default: major == 22 && minor == 59,
                     lts_codename: None,
-                    install_date: Some(Utc::now()),
                     disk_size: Some(1024),
                 });
             }
