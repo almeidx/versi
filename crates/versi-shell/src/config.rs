@@ -67,6 +67,7 @@ impl ShellConfig {
         })
     }
 
+    #[must_use]
     pub fn add_init(&mut self, init_command: &str, label: &str) -> ShellConfigEdit {
         let addition = format!("\n# {label}\n{init_command}\n");
         let modified = format!("{}{}", self.content, addition);
@@ -78,6 +79,7 @@ impl ShellConfig {
         }
     }
 
+    #[must_use]
     pub fn update_flags(&mut self, marker: &str, options: &ShellInitOptions) -> ShellConfigEdit {
         if !self.has_init(marker) {
             return ShellConfigEdit {
