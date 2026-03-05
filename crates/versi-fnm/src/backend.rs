@@ -439,31 +439,37 @@ impl VersionManager for FnmBackend {
     }
 
     async fn list_installed(&self) -> Result<Vec<InstalledVersion>, BackendError> {
+        debug!("fnm: listing installed versions");
         let output = self.execute(&["list"]).await?;
         Ok(parse_installed_versions(&output))
     }
 
     async fn list_remote(&self) -> Result<Vec<RemoteVersion>, BackendError> {
+        debug!("fnm: listing remote versions");
         let output = self.execute(&["list-remote"]).await?;
         Ok(parse_remote_versions(&output))
     }
 
     async fn list_remote_lts(&self) -> Result<Vec<RemoteVersion>, BackendError> {
+        debug!("fnm: listing remote LTS versions");
         let output = self.execute(&["list-remote", "--lts"]).await?;
         Ok(parse_remote_versions(&output))
     }
 
     async fn current_version(&self) -> Result<Option<NodeVersion>, BackendError> {
+        debug!("fnm: getting current version");
         let output = self.execute(&["current"]).await?;
         parse_current_version(&output)
     }
 
     async fn default_version(&self) -> Result<Option<NodeVersion>, BackendError> {
+        debug!("fnm: getting default version");
         let versions = self.list_installed().await?;
         Ok(find_default_version(versions))
     }
 
     async fn install(&self, version: &str) -> Result<(), BackendError> {
+        info!("fnm: installing version {version}");
         self.execute(&["install", version]).await?;
         Ok(())
     }
@@ -478,16 +484,19 @@ impl VersionManager for FnmBackend {
     }
 
     async fn uninstall(&self, version: &str) -> Result<(), BackendError> {
+        info!("fnm: uninstalling version {version}");
         self.execute(&["uninstall", version]).await?;
         Ok(())
     }
 
     async fn set_default(&self, version: &str) -> Result<(), BackendError> {
+        info!("fnm: setting default version to {version}");
         self.execute(&["default", version]).await?;
         Ok(())
     }
 
     async fn use_version(&self, version: &str) -> Result<(), BackendError> {
+        info!("fnm: using version {version}");
         self.execute(&["use", version]).await?;
         Ok(())
     }

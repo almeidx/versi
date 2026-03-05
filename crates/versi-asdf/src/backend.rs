@@ -120,8 +120,8 @@ impl AsdfBackend {
     }
 
     async fn execute(&self, args: &[&str], home_scope: bool) -> Result<String, BackendError> {
-        info!(
-            "Executing asdf command: {} (home_scope={home_scope})",
+        debug!(
+            "asdf: executing command: {} (home_scope={home_scope})",
             args.join(" "),
         );
 
@@ -220,6 +220,7 @@ impl VersionManager for AsdfBackend {
     }
 
     async fn install(&self, version: &str) -> Result<(), BackendError> {
+        info!("asdf: installing version {version}");
         let normalized = strip_version_prefix(version);
         self.execute(&["install", "nodejs", normalized], false)
             .await?;
@@ -227,6 +228,7 @@ impl VersionManager for AsdfBackend {
     }
 
     async fn uninstall(&self, version: &str) -> Result<(), BackendError> {
+        info!("asdf: uninstalling version {version}");
         let normalized = strip_version_prefix(version);
         self.execute(&["uninstall", "nodejs", normalized], false)
             .await?;
@@ -234,6 +236,7 @@ impl VersionManager for AsdfBackend {
     }
 
     async fn set_default(&self, version: &str) -> Result<(), BackendError> {
+        info!("asdf: setting default version to {version}");
         let normalized = strip_version_prefix(version);
         self.execute(&["set", "-u", "nodejs", normalized], false)
             .await?;

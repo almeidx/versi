@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use log::{debug, info};
 use std::path::{Path, PathBuf};
 
 use versi_backend::{
@@ -146,15 +147,18 @@ impl VersionManager for VoltaBackend {
     }
 
     async fn list_installed(&self) -> Result<Vec<InstalledVersion>, BackendError> {
+        debug!("volta: listing installed versions");
         let output = self.execute(&["list", "node", "--format", "plain"]).await?;
         Ok(parse_installed_versions(&output))
     }
 
     async fn list_remote(&self) -> Result<Vec<RemoteVersion>, BackendError> {
+        debug!("volta: listing remote versions");
         self.fetch_remote_versions().await
     }
 
     async fn current_version(&self) -> Result<Option<NodeVersion>, BackendError> {
+        debug!("volta: getting current version");
         let output = self
             .execute(&["list", "--current", "node", "--format", "plain"])
             .await?;
@@ -162,6 +166,7 @@ impl VersionManager for VoltaBackend {
     }
 
     async fn default_version(&self) -> Result<Option<NodeVersion>, BackendError> {
+        debug!("volta: getting default version");
         let output = self
             .execute(&["list", "--default", "node", "--format", "plain"])
             .await?;
@@ -169,6 +174,7 @@ impl VersionManager for VoltaBackend {
     }
 
     async fn install(&self, version: &str) -> Result<(), BackendError> {
+        info!("volta: installing version {version}");
         let spec = Self::normalized_node_spec(version);
         self.execute(&["fetch", &spec]).await?;
         Ok(())
@@ -181,6 +187,7 @@ impl VersionManager for VoltaBackend {
     }
 
     async fn set_default(&self, version: &str) -> Result<(), BackendError> {
+        info!("volta: setting default version to {version}");
         let spec = Self::normalized_node_spec(version);
         self.execute(&["install", &spec]).await?;
         Ok(())
