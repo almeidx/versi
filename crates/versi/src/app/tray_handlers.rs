@@ -125,7 +125,7 @@ impl Versi {
                 env_id,
                 &self.backend_path,
                 self.backend_in_path,
-                self.backend_dir.as_ref(),
+                self.backend_dir.as_deref(),
                 &env_provider,
             );
         }

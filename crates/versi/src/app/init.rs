@@ -55,7 +55,7 @@ impl Versi {
             &result.environments,
             &backend_path,
             result.backend_in_path,
-            backend_dir.as_ref(),
+            backend_dir.as_deref(),
         ) {
             tasks.push(task);
         }
@@ -122,7 +122,7 @@ impl Versi {
         environments: &[EnvironmentInfo],
         backend_path: &Path,
         backend_in_path: bool,
-        backend_dir: Option<&PathBuf>,
+        backend_dir: Option<&Path>,
     ) -> Option<Task<Message>> {
         let active_env = environments.first()?;
         if !active_env.available {
@@ -141,7 +141,7 @@ impl Versi {
         env_info: &EnvironmentInfo,
         backend_path: &Path,
         backend_in_path: bool,
-        backend_dir: Option<&PathBuf>,
+        backend_dir: Option<&Path>,
     ) -> Option<Task<Message>> {
         let env_id = env_info.id.clone();
         let provider = self
@@ -615,7 +615,7 @@ pub(super) fn create_backend_for_environment(
     env_id: &EnvironmentId,
     detected_path: &Path,
     detected_in_path: bool,
-    detected_dir: Option<&PathBuf>,
+    detected_dir: Option<&Path>,
     provider: &Arc<dyn BackendProvider>,
 ) -> Arc<dyn VersionManager> {
     match env_id {
@@ -625,7 +625,7 @@ pub(super) fn create_backend_for_environment(
                 path: Some(detected_path.to_path_buf()),
                 version: None,
                 in_path: detected_in_path,
-                data_dir: detected_dir.cloned(),
+                data_dir: detected_dir.map(Path::to_path_buf),
             };
             provider.create_manager(&detection)
         }
@@ -638,7 +638,7 @@ pub(super) fn create_backend_for_environment(
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
     use std::sync::Arc;
 
     use versi_backend::{BackendDetection, BackendProvider};
@@ -771,7 +771,7 @@ mod tests {
             &EnvironmentId::Native,
             PathBuf::from("/custom/fnm").as_path(),
             false,
-            Some(&PathBuf::from("/custom/fnm-dir")),
+            Some(Path::new("/custom/fnm-dir")),
             &provider,
         );
 
