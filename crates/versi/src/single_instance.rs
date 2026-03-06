@@ -93,11 +93,10 @@ mod windows_impl {
 
 #[cfg(not(windows))]
 mod other_impl {
-    use std::fs::OpenOptions;
+    use std::fs::{File, OpenOptions};
     use std::io::{Seek, SeekFrom, Write};
     use std::path::PathBuf;
 
-    use fd_lock::RwLock;
     use versi_platform::AppPaths;
 
     fn lock_file_path() -> Result<PathBuf, super::AcquireError> {
@@ -109,13 +108,13 @@ mod other_impl {
     }
 
     pub struct SingleInstance {
-        _lock: RwLock<std::fs::File>,
+        _file: File,
     }
 
     impl SingleInstance {
         pub fn acquire() -> Result<Self, super::AcquireError> {
             let lock_file_path = lock_file_path()?;
-            let file = OpenOptions::new()
+            let mut file = OpenOptions::new()
                 .create(true)
                 .read(true)
                 .write(true)
@@ -125,35 +124,27 @@ mod other_impl {
                     super::AcquireError::io("failed to open instance lock file", error)
                 })?;
 
-            let mut lock = RwLock::new(file);
-
-            let mut guard = match lock.try_write() {
-                Ok(guard) => guard,
-                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+            match file.try_lock() {
+                Ok(()) => {}
+                Err(std::fs::TryLockError::WouldBlock) => {
                     return Err(super::AcquireError::AlreadyRunning);
                 }
-                Err(error) => {
+                Err(std::fs::TryLockError::Error(error)) => {
                     return Err(super::AcquireError::io(
                         "failed to acquire instance lock",
                         error,
                     ));
                 }
-            };
+            }
 
-            guard
-                .set_len(0)
-                .and_then(|()| guard.seek(SeekFrom::Start(0)).map(|_| ()))
-                .and_then(|()| writeln!(guard, "{}", std::process::id()))
+            file.set_len(0)
+                .and_then(|()| file.seek(SeekFrom::Start(0)).map(|_| ()))
+                .and_then(|()| writeln!(file, "{}", std::process::id()))
                 .map_err(|error| {
                     super::AcquireError::io("failed to write instance lock metadata", error)
                 })?;
 
-            // Skip the guard destructor so the OS-level flock is not released.
-            // The lock will be released when the file descriptor is closed
-            // (i.e. when the RwLock is dropped).
-            std::mem::forget(guard);
-
-            Ok(Self { _lock: lock })
+            Ok(Self { _file: file })
         }
     }
 
