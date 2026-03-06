@@ -3,6 +3,124 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.12.1] - 2026-03-06
+
+- refactor: replace fd-lock with std File::try_lock
+- refactor: restrict version parse functions to pub(crate) visibility
+- refactor: remove redundant test_ prefix from test function names
+- refactor: avoid unnecessary clone in NVM provider detect
+- refactor: add missing Debug derive to FnmBackend and AsdfBackend
+- refactor: restrict NVM internal types and functions to pub(crate) visibility
+- refactor: restrict update check functions to pub(crate) visibility
+- refactor: make commands module private in versi-core
+- refactor: remove unused public re-exports
+- refactor: remove duplicated format tests from version list item
+- refactor: remove unused shells re-export module
+- perf: avoid intermediate allocation in response_snippet
+- refactor: extract shared combine_error_output helper
+- refactor: remove unused public re-exports from backend crates
+- refactor: reduce public API surface of internal symbols
+- refactor: remove unused methods and dead code
+- refactor: extract shared run_unix_install_script helper
+- refactor: remove redundant data_dir clone and with_asdf_data_dir call
+- perf: avoid unnecessary String allocations in update check and banner formatting
+- refactor: derive Copy for NvmVariant and ApplyResult
+- refactor: remove duplicate shell_type_to_str in favor of ShellType::shell_arg
+- refactor: derive Copy for ShellType and pass by value
+- refactor: extract shared write_mock_executable! macro to versi-backend
+- perf: use split_once and avoid intermediate allocations in shell config
+- chore: update Cargo.lock after sha2 removal from versi-asdf
+- refactor: reduce public API surface of internal symbols
+- refactor: use &Path instead of &PathBuf in function parameters
+- refactor: remove unused ShellConfigEdit.original field and diff_preview method
+- refactor: remove unused download_install_script_verified and related dead code
+- refactor: add #[must_use] to ShellConfig::add_init and update_flags
+- refactor: use &Path instead of &PathBuf in nvm detection
+- test: remove duplicate is_newer_version tests from versi-nvm
+- chore: remove unused sha2 dependency from versi-asdf
+- perf: derive Copy for NodeVersion and remove redundant clones
+- refactor: extract download_and_prepare_install_script to versi-backend
+- fix: add missing User-Agent headers to 4 HTTP request functions
+- refactor: standardize logging levels across all backends
+- refactor: remove AppError::Message variant and serde_json string escape hatch
+- perf: optimize toast IDs, fetch clones, and environment load dedup
+- refactor: standardize User-Agent to Versi/{version} across all HTTP clients
+- refactor: deduplicate version prefix stripping and fix sentinel check
+- refactor: remove unused install_date field from InstalledVersion
+- refactor: replace fs2 with fd-lock for file locking
+- refactor: remove unused execute_in_wsl and WslError from versi-platform
+- perf: use full LTO for smaller release binaries
+- test: add diagnostic output to fnm mock command failure test
+- test: add compile-time safety tests for BackendKind/provider name mapping
+- test: add tests for auto_update state machine
+- test: add tests for shell configuration handlers
+- test: add missing provider tests for versi-nvm
+- refactor: make FnmBackend::execute delegate to shared execute_backend_command
+- fix: use Result::ok method reference in fs_utils tests
+- refactor: extract duplicate `replace_file` and quarantine logic to fs_utils module
+- perf: remove intermediate Vec collect in background preload scheduling
+- perf: add fast path for `sanitize_terminal_text` when input has no escape sequences
+- refactor: remove dead `fnm_dir` and `node_dist_mirror` settings fields
+- fix: remove unnecessary `providers.clone()` in Versi::new
+- refactor: merge duplicate `should_confirm_default_uninstall` / `is_already_default_version`
+- fix: widen timeout test gap for Windows timer granularity
+- refactor: deduplicate provider test suites with shared macro
+- refactor: extract shared CommandEnvironment and command building to versi-backend
+- chore: update Cargo.lock after dependency changes
+- refactor: split auto_update.rs into download, extract, and apply phases
+- refactor: split state/operations.rs into modal, bulk, and operations
+- refactor: extract find_default_version helper to versi-backend
+- refactor: remove redundant internal detection structs
+- refactor: replace crossbeam-channel with MenuEvent::set_event_handler
+- refactor: extract InstallerAttempt to versi-core
+- refactor: extract download_install_script to versi-core
+- refactor: extract parse_current_version helper to versi-backend
+- refactor: extract check_github_backend_update helper to versi-core
+- test: add unit tests for get_cli_version prefix-stripping
+- refactor: remove duplicate asdf_data_dir field in AsdfBackend
+- chore: run formatter
+- fix: add nvm prefix to normalize_backend_version_output
+- fix: clear fetch errors consistently on retry
+- refactor: unify clamp helpers and use default functions in AppSettings
+- fix: use cfg(unix) instead of cfg(not(windows)) in settings
+- refactor: derive Default for FetchState and VersionCache
+- test: add unit tests for format_relative_time
+- refactor: deduplicate fetch error banner functions
+- refactor: precompute AppPaths in state instead of in view
+- refactor: extract items_matching helper in BulkRunState
+- perf: precompute LTS codename lookup map instead of O(n) scan
+- refactor: extract shared init task builder
+- test: add unit tests for is_major_release
+- refactor: extract shared format_tenths to dedicated module
+- fix: make command_output_to_result tests cross-platform
+- chore: run formatter
+- refactor: replace into_backend_update with From impl
+- refactor: extract shared command execution helper to versi-backend
+- perf: reuse shared reqwest::Client instead of creating new instances
+- refactor: deduplicate CLI version probe across backends
+- test: add unit tests for auto_update helpers
+- test: add unit tests for version list filtering and sorting
+- refactor: extract shared temp_script_path to versi-core
+- refactor: preserve typed context in AppErrorDetail core error conversions
+- refactor: extract shared GitHub release check to versi-core
+- refactor: remove redundant fnm_dir field from FnmBackend
+- refactor: use into_owned() instead of to_string() on Cow<str>
+- fix: use typed errors in asdf Windows installer
+- fix: scope detect_options to marker lines only
+- deps: Update patch/minor dependencies (#84)
+- refactor: deduplicate ANSI stripping across backends
+- fix: log debug warnings for silent version detection failures
+- fix: use typed errors in NVM Windows installer
+- perf: reuse shared reqwest::Client in Volta backend
+- fix(windows): quote paths in WSL shell command interpolation
+- fix: log warnings instead of silently swallowing cache save errors
+- refactor: extract duplicated backend update checking to versi-core
+- refactor: extract duplicated `response_snippet` to shared module
+- perf: improve startup performance
+- fix(windows): convert WSL detection to async with configurable timeouts
+- deps: Lock file maintenance (#83)
+
+
 ## [0.12.0] - 2026-02-28
 
 - fix(windows): default wgpu to low power preference to prevent startup hang
