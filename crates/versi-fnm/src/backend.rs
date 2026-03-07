@@ -121,12 +121,22 @@ impl FnmBackend {
 
     fn build_script_install_command(&self, version: &str) -> Command {
         let mut cmd = Command::new("script");
-        cmd.args(["-q", "/dev/null"]);
-        if !cfg!(target_os = "macos") {
-            cmd.arg("--");
+
+        if cfg!(target_os = "macos") {
+            // BSD script: script -q /dev/null command args...
+            cmd.args(["-q", "/dev/null"]);
+            cmd.arg(&self.info.path);
+            cmd.args(["install", version, "--progress", "always"]);
+        } else {
+            // util-linux script: script -q -c "command args..." /dev/null
+            let shell_cmd = format!(
+                "'{}' install '{}' --progress always",
+                self.info.path.display(),
+                version,
+            );
+            cmd.args(["-q", "-c", &shell_cmd, "/dev/null"]);
         }
-        cmd.arg(&self.info.path);
-        cmd.args(["install", version, "--progress", "always"]);
+
         self.apply_native_env(&mut cmd);
         cmd.hide_window();
         cmd
