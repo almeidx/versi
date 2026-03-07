@@ -122,11 +122,39 @@ impl BulkProgressSnapshot {
             return None;
         }
 
-        let completed = run.completed_count();
-        let failed = run.failed_count();
-        let canceled = run.canceled_count();
-        let running = run.running_count();
-        let pending = run.pending_count();
+        let mut completed = 0_usize;
+        let mut failed = 0_usize;
+        let mut canceled = 0_usize;
+        let mut running = 0_usize;
+        let mut pending = 0_usize;
+        let mut pending_versions = Vec::new();
+        let mut completed_versions = Vec::new();
+        let mut failed_versions = Vec::new();
+        let mut canceled_versions = Vec::new();
+
+        for item in &run.items {
+            match &item.status {
+                BulkItemStatus::Pending => {
+                    pending += 1;
+                    pending_versions.push(item.version.clone());
+                }
+                BulkItemStatus::Running => {
+                    running += 1;
+                }
+                BulkItemStatus::Completed => {
+                    completed += 1;
+                    completed_versions.push(item.version.clone());
+                }
+                BulkItemStatus::Failed(_) => {
+                    failed += 1;
+                    failed_versions.push(item.version.clone());
+                }
+                BulkItemStatus::Canceled => {
+                    canceled += 1;
+                    canceled_versions.push(item.version.clone());
+                }
+            }
+        }
 
         let finished = completed + failed + canceled;
         let current = if running > 0 {
@@ -143,10 +171,10 @@ impl BulkProgressSnapshot {
             pending,
             current,
             progress_basis_points: overall_bulk_progress_basis_points(run, install_progress),
-            pending_versions: run.pending_versions(),
-            completed_versions: run.completed_versions(),
-            failed_versions: run.failed_versions(),
-            canceled_versions: run.canceled_versions(),
+            pending_versions,
+            completed_versions,
+            failed_versions,
+            canceled_versions,
         })
     }
 
