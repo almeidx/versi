@@ -218,6 +218,14 @@ pub(crate) fn set_launch_at_login(enable: bool) -> Result<(), LaunchAtLoginError
         .collect();
     let value_name: Vec<u16> = "Versi\0".encode_utf16().collect();
 
+    let exe = if enable {
+        Some(std::env::current_exe().map_err(|error| {
+            LaunchAtLoginError::io("failed to resolve current executable", error)
+        })?)
+    } else {
+        None
+    };
+
     // SAFETY: registry API pointers are NUL-terminated UTF-16 buffers and the
     // opened key handle is closed exactly once before returning.
     unsafe {
@@ -236,10 +244,7 @@ pub(crate) fn set_launch_at_login(enable: bool) -> Result<(), LaunchAtLoginError
             });
         }
 
-        let result = if enable {
-            let exe = std::env::current_exe().map_err(|error| {
-                LaunchAtLoginError::io("failed to resolve current executable", error)
-            })?;
+        let result = if let Some(exe) = exe {
             let command = quote_windows_command_arg(exe.to_string_lossy().as_ref());
             let exe_wide: Vec<u16> = command.encode_utf16().chain(std::iter::once(0)).collect();
             let byte_len = exe_wide.len() * 2;
