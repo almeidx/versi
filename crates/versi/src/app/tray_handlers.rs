@@ -107,6 +107,7 @@ impl Versi {
                 state.active_environment_idx = target_idx;
                 state.backend_name = target_backend;
                 state.backend_update = None;
+                state.recompute_banner_stats();
             }
             return Some((target_env_id, target_backend));
         }
