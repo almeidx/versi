@@ -144,22 +144,26 @@ impl OperationQueue {
             return (install_versions, exclusive_op);
         }
 
-        while let Some(next) = self.pending.front() {
+        let mut skip_count = 0;
+        while let Some(next) = self.pending.get(skip_count) {
             if let Operation::Install { version } = next {
                 if install_versions.len() >= install_limit {
                     break;
                 }
 
-                if !self.has_active_install(version) && queued_installs.insert(version.clone()) {
+                if self.has_active_install(version) {
+                    skip_count += 1;
+                    continue;
+                }
+
+                if queued_installs.insert(version.clone()) {
                     install_versions.push(version.clone());
                 }
-                self.pending.pop_front();
+                self.pending.remove(skip_count);
             } else {
-                if self.active_installs.is_empty()
-                    && install_versions.is_empty()
-                    && let Some(op) = self.pending.pop_front()
+                if self.active_installs.is_empty() && install_versions.is_empty() && skip_count == 0
                 {
-                    exclusive_op = Some(op);
+                    exclusive_op = self.pending.pop_front();
                 }
                 break;
             }
