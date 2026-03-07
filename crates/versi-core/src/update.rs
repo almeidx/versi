@@ -161,7 +161,7 @@ pub async fn check_github_backend_update(
 fn is_newer_version(latest: &str, current: &str) -> bool {
     match (parse_semver(latest), parse_semver(current)) {
         (Some(latest), Some(current)) => latest > current,
-        _ => latest != current,
+        _ => latest.trim() != current.trim(),
     }
 }
 
