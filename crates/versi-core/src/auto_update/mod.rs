@@ -119,6 +119,12 @@ pub async fn download_and_apply(
     let temp_dir = tempfile::tempdir_in(&cache_dir)
         .map_err(|error| AutoUpdateError::io("failed to create temp directory", error))?;
 
+    if !download_url.starts_with("https://github.com/") {
+        return Err(AutoUpdateError::Invalid(format!(
+            "Refusing to download update from untrusted domain: {download_url}"
+        )));
+    }
+
     let file_name = sanitize_asset_name(download_url);
     let download_path = temp_dir.path().join(file_name);
 
