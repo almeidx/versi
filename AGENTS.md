@@ -8,6 +8,7 @@ The app is backend-agnostic and currently ships with:
 - [fnm](https://github.com/Schniz/fnm) backend (`versi-fnm`)
 - [nvm](https://github.com/nvm-sh/nvm) backend (`versi-nvm`)
 - [Volta](https://github.com/volta-cli/volta) backend (`versi-volta`)
+- [asdf](https://github.com/asdf-vm/asdf) backend (`versi-asdf`)
 
 Adding a new backend requires implementing `BackendProvider` and `VersionManager` from `versi-backend` and wiring the provider into the app initialization path.
 
@@ -104,6 +105,13 @@ versi/
 │   │       ├── detection.rs      # volta detection
 │   │       ├── update.rs         # volta update checking
 │   │       └── version.rs        # volta output parsing
+│   ├── versi-asdf/               # asdf backend implementation
+│   │   └── src/
+│   │       ├── provider.rs       # AsdfProvider - implements BackendProvider
+│   │       ├── backend.rs        # AsdfBackend - implements VersionManager
+│   │       ├── detection.rs      # asdf detection
+│   │       ├── update.rs         # asdf update checking
+│   │       └── version.rs        # asdf output parsing
 │   ├── versi-shell/              # Shell detection & configuration (backend-agnostic)
 │   │   └── src/
 │   │       ├── detect.rs         # Shell detection
@@ -193,6 +201,7 @@ cargo clippy --workspace --all-targets --all-features -- -D warnings
 6. `crates/versi-fnm/src/provider.rs` - `FnmProvider` (concrete backend implementation)
 7. `crates/versi-nvm/src/provider.rs` - `NvmProvider` (concrete backend implementation)
 8. `crates/versi-volta/src/provider.rs` - `VoltaProvider` (concrete backend implementation)
+9. `crates/versi-asdf/src/provider.rs` - `AsdfProvider` (concrete backend implementation)
 
 ## Common Tasks
 
@@ -281,6 +290,14 @@ The GUI interacts with backends exclusively through the `BackendProvider` and `V
 - `volta install node@<version>` - Set global default Node runtime
 - `volta list --current node --format plain` - Get active Node runtime
 - `volta list --default node --format plain` - Get default Node runtime
+
+**Key asdf commands used (in `versi-asdf`):**
+- `asdf list nodejs` - Get installed Node versions
+- `asdf list all nodejs` - Get available Node versions
+- `asdf install nodejs <version>` - Install a Node version
+- `asdf uninstall nodejs <version>` - Remove a Node version
+- `asdf set -u nodejs <version>` - Set default Node version
+- `asdf current nodejs` - Get currently active Node version
 
 ## Platform-Specific Notes
 
