@@ -1,44 +1,6 @@
 use crate::error::BackendError;
 use crate::types::{InstalledVersion, NodeVersion};
 
-/// Download and run a Unix shell install script, cleaning up the temporary file
-/// afterward.
-///
-/// This is the common flow used by fnm, nvm, and volta Unix installers.
-///
-/// # Errors
-///
-/// Returns [`BackendError::InstallFailed`] when downloading or executing the
-/// script fails.
-#[cfg(unix)]
-pub async fn run_unix_install_script(url: &str, label: &str) -> Result<(), BackendError> {
-    use versi_core::HideWindow;
-
-    let script_path = versi_core::temp_script_path(label, "sh")
-        .map_err(|error| BackendError::install_failed("create temp script", format!("{error}")))?;
-    let result = async {
-        download_and_prepare_install_script(url, &script_path).await?;
-        tokio::process::Command::new("bash")
-            .arg(&script_path)
-            .hide_window()
-            .status()
-            .await
-            .map_err(BackendError::from)
-    }
-    .await;
-    let _ = tokio::fs::remove_file(&script_path).await;
-    let status = result?;
-
-    if status.success() {
-        Ok(())
-    } else {
-        Err(BackendError::install_failed(
-            "run installer script",
-            format!("{label} installation script failed"),
-        ))
-    }
-}
-
 /// Download and run an install script from a GitHub repository, using the
 /// latest release tag and verifying through the GitHub Contents API.
 ///
@@ -100,29 +62,6 @@ pub async fn download_and_prepare_github_install_script(
             BackendError::install_failed(
                 "download installer script",
                 format!("failed to download installer script from GitHub: {error}"),
-            )
-        })
-}
-
-/// Download an install script and map errors to [`BackendError`].
-///
-/// This is a thin adapter around [`versi_core::download_install_script`] that
-/// converts the core error type into the backend error model.
-///
-/// # Errors
-///
-/// Returns [`BackendError::InstallFailed`] when the download or filesystem
-/// preparation fails.
-pub async fn download_and_prepare_install_script(
-    url: &str,
-    path: &std::path::Path,
-) -> Result<(), BackendError> {
-    versi_core::download_install_script(url, path)
-        .await
-        .map_err(|error| {
-            BackendError::install_failed(
-                "download installer script",
-                format!("failed to download installer script: {error}"),
             )
         })
 }

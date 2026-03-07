@@ -9,9 +9,6 @@ use versi_backend::{BackendDetection, BackendError};
 use versi_core::HideWindow;
 use versi_core::get_cli_version;
 
-#[cfg(unix)]
-const VOLTA_INSTALL_SCRIPT_URL: &str = "https://get.volta.sh";
-
 pub(crate) async fn detect_volta() -> BackendDetection {
     let data_dir = detect_volta_home();
 
@@ -148,8 +145,13 @@ async fn get_volta_version(path: &Path) -> Option<String> {
 pub(crate) async fn install_volta() -> Result<(), BackendError> {
     #[cfg(unix)]
     {
-        return versi_backend::run_unix_install_script(VOLTA_INSTALL_SCRIPT_URL, "volta-install")
-            .await;
+        return versi_backend::run_github_install_script(
+            "volta-cli",
+            "volta",
+            "dev/unix/volta-install.sh",
+            "volta-install",
+        )
+        .await;
     }
 
     #[cfg(windows)]

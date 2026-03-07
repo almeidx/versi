@@ -6,7 +6,6 @@ use serde::Deserialize;
 
 const INSTALL_SCRIPT_TIMEOUT: Duration = Duration::from_secs(30);
 const INSTALL_SCRIPT_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
-const INSTALL_SCRIPT_RETRY_DELAYS_SECS: [u64; 3] = [0, 2, 5];
 
 #[derive(Debug, thiserror::Error)]
 pub enum InstallScriptError {
@@ -62,21 +61,6 @@ pub fn temp_script_path(prefix: &str, ext: &str) -> Result<PathBuf, InstallScrip
     Ok(path)
 }
 
-/// Download an installer script with timeout/retry policy and (on Unix) set
-/// the file executable.
-///
-/// # Errors
-/// Returns an error if the HTTP request fails, the server responds with a
-/// non-success status, writing the script to disk fails, or setting
-/// permissions fails.
-pub async fn download_install_script(url: &str, path: &Path) -> Result<(), InstallScriptError> {
-    let client = build_download_client()?;
-    let script = download_with_retries(&client, url).await?;
-    write_script(path, &script).await?;
-    set_executable(path)?;
-    Ok(())
-}
-
 #[cfg(unix)]
 fn set_executable(path: &Path) -> Result<(), InstallScriptError> {
     use std::os::unix::fs::PermissionsExt;
@@ -110,58 +94,6 @@ async fn write_script(path: &Path, script: &[u8]) -> Result<(), InstallScriptErr
             source,
         })?;
     Ok(())
-}
-
-async fn download_with_retries(
-    client: &reqwest::Client,
-    url: &str,
-) -> Result<Vec<u8>, InstallScriptError> {
-    let mut last_error = None;
-
-    for delay_secs in INSTALL_SCRIPT_RETRY_DELAYS_SECS {
-        if delay_secs > 0 {
-            tokio::time::sleep(Duration::from_secs(delay_secs)).await;
-        }
-
-        match download_once(client, url).await {
-            Ok(bytes) => return Ok(bytes),
-            Err(error) => {
-                last_error = Some(error);
-            }
-        }
-    }
-
-    Err(last_error.unwrap_or_else(|| InstallScriptError::Status {
-        url: url.to_string(),
-        status: reqwest::StatusCode::REQUEST_TIMEOUT,
-    }))
-}
-
-async fn download_once(client: &reqwest::Client, url: &str) -> Result<Vec<u8>, InstallScriptError> {
-    let response = client
-        .get(url)
-        .send()
-        .await
-        .map_err(|source| InstallScriptError::Request {
-            url: url.to_string(),
-            source,
-        })?;
-
-    if !response.status().is_success() {
-        return Err(InstallScriptError::Status {
-            url: url.to_string(),
-            status: response.status(),
-        });
-    }
-
-    response
-        .bytes()
-        .await
-        .map(|bytes| bytes.to_vec())
-        .map_err(|source| InstallScriptError::Request {
-            url: url.to_string(),
-            source,
-        })
 }
 
 /// Download an install script from a GitHub repository using the latest
