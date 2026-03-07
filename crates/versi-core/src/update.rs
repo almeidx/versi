@@ -161,7 +161,7 @@ pub async fn check_github_backend_update(
 fn is_newer_version(latest: &str, current: &str) -> bool {
     match (parse_semver(latest), parse_semver(current)) {
         (Some(latest), Some(current)) => latest > current,
-        _ => latest.trim() != current.trim(),
+        _ => false,
     }
 }
 
@@ -283,6 +283,9 @@ mod tests {
         assert!(!is_newer_version("1.0.0-beta.2", "1.0.0-beta.10"));
         assert!(!is_newer_version("1.0.0", "1.0.1"));
         assert!(!is_newer_version("0.9.0", "1.0.0"));
+        assert!(!is_newer_version("nightly", "1.0.0"));
+        assert!(!is_newer_version("1.0.0", "nightly"));
+        assert!(!is_newer_version("rc-test", "abc"));
     }
 
     #[test]
