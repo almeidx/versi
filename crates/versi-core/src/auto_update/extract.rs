@@ -95,8 +95,10 @@ pub(super) fn extract_zip(zip_path: &Path, dest: &Path) -> Result<(), AutoUpdate
             {
                 use std::os::unix::fs::PermissionsExt;
                 if let Some(mode) = entry.unix_mode() {
-                    let _ =
-                        std::fs::set_permissions(&out_path, std::fs::Permissions::from_mode(mode));
+                    let _ = std::fs::set_permissions(
+                        &out_path,
+                        std::fs::Permissions::from_mode(mode & 0o777),
+                    );
                 }
             }
         }

@@ -48,6 +48,10 @@ impl Versi {
 }
 
 pub(super) fn open_url_task(url: String) -> Task<Message> {
+    if !url.starts_with("https://") && !url.starts_with("http://") {
+        log::warn!("Blocked open request for non-HTTP URL: {url}");
+        return Task::none();
+    }
     Task::perform(
         async move {
             let _ = open::that(&url);
