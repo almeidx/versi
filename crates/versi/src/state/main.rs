@@ -275,7 +275,7 @@ impl MainState {
 
     pub fn next_toast_id(&mut self) -> usize {
         let id = self.next_toast_id;
-        self.next_toast_id += 1;
+        self.next_toast_id = self.next_toast_id.wrapping_add(1);
         id
     }
 
