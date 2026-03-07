@@ -25,7 +25,7 @@ impl Toast {
     }
 
     pub fn is_expired(&self, timeout_secs: u64) -> bool {
-        self.created_at.elapsed().as_secs() > timeout_secs
+        self.created_at.elapsed().as_secs() >= timeout_secs
     }
 }
 
@@ -89,7 +89,7 @@ mod tests {
             message: "fresh".to_string(),
             created_at: Instant::now(),
         };
-        assert!(!fresh.is_expired(0));
+        assert!(!fresh.is_expired(5));
 
         let stale = Toast {
             id: 2,
