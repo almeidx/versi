@@ -350,7 +350,7 @@ impl AppSettings {
         Ok(())
     }
 
-    fn sanitize_in_place(&mut self) -> bool {
+    pub(crate) fn sanitize_in_place(&mut self) -> bool {
         let mut changed = false;
 
         changed |= clamp_in_place(&mut self.cache_ttl_hours, &CACHE_TTL_HOURS_RANGE);

@@ -97,6 +97,12 @@ impl From<versi_shell::WslShellConfigError> for AppErrorDetail {
     }
 }
 
+impl From<serde_json::Error> for AppErrorDetail {
+    fn from(error: serde_json::Error) -> Self {
+        Self::Message(error.to_string())
+    }
+}
+
 impl From<versi_core::auto_update::AutoUpdateError> for AppErrorDetail {
     fn from(value: versi_core::auto_update::AutoUpdateError) -> Self {
         Self::Core {

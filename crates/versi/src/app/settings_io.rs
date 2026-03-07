@@ -74,7 +74,9 @@ impl Versi {
     ) -> Task<Message> {
         match result {
             Ok(()) => {
+                let old_settings = self.settings.clone();
                 self.settings = crate::settings::AppSettings::load();
+                return self.apply_imported_settings_side_effects(&old_settings);
             }
             Err(e) if !is_settings_dialog_cancelled(&e) => {
                 if let AppState::Main(state) = &mut self.state {
@@ -89,6 +91,40 @@ impl Versi {
         }
         Task::none()
     }
+
+    fn apply_imported_settings_side_effects(
+        &mut self,
+        old: &crate::settings::AppSettings,
+    ) -> Task<Message> {
+        if old.debug_logging != self.settings.debug_logging {
+            crate::logging::set_logging_enabled(self.settings.debug_logging);
+        }
+
+        if old.launch_at_login != self.settings.launch_at_login
+            && let Err(e) = super::platform::set_launch_at_login(self.settings.launch_at_login)
+        {
+            log::error!("Failed to set launch at login: {e}");
+        }
+
+        if old.tray_behavior != self.settings.tray_behavior {
+            use crate::settings::TrayBehavior;
+            use crate::tray;
+
+            if old.tray_behavior == TrayBehavior::Disabled
+                && self.settings.tray_behavior != TrayBehavior::Disabled
+            {
+                if let Err(e) = tray::init_tray(self.settings.tray_behavior) {
+                    log::error!("Failed to initialize tray: {e}");
+                } else {
+                    self.update_tray_menu();
+                }
+            } else if self.settings.tray_behavior == TrayBehavior::Disabled {
+                tray::destroy_tray();
+            }
+        }
+
+        Task::none()
+    }
 }
 
 fn is_settings_dialog_cancelled(error: &AppError) -> bool {
@@ -100,7 +136,7 @@ async fn export_settings_to_path(
     path: &std::path::Path,
 ) -> Result<std::path::PathBuf, AppError> {
     let content = serde_json::to_string_pretty(settings)
-        .map_err(|error| AppError::settings_export_failed("serialize", error.to_string()))?;
+        .map_err(|error| AppError::settings_export_failed("serialize", error))?;
     tokio::fs::write(path, content)
         .await
         .map_err(|error| AppError::settings_export_failed("write", error))?;
@@ -113,8 +149,10 @@ async fn import_settings_from_path(
     let content = tokio::fs::read_to_string(path)
         .await
         .map_err(|error| AppError::settings_import_failed("read", error))?;
-    serde_json::from_str(&content)
-        .map_err(|error| AppError::settings_import_failed("parse", error.to_string()))
+    let mut settings: crate::settings::AppSettings = serde_json::from_str(&content)
+        .map_err(|error| AppError::settings_import_failed("parse", error))?;
+    settings.sanitize_in_place();
+    Ok(settings)
 }
 
 #[cfg(test)]
