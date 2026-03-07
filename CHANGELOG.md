@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.12.2] - 2026-03-07
+
+- deps: Update Rust crate which to 8.0.1 (#87)
+- fix: use correct `script` syntax for util-linux on Linux
+
+
 ## [0.12.1] - 2026-03-06
 
 - refactor: replace fd-lock with std File::try_lock
