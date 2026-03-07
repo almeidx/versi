@@ -157,6 +157,10 @@ impl MainState {
         }
     }
 
+    pub fn supports_uninstall(&self) -> bool {
+        self.backend.capabilities().supports_uninstall
+    }
+
     pub fn active_environment(&self) -> &EnvironmentState {
         &self.environments[self.active_environment_idx]
     }
@@ -227,6 +231,12 @@ impl MainState {
         let env = self.active_environment();
         let platform = environment_platform(&env.id);
         let advisories = self.available_versions.security_advisories.as_ref();
+        let prepared_advisories: Option<Vec<_>> = advisories.map(|index| {
+            index
+                .iter()
+                .map(|(id, advisory)| (id.clone(), advisory.prepare()))
+                .collect()
+        });
         let schedule = self.available_versions.schedule.as_ref();
         let mut findings = HashMap::new();
 
@@ -234,9 +244,9 @@ impl MainState {
             let version_label = version.version.to_string();
             let mut advisory_ids = Vec::new();
 
-            if let Some(advisory_index) = advisories {
-                for (advisory_id, advisory) in advisory_index.iter() {
-                    if advisory.affects_version_on_platform(&version_label, platform) {
+            if let Some(prepared) = prepared_advisories.as_ref() {
+                for (advisory_id, prepared_advisory) in prepared {
+                    if prepared_advisory.affects_version_on_platform(&version_label, platform) {
                         advisory_ids.push(advisory_id.clone());
                     }
                 }
@@ -569,24 +579,7 @@ mod tests {
         }
     }
 
-    fn schedule_with_eol_major(eol_major: u32) -> versi_core::ReleaseSchedule {
-        serde_json::from_value(serde_json::json!({
-            "versions": {
-                format!("{eol_major}"): {
-                    "start": "2020-01-01",
-                    "end": "2021-01-01"
-                },
-                "22": {
-                    "start": "2024-04-23",
-                    "lts": "2024-10-29",
-                    "maintenance": "2026-10-20",
-                    "end": "2027-04-30",
-                    "codename": "Jod"
-                }
-            }
-        }))
-        .expect("schedule fixture should deserialize")
-    }
+    use crate::test_fixtures::schedule_with_eol_major;
 
     #[test]
     fn navigable_versions_uses_expanded_groups_without_search() {

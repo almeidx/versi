@@ -49,6 +49,15 @@ impl SecurityAdvisory {
         !patched
     }
 
+    #[must_use]
+    pub fn prepare(&self) -> PreparedAdvisory<'_> {
+        PreparedAdvisory {
+            vulnerable: parse_requirement_expression(&self.vulnerable),
+            patched: parse_requirement_expression(&self.patched),
+            advisory: self,
+        }
+    }
+
     fn affected_environment_matches(&self, platform: &str) -> bool {
         if self.affected_environments.is_empty() {
             return true;
@@ -111,16 +120,46 @@ fn parse_node_semver(input: &str) -> Option<Version> {
     Version::parse(normalized).ok()
 }
 
-fn matches_requirement_expression(requirement: &str, version: &Version) -> bool {
+fn parse_requirement_expression(requirement: &str) -> Vec<VersionReq> {
     requirement
         .split("||")
         .map(str::trim)
         .filter(|clause| !clause.is_empty())
-        .any(|clause| {
-            VersionReq::parse(clause)
-                .map(|req| req.matches(version))
-                .unwrap_or(false)
-        })
+        .filter_map(|clause| VersionReq::parse(clause).ok())
+        .collect()
+}
+
+fn matches_requirement_expression(requirement: &str, version: &Version) -> bool {
+    parse_requirement_expression(requirement)
+        .iter()
+        .any(|req| req.matches(version))
+}
+
+pub struct PreparedAdvisory<'a> {
+    vulnerable: Vec<VersionReq>,
+    patched: Vec<VersionReq>,
+    advisory: &'a SecurityAdvisory,
+}
+
+impl PreparedAdvisory<'_> {
+    #[must_use]
+    pub fn affects_version_on_platform(&self, version: &str, platform: &str) -> bool {
+        if !self.advisory.affected_environment_matches(platform) {
+            return false;
+        }
+
+        let Some(version) = parse_node_semver(version) else {
+            return false;
+        };
+
+        let vulnerable = self.vulnerable.iter().any(|req| req.matches(&version));
+        if !vulnerable {
+            return false;
+        }
+
+        let patched = self.patched.iter().any(|req| req.matches(&version));
+        !patched
+    }
 }
 
 #[cfg(test)]
