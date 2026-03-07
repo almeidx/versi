@@ -8,6 +8,10 @@ pub use buttons::*;
 pub use containers::*;
 pub use scrollables::*;
 
+pub(crate) fn is_dark(theme: &iced::Theme) -> bool {
+    theme.palette().background.r < 0.5
+}
+
 pub(crate) fn lighten(color: iced::Color, amount: f32) -> iced::Color {
     iced::Color {
         r: (color.r + amount).min(1.0),

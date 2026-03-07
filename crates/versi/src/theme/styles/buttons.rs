@@ -123,7 +123,7 @@ pub fn danger_button(_theme: &Theme, status: button::Status) -> button::Style {
 
 pub fn secondary_button(theme: &Theme, status: button::Status) -> button::Style {
     let palette = theme.palette();
-    let is_dark = palette.background.r < 0.5;
+    let is_dark = super::is_dark(theme);
     tinted_button(
         TintedStyle {
             text: palette.text,
@@ -327,7 +327,7 @@ pub fn active_tab_button(theme: &Theme, status: button::Status) -> button::Style
 
 pub fn inactive_tab_button(theme: &Theme, status: button::Status) -> button::Style {
     let palette = theme.palette();
-    let is_dark = palette.background.r < 0.5;
+    let is_dark = super::is_dark(theme);
 
     let text_secondary = Color {
         a: 0.6,
@@ -390,7 +390,7 @@ pub fn disabled_tab_button(theme: &Theme, _status: button::Status) -> button::St
 
 pub fn context_menu_item(theme: &Theme, status: button::Status) -> button::Style {
     let palette = theme.palette();
-    let is_dark = palette.background.r < 0.5;
+    let is_dark = super::is_dark(theme);
     tinted_button(
         TintedStyle {
             text: palette.text,
@@ -567,7 +567,7 @@ pub fn row_action_button_danger(_theme: &Theme, status: button::Status) -> butto
 
 pub fn filter_chip(theme: &Theme, status: button::Status) -> button::Style {
     let palette = theme.palette();
-    let is_dark = palette.background.r < 0.5;
+    let is_dark = super::is_dark(theme);
 
     let border_color = if is_dark {
         Color::from_rgba8(255, 255, 255, 0.12)

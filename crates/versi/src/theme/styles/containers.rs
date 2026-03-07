@@ -2,8 +2,7 @@ use iced::widget::{container, text_input};
 use iced::{Background, Border, Color, Shadow, Theme};
 
 pub fn card_container(theme: &Theme) -> container::Style {
-    let palette = theme.palette();
-    let is_dark = palette.background.r < 0.5;
+    let is_dark = super::is_dark(theme);
 
     container::Style {
         background: Some(Background::Color(crate::theme::tokens::card_bg(is_dark))),
@@ -33,8 +32,7 @@ pub fn page_background_overlay(theme: &Theme) -> container::Style {
 }
 
 pub fn modal_container(theme: &Theme) -> container::Style {
-    let palette = theme.palette();
-    let is_dark = palette.background.r < 0.5;
+    let is_dark = super::is_dark(theme);
 
     let bg = if is_dark {
         Color::from_rgb8(44, 44, 46)
@@ -64,7 +62,7 @@ pub fn modal_container(theme: &Theme) -> container::Style {
 
 pub fn search_input(theme: &Theme, _status: text_input::Status) -> text_input::Style {
     let palette = theme.palette();
-    let is_dark = palette.background.r < 0.5;
+    let is_dark = super::is_dark(theme);
 
     let bg = if is_dark {
         Color::from_rgb8(44, 44, 46)
@@ -95,8 +93,7 @@ pub fn search_input(theme: &Theme, _status: text_input::Status) -> text_input::S
 }
 
 pub fn tooltip_container(theme: &Theme) -> container::Style {
-    let palette = theme.palette();
-    let is_dark = palette.background.r < 0.5;
+    let is_dark = super::is_dark(theme);
 
     let bg = if is_dark {
         Color::from_rgb8(58, 58, 60)
@@ -131,8 +128,7 @@ pub fn tooltip_container(theme: &Theme) -> container::Style {
 }
 
 pub fn kbd_container(theme: &Theme) -> container::Style {
-    let palette = theme.palette();
-    let is_dark = palette.background.r < 0.5;
+    let is_dark = super::is_dark(theme);
 
     let (bg, border_color) = if is_dark {
         (Color::from_rgb8(58, 58, 60), Color::from_rgb8(80, 80, 82))
@@ -159,8 +155,7 @@ pub fn context_menu_container(theme: &Theme) -> container::Style {
 }
 
 pub fn context_menu_separator(theme: &Theme) -> container::Style {
-    let palette = theme.palette();
-    let is_dark = palette.background.r < 0.5;
+    let is_dark = super::is_dark(theme);
 
     let color = if is_dark {
         Color::from_rgba8(255, 255, 255, 0.1)
@@ -175,8 +170,7 @@ pub fn context_menu_separator(theme: &Theme) -> container::Style {
 }
 
 pub fn version_row_hovered(theme: &Theme) -> container::Style {
-    let palette = theme.palette();
-    let is_dark = palette.background.r < 0.5;
+    let is_dark = super::is_dark(theme);
 
     container::Style {
         background: Some(Background::Color(if is_dark {
