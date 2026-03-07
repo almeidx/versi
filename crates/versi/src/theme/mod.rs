@@ -11,6 +11,8 @@ pub mod tokens {
 
     pub const TEXT_MUTED: iced::Color =
         iced::Color::from_rgb(142.0 / 255.0, 142.0 / 255.0, 147.0 / 255.0);
+    pub const SUCCESS: iced::Color =
+        iced::Color::from_rgb(52.0 / 255.0, 199.0 / 255.0, 89.0 / 255.0);
     pub const DANGER: iced::Color = iced::Color::from_rgb(1.0, 69.0 / 255.0, 58.0 / 255.0);
     pub const EOL_ORANGE: iced::Color = iced::Color::from_rgb(1.0, 149.0 / 255.0, 0.0);
 

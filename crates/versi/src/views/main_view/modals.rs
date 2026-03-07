@@ -239,7 +239,7 @@ fn confirm_bulk_uninstall_major_except_latest_view<'a>(
         Space::new().height(8),
         text(format!("Node {keeping} will be kept."))
             .size(12)
-            .color(iced::Color::from_rgb8(52, 199, 89)),
+            .color(crate::theme::tokens::SUCCESS),
         Space::new().height(24),
         row![
             button(text("Cancel").size(13))

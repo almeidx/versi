@@ -324,14 +324,14 @@ fn shell_status_row(shell: &crate::state::ShellSetupStatus) -> iced::widget::Row
                 .width(Length::Fixed(crate::theme::tokens::COL_SHELL_NAME)),
             text(status_text)
                 .size(12)
-                .color(iced::Color::from_rgb8(52, 199, 89)),
+                .color(crate::theme::tokens::SUCCESS),
         ]
         .spacing(8)
         .align_y(Alignment::Center);
         if matches!(shell.status, ShellVerificationStatus::Configured) {
             let check_icon: Element<'_, Message> = icon::check(12.0)
                 .style(|_theme: &iced::Theme, _status| iced::widget::svg::Style {
-                    color: Some(iced::Color::from_rgb8(52, 199, 89)),
+                    color: Some(crate::theme::tokens::SUCCESS),
                 })
                 .into();
             row = row.push(check_icon);
