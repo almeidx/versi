@@ -5,13 +5,10 @@ use which::which;
 
 use versi_backend::BackendDetection;
 #[cfg(windows)]
-use versi_backend::download_and_prepare_install_script;
+use versi_backend::download_and_prepare_github_install_script;
 use versi_core::get_cli_version;
 #[cfg(windows)]
 use versi_core::{HideWindow, temp_script_path};
-
-const FNM_INSTALL_SCRIPT_URL: &str =
-    "https://raw.githubusercontent.com/Schniz/fnm/v1.38.1/.ci/install.sh";
 
 pub(crate) async fn detect_fnm() -> BackendDetection {
     let data_dir = detect_fnm_dir();
@@ -121,10 +118,19 @@ async fn get_fnm_version(path: &Path) -> Option<String> {
     get_cli_version(path, "fnm ").await
 }
 
+const FNM_GITHUB_OWNER: &str = "Schniz";
+const FNM_GITHUB_REPO: &str = "fnm";
+
 pub(crate) async fn install_fnm() -> Result<(), versi_backend::BackendError> {
     #[cfg(unix)]
     {
-        return versi_backend::run_unix_install_script(FNM_INSTALL_SCRIPT_URL, "fnm-install").await;
+        return versi_backend::run_github_install_script(
+            FNM_GITHUB_OWNER,
+            FNM_GITHUB_REPO,
+            ".ci/install.sh",
+            "fnm-install",
+        )
+        .await;
     }
 
     #[cfg(windows)]
@@ -133,7 +139,13 @@ pub(crate) async fn install_fnm() -> Result<(), versi_backend::BackendError> {
             versi_backend::BackendError::install_failed("create temp script", format!("{error}"))
         })?;
         let result = async {
-            download_and_prepare_install_script(FNM_INSTALL_SCRIPT_URL, &script_path).await?;
+            download_and_prepare_github_install_script(
+                FNM_GITHUB_OWNER,
+                FNM_GITHUB_REPO,
+                ".ci/install.sh",
+                &script_path,
+            )
+            .await?;
             Command::new("powershell")
                 .args([
                     "-NoProfile",

@@ -39,6 +39,71 @@ pub async fn run_unix_install_script(url: &str, label: &str) -> Result<(), Backe
     }
 }
 
+/// Download and run an install script from a GitHub repository, using the
+/// latest release tag and verifying through the GitHub Contents API.
+///
+/// # Errors
+///
+/// Returns [`BackendError::InstallFailed`] when downloading or executing the
+/// script fails.
+#[cfg(unix)]
+pub async fn run_github_install_script(
+    owner: &str,
+    repo: &str,
+    script_path: &str,
+    label: &str,
+) -> Result<(), BackendError> {
+    use versi_core::HideWindow;
+
+    let dest = versi_core::temp_script_path(label, "sh")
+        .map_err(|error| BackendError::install_failed("create temp script", format!("{error}")))?;
+    let result = async {
+        download_and_prepare_github_install_script(owner, repo, script_path, &dest).await?;
+        tokio::process::Command::new("bash")
+            .arg(&dest)
+            .hide_window()
+            .status()
+            .await
+            .map_err(BackendError::from)
+    }
+    .await;
+    let _ = tokio::fs::remove_file(&dest).await;
+    let status = result?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        Err(BackendError::install_failed(
+            "run installer script",
+            format!("{label} installation script failed"),
+        ))
+    }
+}
+
+/// Download an install script from GitHub and map errors to [`BackendError`].
+///
+/// Uses the GitHub Contents API at the latest release tag for integrity.
+///
+/// # Errors
+///
+/// Returns [`BackendError::InstallFailed`] when the download or verification
+/// fails.
+pub async fn download_and_prepare_github_install_script(
+    owner: &str,
+    repo: &str,
+    script_path: &str,
+    dest: &std::path::Path,
+) -> Result<(), BackendError> {
+    versi_core::download_github_install_script(owner, repo, script_path, dest)
+        .await
+        .map_err(|error| {
+            BackendError::install_failed(
+                "download installer script",
+                format!("failed to download installer script from GitHub: {error}"),
+            )
+        })
+}
+
 /// Download an install script and map errors to [`BackendError`].
 ///
 /// This is a thin adapter around [`versi_core::download_install_script`] that

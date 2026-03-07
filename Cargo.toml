@@ -38,6 +38,7 @@ futures-util = "0.3.32"
 tokio-util = { version = "0.7.18", default-features = false, features = ["rt"] }
 sha2 = "0.10.9"
 semver = "1.0.27"
+base64 = "0.22"
 
 [workspace.lints.clippy]
 pedantic = "warn"

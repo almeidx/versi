@@ -23,13 +23,13 @@ pub use command::{
 };
 /// Error type shared by backend providers and managers.
 pub use error::BackendError;
-#[cfg(unix)]
-pub use helpers::run_unix_install_script;
 /// Shared helpers for common backend patterns.
 pub use helpers::{
-    download_and_prepare_install_script, find_default_version, parse_current_version,
-    strip_version_prefix,
+    download_and_prepare_github_install_script, download_and_prepare_install_script,
+    find_default_version, parse_current_version, strip_version_prefix,
 };
+#[cfg(unix)]
+pub use helpers::{run_github_install_script, run_unix_install_script};
 /// Terminal text sanitization utilities.
 pub use text::sanitize_terminal_text;
 /// Backend traits and capability metadata used by the application.

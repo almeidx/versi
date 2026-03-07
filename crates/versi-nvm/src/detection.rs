@@ -8,8 +8,9 @@ use versi_platform::HideWindow;
 use crate::client::{NvmClient, NvmEnvironment};
 
 #[cfg(unix)]
-const NVM_INSTALL_SCRIPT_URL: &str =
-    "https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh";
+const NVM_GITHUB_OWNER: &str = "nvm-sh";
+#[cfg(unix)]
+const NVM_GITHUB_REPO: &str = "nvm";
 
 #[cfg(any(test, windows))]
 const NVM_WINDOWS_INSTALL_ATTEMPTS: [InstallerAttempt; 3] = [
@@ -217,7 +218,13 @@ pub(crate) fn detect_nvm_environment(detection: &NvmDetection) -> Option<NvmEnvi
 pub(crate) async fn install_nvm() -> Result<(), versi_backend::BackendError> {
     #[cfg(unix)]
     {
-        return versi_backend::run_unix_install_script(NVM_INSTALL_SCRIPT_URL, "nvm-install").await;
+        return versi_backend::run_github_install_script(
+            NVM_GITHUB_OWNER,
+            NVM_GITHUB_REPO,
+            "install.sh",
+            "nvm-install",
+        )
+        .await;
     }
 
     #[cfg(windows)]
