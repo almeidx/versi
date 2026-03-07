@@ -108,6 +108,7 @@ pub(super) fn handle_fetch_release_schedule(app: &mut Versi) -> Task<Message> {
         let (cancel_token, request_seq) = state.available_versions.schedule_fetch.start();
         state.available_versions.schedule_fetch.error = None;
         let client = app.http_client.clone();
+        let fetch_timeout = Duration::from_secs(app.settings.fetch_timeout_secs);
         let retry_delays = app.settings.retry_delays_secs.clone();
 
         return Task::perform(
@@ -119,11 +120,13 @@ pub(super) fn handle_fetch_release_schedule(app: &mut Versi) -> Task<Message> {
                     result = retry_with_delays("Release schedule fetch", &retry_delays, || {
                         let client = client.clone();
                         async move {
-                            fetch_release_schedule(&client)
-                                .await
-                                .map_err(|error| {
-                                    AppError::version_fetch_failed("Release schedule", error)
-                                })
+                            run_with_timeout(
+                                fetch_timeout,
+                                "Fetch release schedule",
+                                fetch_release_schedule(&client),
+                                |error| AppError::version_fetch_failed("Release schedule", error),
+                            )
+                            .await
                         }
                     }) => result
                 }
@@ -172,6 +175,7 @@ pub(super) fn handle_fetch_version_metadata(app: &mut Versi) -> Task<Message> {
         let (cancel_token, request_seq) = state.available_versions.metadata_fetch.start();
         state.available_versions.metadata_fetch.error = None;
         let client = app.http_client.clone();
+        let fetch_timeout = Duration::from_secs(app.settings.fetch_timeout_secs);
         let retry_delays = app.settings.retry_delays_secs.clone();
 
         return Task::perform(
@@ -183,11 +187,13 @@ pub(super) fn handle_fetch_version_metadata(app: &mut Versi) -> Task<Message> {
                     result = retry_with_delays("Version metadata fetch", &retry_delays, || {
                         let client = client.clone();
                         async move {
-                            fetch_version_metadata(&client)
-                                .await
-                                .map_err(|error| {
-                                    AppError::version_fetch_failed("Version metadata", error)
-                                })
+                            run_with_timeout(
+                                fetch_timeout,
+                                "Fetch version metadata",
+                                fetch_version_metadata(&client),
+                                |error| AppError::version_fetch_failed("Version metadata", error),
+                            )
+                            .await
                         }
                     }) => result
                 }
@@ -234,6 +240,7 @@ pub(super) fn handle_fetch_security_advisories(app: &mut Versi) -> Task<Message>
         let (cancel_token, request_seq) = state.available_versions.security_fetch.start();
         state.available_versions.security_fetch.error = None;
         let client = app.http_client.clone();
+        let fetch_timeout = Duration::from_secs(app.settings.fetch_timeout_secs);
         let retry_delays = app.settings.retry_delays_secs.clone();
 
         return Task::perform(
@@ -245,11 +252,13 @@ pub(super) fn handle_fetch_security_advisories(app: &mut Versi) -> Task<Message>
                     result = retry_with_delays("Security advisories fetch", &retry_delays, || {
                         let client = client.clone();
                         async move {
-                            fetch_security_advisories(&client)
-                                .await
-                                .map_err(|error| {
-                                    AppError::version_fetch_failed("Security advisories", error)
-                                })
+                            run_with_timeout(
+                                fetch_timeout,
+                                "Fetch security advisories",
+                                fetch_security_advisories(&client),
+                                |error| AppError::version_fetch_failed("Security advisories", error),
+                            )
+                            .await
                         }
                     }) => result
                 }

@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use iced::Task;
 use log::debug;
 use versi_backend::BackendDetection;
@@ -9,6 +11,7 @@ use crate::settings::AppUpdateBehavior;
 use crate::state::{AppState, AppUpdateState};
 
 use super::super::Versi;
+use super::super::async_helpers::run_with_timeout;
 
 pub(super) fn handle_check_for_app_update(app: &mut Versi) -> Task<Message> {
     if app.settings.app_update_behavior == AppUpdateBehavior::DoNotCheck {
@@ -24,11 +27,16 @@ pub(super) fn handle_check_for_app_update(app: &mut Versi) -> Task<Message> {
 
     let current_version = env!("CARGO_PKG_VERSION");
     let client = app.http_client.clone();
+    let fetch_timeout = Duration::from_secs(app.settings.fetch_timeout_secs);
     Task::perform(
         async move {
-            check_for_update(&client, current_version)
-                .await
-                .map_err(|error| AppError::update_check_failed("App", error))
+            run_with_timeout(
+                fetch_timeout,
+                "Check for app update",
+                check_for_update(&client, current_version),
+                |error| AppError::update_check_failed("App", error),
+            )
+            .await
         },
         |result| Message::AppUpdateChecked(Box::new(result)),
     )
