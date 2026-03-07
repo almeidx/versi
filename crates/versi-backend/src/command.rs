@@ -155,7 +155,7 @@ mod tests {
         #[cfg(windows)]
         {
             use std::os::windows::process::ExitStatusExt;
-            std::process::ExitStatus::from_raw(code as u32)
+            std::process::ExitStatus::from_raw(code.unsigned_abs())
         }
     }
 
