@@ -195,7 +195,8 @@ fn split_semver_core_and_suffix(version: &str) -> (&str, &str) {
     (&version[..suffix_idx], &version[suffix_idx..])
 }
 
-fn parse_sha256_digest(digest: &str) -> Option<String> {
+#[must_use]
+pub fn parse_sha256_digest(digest: &str) -> Option<String> {
     let (algorithm, hash) = digest.split_once(':')?;
     if !algorithm.eq_ignore_ascii_case("sha256") {
         return None;

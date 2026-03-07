@@ -212,6 +212,7 @@ async fn has_nodejs_plugin(asdf_path: &Path, asdf_data_dir: Option<&Path>) -> bo
 #[cfg(unix)]
 struct ReleaseAssetInfo {
     download_url: String,
+    sha256: Option<String>,
 }
 
 #[cfg(unix)]
@@ -220,7 +221,8 @@ pub(crate) async fn install_asdf(
 ) -> Result<(), versi_backend::BackendError> {
     let release = fetch_latest_release(client).await?;
     let asset = select_release_asset(&release)?;
-    let archive_bytes = download_release_asset(client, &asset.download_url).await?;
+    let archive_bytes =
+        download_release_asset(client, &asset.download_url, asset.sha256.as_deref()).await?;
 
     let temp_dir = temp_install_dir();
     let install_result = async {
@@ -315,8 +317,14 @@ fn select_release_asset(
             )
         })?;
 
+    let sha256 = asset
+        .digest
+        .as_deref()
+        .and_then(versi_core::parse_sha256_digest);
+
     Ok(ReleaseAssetInfo {
         download_url: asset.browser_download_url.clone(),
+        sha256,
     })
 }
 
@@ -324,6 +332,7 @@ fn select_release_asset(
 async fn download_release_asset(
     client: &reqwest::Client,
     download_url: &str,
+    expected_sha256: Option<&str>,
 ) -> Result<Vec<u8>, versi_backend::BackendError> {
     let response = client
         .get(download_url)
@@ -344,7 +353,7 @@ async fn download_release_asset(
         ));
     }
 
-    response
+    let bytes = response
         .bytes()
         .await
         .map(|bytes| bytes.to_vec())
@@ -353,7 +362,37 @@ async fn download_release_asset(
                 "download asdf asset",
                 format!("failed to read archive body: {error}"),
             )
-        })
+        })?;
+
+    verify_asset_checksum(&bytes, expected_sha256)?;
+
+    Ok(bytes)
+}
+
+#[cfg(unix)]
+fn verify_asset_checksum(
+    bytes: &[u8],
+    expected_sha256: Option<&str>,
+) -> Result<(), versi_backend::BackendError> {
+    use sha2::{Digest, Sha256};
+
+    let Some(expected) = expected_sha256 else {
+        return Err(versi_backend::BackendError::install_failed(
+            "verify asdf checksum",
+            "release asset is missing SHA-256 digest; refusing to install unverified binary",
+        ));
+    };
+
+    let actual = format!("{:x}", Sha256::digest(bytes));
+
+    if actual.eq_ignore_ascii_case(expected) {
+        Ok(())
+    } else {
+        Err(versi_backend::BackendError::install_failed(
+            "verify asdf checksum",
+            "SHA-256 checksum mismatch; refusing to install tampered binary",
+        ))
+    }
 }
 
 #[cfg(unix)]

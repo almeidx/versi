@@ -43,5 +43,5 @@ pub use security::{
 /// App update model, GitHub release mapping, and version comparison helpers.
 pub use update::{
     AppUpdate, BackendUpdateInfo, GitHubRelease, UpdateError, backend_update_from_release,
-    check_for_update, check_github_backend_update,
+    check_for_update, check_github_backend_update, parse_sha256_digest,
 };
