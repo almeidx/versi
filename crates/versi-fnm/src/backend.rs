@@ -129,10 +129,11 @@ impl FnmBackend {
             cmd.args(["install", version, "--progress", "always"]);
         } else {
             // util-linux script: script -q -c "command args..." /dev/null
+            // Pass version via env var to avoid shell injection through single-quote breaking
+            cmd.env("__VERSI_VERSION", version);
             let shell_cmd = format!(
-                "'{}' install '{}' --progress always",
+                "'{}' install \"$__VERSI_VERSION\" --progress always",
                 self.info.path.display(),
-                version,
             );
             cmd.args(["-q", "-c", &shell_cmd, "/dev/null"]);
         }
