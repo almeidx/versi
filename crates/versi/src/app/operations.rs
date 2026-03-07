@@ -17,16 +17,16 @@ use crate::state::{AppState, BulkRunAction, MainState, Modal, Operation, Toast};
 use super::Versi;
 use super::async_helpers::run_with_timeout;
 
-fn has_duplicate_install_request(state: &MainState, version: &str) -> bool {
+fn has_duplicate_install_request(state: &MainState, version: NodeVersion) -> bool {
     state.operation_queue.has_active_install(version)
         || state.operation_queue.has_pending_for_version(version)
 }
 
-fn enqueue_install_if_busy(state: &mut MainState, version: &str) -> bool {
+fn enqueue_install_if_busy(state: &mut MainState, version: NodeVersion) -> bool {
     if state.operation_queue.is_busy_for_install() {
-        state.operation_queue.enqueue(Operation::Install {
-            version: version.to_string(),
-        });
+        state
+            .operation_queue
+            .enqueue(Operation::Install { version });
         return true;
     }
     false
@@ -40,26 +40,22 @@ fn enqueue_exclusive_if_busy(state: &mut MainState, request: Operation) -> bool 
     false
 }
 
-fn is_default_version(state: &MainState, version: &str) -> bool {
-    let Ok(version) = version.parse::<NodeVersion>() else {
-        return false;
-    };
+fn is_default_version(state: &MainState, version: NodeVersion) -> bool {
     state
         .active_environment()
         .default_version
-        .as_ref()
-        .is_some_and(|dv| dv == &version)
+        .is_some_and(|dv| dv == version)
 }
 
 fn error_text(error: Option<AppError>) -> String {
     error.map_or_else(|| "unknown error".to_string(), |e| e.to_string())
 }
 
-fn install_failure_message(version: &str, error: Option<AppError>) -> String {
+fn install_failure_message(version: NodeVersion, error: Option<AppError>) -> String {
     format!("Failed to install Node {version}: {}", error_text(error))
 }
 
-fn uninstall_failure_message(version: &str, error: Option<AppError>) -> String {
+fn uninstall_failure_message(version: NodeVersion, error: Option<AppError>) -> String {
     format!("Failed to uninstall Node {version}: {}", error_text(error))
 }
 
@@ -116,15 +112,15 @@ impl Versi {
         }
     }
 
-    pub(super) fn handle_start_install(&mut self, version: String) -> Task<Message> {
+    pub(super) fn handle_start_install(&mut self, version: NodeVersion) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
             state.modal = None;
 
-            if has_duplicate_install_request(state, &version) {
+            if has_duplicate_install_request(state, version) {
                 return Task::none();
             }
 
-            if enqueue_install_if_busy(state, &version) {
+            if enqueue_install_if_busy(state, version) {
                 return Task::none();
             }
 
@@ -142,15 +138,19 @@ impl Versi {
                 return Task::none();
             }
 
-            let mut install_targets = HashSet::new();
-            let mut uninstall_targets = HashSet::new();
+            let mut install_targets: HashSet<NodeVersion> = HashSet::new();
+            let mut uninstall_targets: HashSet<NodeVersion> = HashSet::new();
             for (version, action) in canceled {
                 match action {
                     BulkRunAction::Install => {
-                        install_targets.insert(version);
+                        if let Ok(nv) = version.parse() {
+                            install_targets.insert(nv);
+                        }
                     }
                     BulkRunAction::Uninstall => {
-                        uninstall_targets.insert(version);
+                        if let Ok(nv) = version.parse() {
+                            uninstall_targets.insert(nv);
+                        }
                     }
                 }
             }
@@ -168,11 +168,12 @@ impl Versi {
         Task::none()
     }
 
-    pub(super) fn start_install_internal(&mut self, version: String) -> Task<Message> {
+    pub(super) fn start_install_internal(&mut self, version: NodeVersion) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            state.operation_queue.start_install(version.clone());
+            state.operation_queue.start_install(version);
             state.install_progress.remove(&version);
-            mark_bulk_item_running(state, &version, BulkRunAction::Install);
+            let version_str = version.to_string();
+            mark_bulk_item_running(state, &version_str, BulkRunAction::Install);
 
             let backend = state.backend.clone();
             let timeout = Duration::from_secs(self.settings.install_timeout_secs);
@@ -182,13 +183,13 @@ impl Versi {
                     32,
                     move |mut sender: iced::futures::channel::mpsc::Sender<Message>| async move {
                         let (progress_tx, mut progress_rx) = tokio::sync::mpsc::channel(64);
-                        let install_version = version.clone();
+                        let install_version_str = version.to_string();
 
                         let install_task = tokio::spawn(async move {
                             run_with_timeout(
                                 timeout,
                                 "Installation",
-                                backend.install_with_progress(&install_version, progress_tx),
+                                backend.install_with_progress(&install_version_str, progress_tx),
                                 |error| AppError::operation_failed("Install", error),
                             )
                             .await
@@ -196,10 +197,7 @@ impl Versi {
 
                         while let Some(progress) = progress_rx.recv().await {
                             let _ = sender
-                                .send(Message::InstallProgress {
-                                    version: version.clone(),
-                                    progress,
-                                })
+                                .send(Message::InstallProgress { version, progress })
                                 .await;
                         }
 
@@ -233,11 +231,11 @@ impl Versi {
 
     pub(super) fn handle_install_progress(
         &mut self,
-        version: String,
+        version: NodeVersion,
         progress: InstallProgress,
     ) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state
-            && state.operation_queue.has_active_install(&version)
+            && state.operation_queue.has_active_install(version)
         {
             state.install_progress.insert(version, progress);
         }
@@ -246,16 +244,17 @@ impl Versi {
 
     pub(super) fn handle_install_complete(
         &mut self,
-        version: &str,
+        version: NodeVersion,
         success: bool,
         error: Option<AppError>,
     ) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
             state.operation_queue.remove_completed_install(version);
-            state.install_progress.remove(version);
+            state.install_progress.remove(&version);
+            let version_str = version.to_string();
             mark_bulk_item_finished(
                 state,
-                version,
+                &version_str,
                 BulkRunAction::Install,
                 success,
                 error.clone(),
@@ -273,25 +272,18 @@ impl Versi {
         Task::batch([refresh_task, next_task])
     }
 
-    pub(super) fn handle_uninstall(&mut self, version: String) -> Task<Message> {
+    pub(super) fn handle_uninstall(&mut self, version: NodeVersion) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
             if !state.supports_uninstall() {
                 return Task::none();
             }
 
-            if is_default_version(state, &version) {
-                state.modal = Some(Modal::ConfirmUninstallDefault {
-                    version: version.clone(),
-                });
+            if is_default_version(state, version) {
+                state.modal = Some(Modal::ConfirmUninstallDefault { version });
                 return Task::none();
             }
 
-            if enqueue_exclusive_if_busy(
-                state,
-                Operation::Uninstall {
-                    version: version.clone(),
-                },
-            ) {
+            if enqueue_exclusive_if_busy(state, Operation::Uninstall { version }) {
                 return Task::none();
             }
 
@@ -300,7 +292,10 @@ impl Versi {
         Task::none()
     }
 
-    pub(super) fn handle_confirm_uninstall_default(&mut self, version: String) -> Task<Message> {
+    pub(super) fn handle_confirm_uninstall_default(
+        &mut self,
+        version: NodeVersion,
+    ) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
             state.modal = None;
 
@@ -308,12 +303,7 @@ impl Versi {
                 return Task::none();
             }
 
-            if enqueue_exclusive_if_busy(
-                state,
-                Operation::Uninstall {
-                    version: version.clone(),
-                },
-            ) {
+            if enqueue_exclusive_if_busy(state, Operation::Uninstall { version }) {
                 return Task::none();
             }
 
@@ -322,16 +312,17 @@ impl Versi {
         Task::none()
     }
 
-    pub(super) fn start_uninstall_internal(&mut self, version: String) -> Task<Message> {
+    pub(super) fn start_uninstall_internal(&mut self, version: NodeVersion) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
             if !state.supports_uninstall() {
                 return Task::none();
             }
 
-            state.operation_queue.start_exclusive(Operation::Uninstall {
-                version: version.clone(),
-            });
-            mark_bulk_item_running(state, &version, BulkRunAction::Uninstall);
+            state
+                .operation_queue
+                .start_exclusive(Operation::Uninstall { version });
+            let version_str = version.to_string();
+            mark_bulk_item_running(state, &version_str, BulkRunAction::Uninstall);
 
             let backend = state.backend.clone();
             let timeout = Duration::from_secs(self.settings.uninstall_timeout_secs);
@@ -341,7 +332,7 @@ impl Versi {
                     match run_with_timeout(
                         timeout,
                         "Uninstall",
-                        backend.uninstall(&version),
+                        backend.uninstall(&version_str),
                         |error| AppError::operation_failed("Uninstall", error),
                     )
                     .await
@@ -362,15 +353,16 @@ impl Versi {
 
     pub(super) fn handle_uninstall_complete(
         &mut self,
-        version: &str,
+        version: NodeVersion,
         success: bool,
         error: Option<AppError>,
     ) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
             state.operation_queue.complete_exclusive();
+            let version_str = version.to_string();
             mark_bulk_item_finished(
                 state,
-                version,
+                &version_str,
                 BulkRunAction::Uninstall,
                 success,
                 error.clone(),
@@ -388,18 +380,13 @@ impl Versi {
         Task::batch([refresh_task, next_task])
     }
 
-    pub(super) fn handle_set_default(&mut self, version: String) -> Task<Message> {
+    pub(super) fn handle_set_default(&mut self, version: NodeVersion) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            if is_default_version(state, &version) {
+            if is_default_version(state, version) {
                 return Task::none();
             }
 
-            if enqueue_exclusive_if_busy(
-                state,
-                Operation::SetDefault {
-                    version: version.clone(),
-                },
-            ) {
+            if enqueue_exclusive_if_busy(state, Operation::SetDefault { version }) {
                 return Task::none();
             }
 
@@ -408,23 +395,22 @@ impl Versi {
         Task::none()
     }
 
-    pub(super) fn start_set_default_internal(&mut self, version: String) -> Task<Message> {
+    pub(super) fn start_set_default_internal(&mut self, version: NodeVersion) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
             state
                 .operation_queue
-                .start_exclusive(Operation::SetDefault {
-                    version: version.clone(),
-                });
+                .start_exclusive(Operation::SetDefault { version });
 
             let backend = state.backend.clone();
             let timeout = Duration::from_secs(self.settings.set_default_timeout_secs);
+            let version_str = version.to_string();
 
             return Task::perform(
                 async move {
                     match run_with_timeout(
                         timeout,
                         "Set default",
-                        backend.set_default(&version),
+                        backend.set_default(&version_str),
                         |error| AppError::operation_failed("Set default", error),
                     )
                     .await
@@ -514,6 +500,10 @@ mod tests {
     use super::*;
     use crate::backend_kind::BackendKind;
 
+    fn nv(major: u32, minor: u32, patch: u32) -> NodeVersion {
+        NodeVersion::new(major, minor, patch)
+    }
+
     #[test]
     fn close_modal_clears_existing_modal() {
         let mut app = test_app_with_two_environments();
@@ -530,9 +520,9 @@ mod tests {
         let mut app = test_app_with_two_environments();
         app.main_state_mut()
             .operation_queue
-            .start_install("v20.11.0".to_string());
+            .start_install(nv(20, 11, 0));
 
-        let _ = app.handle_start_install("v20.11.0".to_string());
+        let _ = app.handle_start_install(nv(20, 11, 0));
 
         let state = app.main_state();
         assert_eq!(state.operation_queue.active_installs.len(), 1);
@@ -545,16 +535,16 @@ mod tests {
         app.main_state_mut()
             .operation_queue
             .start_exclusive(Operation::SetDefault {
-                version: "v20.11.0".to_string(),
+                version: nv(20, 11, 0),
             });
 
-        let _ = app.handle_start_install("v22.1.0".to_string());
+        let _ = app.handle_start_install(nv(22, 1, 0));
 
         let state = app.main_state();
         assert_eq!(state.operation_queue.pending.len(), 1);
         assert!(matches!(
             state.operation_queue.pending.front(),
-            Some(Operation::Install { version }) if version == "v22.1.0"
+            Some(Operation::Install { version }) if version == &nv(22, 1, 0)
         ));
     }
 
@@ -569,12 +559,12 @@ mod tests {
                 .expect("test default version should parse"),
         );
 
-        let _ = app.handle_uninstall("v20.11.0".to_string());
+        let _ = app.handle_uninstall(nv(20, 11, 0));
 
         let state = app.main_state();
         assert!(matches!(
             state.modal,
-            Some(Modal::ConfirmUninstallDefault { ref version }) if version == "v20.11.0"
+            Some(Modal::ConfirmUninstallDefault { version }) if version == nv(20, 11, 0)
         ));
     }
 
@@ -584,15 +574,15 @@ mod tests {
         let state = app.main_state_mut();
         state.active_environment_mut().default_version = None;
         state.operation_queue.start_exclusive(Operation::Uninstall {
-            version: "v18.0.0".to_string(),
+            version: nv(18, 0, 0),
         });
 
-        let _ = app.handle_uninstall("v20.11.0".to_string());
+        let _ = app.handle_uninstall(nv(20, 11, 0));
 
         let state = app.main_state();
         assert!(matches!(
             state.operation_queue.pending.front(),
-            Some(Operation::Uninstall { version }) if version == "v20.11.0"
+            Some(Operation::Uninstall { version }) if version == &nv(20, 11, 0)
         ));
     }
 
@@ -610,7 +600,7 @@ mod tests {
         state.active_environment_mut().default_version =
             Some("v20.11.0".parse().expect("default version should parse"));
 
-        let _ = app.handle_uninstall("v20.11.0".to_string());
+        let _ = app.handle_uninstall(nv(20, 11, 0));
 
         let state = app.main_state();
         assert!(state.modal.is_none());
@@ -624,15 +614,15 @@ mod tests {
         app.main_state_mut()
             .operation_queue
             .start_exclusive(Operation::Uninstall {
-                version: "v18.0.0".to_string(),
+                version: nv(18, 0, 0),
             });
 
-        let _ = app.handle_set_default("v22.0.0".to_string());
+        let _ = app.handle_set_default(nv(22, 0, 0));
 
         let state = app.main_state();
         assert!(matches!(
             state.operation_queue.pending.front(),
-            Some(Operation::SetDefault { version }) if version == "v22.0.0"
+            Some(Operation::SetDefault { version }) if version == &nv(22, 0, 0)
         ));
     }
 
@@ -646,7 +636,7 @@ mod tests {
                 .expect("test default version should parse"),
         );
 
-        let _ = app.handle_set_default("v22.0.0".to_string());
+        let _ = app.handle_set_default(nv(22, 0, 0));
 
         let state = app.main_state();
         assert!(state.operation_queue.exclusive_op.is_none());
@@ -658,10 +648,10 @@ mod tests {
         let mut app = test_app_with_two_environments();
         app.main_state_mut()
             .operation_queue
-            .start_install("v22.1.0".to_string());
+            .start_install(nv(22, 1, 0));
 
         let _ = app.handle_install_progress(
-            "v22.1.0".to_string(),
+            nv(22, 1, 0),
             InstallProgress::Downloading {
                 downloaded_bytes: 5,
                 total_bytes: 10,
@@ -670,16 +660,16 @@ mod tests {
 
         let state = app.main_state();
         assert!(matches!(
-            state.install_progress.get("v22.1.0"),
+            state.install_progress.get(&nv(22, 1, 0)),
             Some(InstallProgress::Downloading {
                 downloaded_bytes: 5,
                 total_bytes: 10
             })
         ));
 
-        let _ = app.handle_install_complete("v22.1.0", true, None);
+        let _ = app.handle_install_complete(nv(22, 1, 0), true, None);
         let state = app.main_state();
-        assert!(!state.install_progress.contains_key("v22.1.0"));
+        assert!(!state.install_progress.contains_key(&nv(22, 1, 0)));
     }
 
     #[test]
@@ -707,16 +697,16 @@ mod tests {
             ],
         ));
         state.operation_queue.enqueue(Operation::Install {
-            version: "v22.1.0".to_string(),
+            version: nv(22, 1, 0),
         });
         state.operation_queue.enqueue(Operation::Uninstall {
-            version: "v18.19.0".to_string(),
+            version: nv(18, 19, 0),
         });
         state.operation_queue.enqueue(Operation::Install {
-            version: "v16.20.0".to_string(),
+            version: nv(16, 20, 0),
         });
         state.operation_queue.enqueue(Operation::SetDefault {
-            version: "v16.20.0".to_string(),
+            version: nv(16, 20, 0),
         });
 
         let _ = app.handle_cancel_bulk_run();
@@ -725,7 +715,7 @@ mod tests {
         assert_eq!(state.operation_queue.pending.len(), 2);
         assert!(matches!(
             state.operation_queue.pending.front(),
-            Some(Operation::Install { version }) if version == "v16.20.0"
+            Some(Operation::Install { version }) if version == &nv(16, 20, 0)
         ));
         assert!(state.bulk_run.is_some());
         let run = state
@@ -762,13 +752,13 @@ mod tests {
             ],
         ));
         state.operation_queue.enqueue(Operation::Install {
-            version: "v22.1.0".to_string(),
+            version: nv(22, 1, 0),
         });
         state.operation_queue.enqueue(Operation::Install {
-            version: "v20.11.1".to_string(),
+            version: nv(20, 11, 1),
         });
         state.operation_queue.enqueue(Operation::Install {
-            version: "v18.20.0".to_string(),
+            version: nv(18, 20, 0),
         });
 
         let _ = app.process_next_operation();

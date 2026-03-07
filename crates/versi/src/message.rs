@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use versi_backend::{BackendUpdate, InstallProgress, InstalledVersion, RemoteVersion};
+use versi_backend::{BackendUpdate, InstallProgress, InstalledVersion, NodeVersion, RemoteVersion};
 use versi_core::{AppUpdate, ReleaseSchedule, SecurityAdvisory, VersionMeta};
 use versi_platform::EnvironmentId;
 use versi_shell::ShellType;
@@ -61,21 +61,21 @@ pub enum Message {
 
     CloseModal,
     OpenChangelog(String),
-    StartInstall(String),
+    StartInstall(NodeVersion),
     InstallProgress {
-        version: String,
+        version: NodeVersion,
         progress: InstallProgress,
     },
     InstallComplete {
-        version: String,
+        version: NodeVersion,
         success: bool,
         error: Option<AppError>,
     },
 
-    RequestUninstall(String),
-    ConfirmUninstallDefault(String),
+    RequestUninstall(NodeVersion),
+    ConfirmUninstallDefault(NodeVersion),
     UninstallComplete {
-        version: String,
+        version: NodeVersion,
         success: bool,
         error: Option<AppError>,
     },
@@ -99,7 +99,7 @@ pub enum Message {
     CancelBulkOperation,
     CancelBulkRun,
 
-    SetDefault(String),
+    SetDefault(NodeVersion),
     DefaultChanged {
         success: bool,
         error: Option<AppError>,

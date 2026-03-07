@@ -15,7 +15,7 @@ impl Versi {
                 version,
                 success,
                 error,
-            } => Ok(self.handle_install_complete(&version, success, error)),
+            } => Ok(self.handle_install_complete(version, success, error)),
             Message::RequestUninstall(version) => Ok(self.handle_uninstall(version)),
             Message::ConfirmUninstallDefault(version) => {
                 Ok(self.handle_confirm_uninstall_default(version))
@@ -24,7 +24,7 @@ impl Versi {
                 version,
                 success,
                 error,
-            } => Ok(self.handle_uninstall_complete(&version, success, error)),
+            } => Ok(self.handle_uninstall_complete(version, success, error)),
             Message::RequestBulkUpdateMajors => Ok(self.handle_request_bulk_update_majors()),
             Message::RequestBulkUninstallEOL => Ok(self.handle_request_bulk_uninstall_eol()),
             Message::RequestBulkUninstallMajor { major } => {

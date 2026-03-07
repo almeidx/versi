@@ -23,7 +23,7 @@ pub struct VersionListContext<'a> {
     pub schedule: Option<&'a ReleaseSchedule>,
     pub search_index: Option<&'a crate::version_query::RemoteVersionSearchIndex>,
     pub operation_queue: &'a OperationQueue,
-    pub install_progress: &'a HashMap<String, versi_backend::InstallProgress>,
+    pub install_progress: &'a HashMap<NodeVersion, versi_backend::InstallProgress>,
     pub hovered_version: &'a Option<String>,
     pub metadata: Option<&'a HashMap<String, VersionMeta>>,
     pub security_findings: &'a HashMap<String, VersionSecurityFinding>,
@@ -249,12 +249,12 @@ fn installed_groups_content<'a>(
 fn update_available_for_group(
     group: &VersionGroup,
     latest_by_major: &HashMap<u32, NodeVersion>,
-) -> Option<String> {
+) -> Option<NodeVersion> {
     let installed_latest = group.versions.iter().map(|version| &version.version).max();
     latest_by_major.get(&group.major).and_then(|latest| {
         installed_latest.and_then(|installed| {
             if latest > installed {
-                Some(latest.to_string())
+                Some(*latest)
             } else {
                 None
             }
@@ -431,7 +431,7 @@ mod tests {
         ]);
         assert_eq!(
             update_available_for_group(&group, &latest),
-            Some("v22.2.0".to_string())
+            Some(NodeVersion::new(22, 2, 0))
         );
 
         let latest_equal = std::collections::HashMap::from([(22, NodeVersion::new(22, 1, 0))]);

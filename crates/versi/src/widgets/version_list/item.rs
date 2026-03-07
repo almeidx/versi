@@ -1,7 +1,7 @@
 use iced::widget::{Space, button, container, mouse_area, row, text};
 use iced::{Alignment, Element, Length};
 
-use versi_backend::InstalledVersion;
+use versi_backend::{InstalledVersion, NodeVersion};
 
 use crate::format::format_bytes;
 use crate::icon;
@@ -26,8 +26,8 @@ pub(super) fn version_item_view<'a>(
     let meta = ctx.metadata.and_then(|m| m.get(&version_str));
     let security_finding = ctx.security_findings.get(&version_str);
 
-    let active_op = ctx.operation_queue.active_operation_for(&version_str);
-    let is_pending = ctx.operation_queue.has_pending_for_version(&version_str);
+    let active_op = ctx.operation_queue.active_operation_for(version.version);
+    let is_pending = ctx.operation_queue.has_pending_for_version(version.version);
     let is_busy = active_op.is_some() || is_pending;
 
     let is_uninstalling = matches!(active_op, Some(Operation::Uninstall { .. }));
@@ -70,7 +70,7 @@ pub(super) fn version_item_view<'a>(
         is_default,
         is_setting_default,
         is_busy || !show_actions,
-        &version_str,
+        version.version,
     );
     let row_content = if ctx.supports_uninstall {
         push_uninstall_button(
@@ -78,7 +78,7 @@ pub(super) fn version_item_view<'a>(
             danger_style,
             is_uninstalling,
             is_busy || !show_actions,
-            &version_str,
+            version.version,
         )
     } else {
         row_content
@@ -143,14 +143,14 @@ fn push_badges_and_size<'a>(
     row_content
 }
 
-fn push_set_default_button<'a>(
-    row_content: iced::widget::Row<'a, Message>,
+fn push_set_default_button(
+    row_content: iced::widget::Row<'_, Message>,
     action_style: fn(&iced::Theme, iced::widget::button::Status) -> iced::widget::button::Style,
     is_default: bool,
     is_setting_default: bool,
     is_disabled: bool,
-    version: &str,
-) -> iced::widget::Row<'a, Message> {
+    version: NodeVersion,
+) -> iced::widget::Row<'_, Message> {
     let button = if is_default {
         button(text("Default").size(12))
     } else if is_setting_default {
@@ -162,7 +162,7 @@ fn push_set_default_button<'a>(
     if !is_default && !is_setting_default && !is_disabled {
         row_content.push(
             button
-                .on_press(Message::SetDefault(version.to_string()))
+                .on_press(Message::SetDefault(version))
                 .style(action_style)
                 .padding([6, 12]),
         )
@@ -171,13 +171,13 @@ fn push_set_default_button<'a>(
     }
 }
 
-fn push_uninstall_button<'a>(
-    row_content: iced::widget::Row<'a, Message>,
+fn push_uninstall_button(
+    row_content: iced::widget::Row<'_, Message>,
     danger_style: fn(&iced::Theme, iced::widget::button::Status) -> iced::widget::button::Style,
     is_uninstalling: bool,
     is_disabled: bool,
-    version: &str,
-) -> iced::widget::Row<'a, Message> {
+    version: NodeVersion,
+) -> iced::widget::Row<'_, Message> {
     let button = if is_uninstalling {
         button(text("Removing...").size(12))
     } else {
@@ -187,7 +187,7 @@ fn push_uninstall_button<'a>(
     if !is_uninstalling && !is_disabled {
         row_content.push(
             button
-                .on_press(Message::RequestUninstall(version.to_string()))
+                .on_press(Message::RequestUninstall(version))
                 .style(danger_style)
                 .padding([6, 12]),
         )

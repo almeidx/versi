@@ -33,7 +33,7 @@ pub struct MainState {
     pub available_versions: VersionCache,
     pub operation_queue: OperationQueue,
     pub bulk_run: Option<BulkRunState>,
-    pub install_progress: HashMap<String, InstallProgress>,
+    pub install_progress: HashMap<NodeVersion, InstallProgress>,
     pub toasts: Vec<Toast>,
     next_toast_id: usize,
     pub modal: Option<Modal>,
@@ -313,13 +313,6 @@ impl MainState {
         result
     }
 
-    pub fn is_version_installed(&self, version_str: &str) -> bool {
-        version_str
-            .parse()
-            .ok()
-            .is_some_and(|version| self.active_environment().installed_set.contains(&version))
-    }
-
     pub fn should_check_for_app_updates(&self, interval: Duration) -> bool {
         if self.app_update_check_in_flight {
             return false;
@@ -481,7 +474,7 @@ mod tests {
     use std::sync::Arc;
     use std::time::{Duration, Instant};
 
-    use super::{MainState, NetworkStatus, SearchFilter, VersionCache, VersionSecurityFinding};
+    use super::{MainState, NetworkStatus, VersionCache, VersionSecurityFinding};
     use crate::backend_kind::BackendKind;
     use crate::state::EnvironmentState;
     use versi_backend::{NodeVersion, RemoteVersion};
@@ -613,25 +606,6 @@ mod tests {
 
         state.search_query = "lts/iron".to_string();
         assert_eq!(state.navigable_versions(10), vec!["v20.12.0".to_string()]);
-    }
-
-    #[test]
-    fn is_version_installed_checks_active_environment_versions() {
-        let mut state = main_state_with_native_env();
-        state.active_environment_mut().installed_versions = vec![versi_backend::InstalledVersion {
-            version: NodeVersion::new(20, 11, 0),
-            is_default: true,
-            lts_codename: Some("Iron".to_string()),
-            disk_size: None,
-        }];
-        state
-            .active_environment_mut()
-            .installed_set
-            .insert(NodeVersion::new(20, 11, 0));
-        state.active_filters.insert(SearchFilter::Lts);
-
-        assert!(state.is_version_installed("v20.11.0"));
-        assert!(!state.is_version_installed("v18.19.1"));
     }
 
     #[test]

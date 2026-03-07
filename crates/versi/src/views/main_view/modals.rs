@@ -259,7 +259,7 @@ fn confirm_bulk_uninstall_major_except_latest_view<'a>(
     .into()
 }
 
-fn confirm_uninstall_default_view(version: &str) -> Element<'_, Message> {
+fn confirm_uninstall_default_view(version: &versi_backend::NodeVersion) -> Element<'_, Message> {
     column![
         text("Uninstall Default Version?").size(20),
         Space::new().height(12),
@@ -275,7 +275,7 @@ fn confirm_uninstall_default_view(version: &str) -> Element<'_, Message> {
                 .padding([10, 20]),
             Space::new().width(Length::Fill),
             button(text("Uninstall").size(13))
-                .on_press(Message::ConfirmUninstallDefault(version.to_string()))
+                .on_press(Message::ConfirmUninstallDefault(*version))
                 .style(styles::danger_button)
                 .padding([10, 20]),
         ]

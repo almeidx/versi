@@ -25,7 +25,7 @@ impl Versi {
             TrayMessage::OpenSettings => self.tray_open_settings(),
             TrayMessage::OpenAbout => self.tray_open_about(),
             TrayMessage::SetDefault { env_id, version } => {
-                self.tray_set_default_for_environment(&env_id, version)
+                self.tray_set_default_for_environment(&env_id, &version)
             }
         }
     }
@@ -78,11 +78,15 @@ impl Versi {
     fn tray_set_default_for_environment(
         &mut self,
         env_id: &versi_platform::EnvironmentId,
-        version: String,
+        version: &str,
     ) -> Task<Message> {
+        let Ok(parsed) = version.parse::<versi_backend::NodeVersion>() else {
+            log::warn!("Ignoring tray set-default with invalid version: {version}");
+            return Task::none();
+        };
         if let Some((resolved_env_id, backend_name)) = self.switch_environment_from_tray(env_id) {
             self.activate_tray_environment_backend(&resolved_env_id, backend_name);
-            return self.handle_set_default(version);
+            return self.handle_set_default(parsed);
         }
         log::warn!("Ignoring tray set-default request for unknown environment: {env_id:?}");
         Task::none()
@@ -217,6 +221,8 @@ impl Versi {
 mod tests {
     use super::super::test_app_with_two_environments;
     use super::*;
+    use versi_backend::NodeVersion;
+
     use crate::state::{MainViewKind, Operation};
 
     #[test]
@@ -268,8 +274,8 @@ mod tests {
         assert_eq!(state.active_environment_idx, 1);
         assert_eq!(state.backend_name, crate::backend_kind::BackendKind::Nvm);
         assert!(matches!(
-            state.operation_queue.exclusive_op.as_ref(),
-            Some(Operation::SetDefault { version }) if version == "v20.11.0"
+            state.operation_queue.exclusive_op,
+            Some(Operation::SetDefault { version }) if version == NodeVersion::new(20, 11, 0)
         ));
         assert_eq!(app.provider.name(), "nvm");
     }

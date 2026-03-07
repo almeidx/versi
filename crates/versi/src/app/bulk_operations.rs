@@ -33,13 +33,15 @@ fn bulk_run_items(versions: &[String], action: BulkRunAction) -> Vec<BulkRunItem
         .collect()
 }
 
-fn enqueue_bulk_operations(state: &mut MainState, versions: Vec<String>, action: BulkRunAction) {
-    for version in versions {
-        let operation = match action {
-            BulkRunAction::Install => Operation::Install { version },
-            BulkRunAction::Uninstall => Operation::Uninstall { version },
-        };
-        state.operation_queue.enqueue(operation);
+fn enqueue_bulk_operations(state: &mut MainState, versions: &[String], action: BulkRunAction) {
+    for version_str in versions {
+        if let Ok(version) = version_str.parse::<NodeVersion>() {
+            let operation = match action {
+                BulkRunAction::Install => Operation::Install { version },
+                BulkRunAction::Uninstall => Operation::Uninstall { version },
+            };
+            state.operation_queue.enqueue(operation);
+        }
     }
 }
 
@@ -59,7 +61,7 @@ fn start_bulk_run(
     }
 
     state.bulk_run = Some(BulkRunState::new(kind, bulk_run_items(&targets, action)));
-    enqueue_bulk_operations(state, targets, action);
+    enqueue_bulk_operations(state, &targets, action);
     true
 }
 

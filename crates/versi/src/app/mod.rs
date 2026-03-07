@@ -549,7 +549,7 @@ mod tests {
     fn context_menu_is_dismissed_for_unrelated_messages() {
         assert!(should_dismiss_context_menu(&Message::NavigateToSettings));
         assert!(should_dismiss_context_menu(&Message::SetDefault(
-            "20.10.0".to_string()
+            NodeVersion::new(20, 10, 0)
         )));
     }
 
@@ -744,7 +744,7 @@ mod tests {
         assert_eq!(app.provider.name(), BackendKind::Nvm.as_str());
         assert!(matches!(
             state.operation_queue.exclusive_op,
-            Some(Operation::SetDefault { ref version }) if version == "20.11.0"
+            Some(Operation::SetDefault { version }) if version == NodeVersion::new(20, 11, 0)
         ));
     }
 

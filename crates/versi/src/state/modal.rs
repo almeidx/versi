@@ -16,7 +16,7 @@ pub enum Modal {
         keeping: String,
     },
     ConfirmUninstallDefault {
-        version: String,
+        version: versi_backend::NodeVersion,
     },
     KeyboardShortcuts,
     VersionDetail {

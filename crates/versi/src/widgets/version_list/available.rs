@@ -1,7 +1,7 @@
 use iced::widget::{Space, button, container, mouse_area, row, text};
 use iced::{Alignment, Element, Length};
 
-use versi_backend::{InstallProgress, RemoteVersion};
+use versi_backend::{InstallProgress, NodeVersion, RemoteVersion};
 
 use crate::message::Message;
 use crate::theme::styles;
@@ -116,7 +116,7 @@ fn percent_complete(downloaded: u64, total: u64) -> u64 {
 
 fn action_button<'a>(
     action: VersionRowAction,
-    version: &str,
+    version: NodeVersion,
     install_progress: Option<&InstallProgress>,
 ) -> Element<'a, Message> {
     match action {
@@ -131,7 +131,7 @@ fn action_button<'a>(
             .padding([6, 12])
             .into(),
         VersionRowAction::Install => button(text("Install").size(12))
-            .on_press(Message::StartInstall(version.to_string()))
+            .on_press(Message::StartInstall(version))
             .style(styles::primary_button)
             .padding([6, 12])
             .into(),
@@ -140,7 +140,7 @@ fn action_button<'a>(
             .padding([6, 12])
             .into(),
         VersionRowAction::Uninstall => button(text("Uninstall").size(12))
-            .on_press(Message::RequestUninstall(version.to_string()))
+            .on_press(Message::RequestUninstall(version))
             .style(styles::danger_button)
             .padding([6, 12])
             .into(),
@@ -192,8 +192,8 @@ pub(super) fn available_version_row<'a>(
         .is_some_and(|s| !s.is_active(version.version.major));
     let is_installed = ctx.installed_set.contains(&version.version);
 
-    let is_active = ctx.operation_queue.is_current_version(&version_label);
-    let is_pending = ctx.operation_queue.has_pending_for_version(&version_label);
+    let is_active = ctx.operation_queue.is_current_version(version.version);
+    let is_pending = ctx.operation_queue.has_pending_for_version(version.version);
     let is_row_hovered = ctx
         .hovered_version
         .as_ref()
@@ -219,8 +219,8 @@ pub(super) fn available_version_row<'a>(
     let action =
         resolve_version_row_action(activity, install_state, hover_state, ctx.supports_uninstall);
     let has_security = meta.is_some_and(|m| m.security);
-    let install_progress = ctx.install_progress.get(&version_label);
-    let action_button = action_button(action, &version_label, install_progress);
+    let install_progress = ctx.install_progress.get(&version.version);
+    let action_button = action_button(action, version.version, install_progress);
     let badges = version_badges(version, is_eol, has_security);
 
     let date_text: Element<Message> = if let Some(date) = meta.map(|m| m.date.as_str()) {

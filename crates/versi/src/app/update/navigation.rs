@@ -1,4 +1,5 @@
 use iced::Task;
+use versi_backend::NodeVersion;
 
 use crate::message::Message;
 use crate::state::{AppState, MainViewKind};
@@ -243,13 +244,14 @@ impl Versi {
         }
     }
 
-    fn hovered_version_for_action(&self) -> Option<(String, bool)> {
+    fn hovered_version_for_action(&self) -> Option<(NodeVersion, bool)> {
         if let AppState::Main(state) = &self.state
             && state.view == MainViewKind::Versions
             && state.modal.is_none()
-            && let Some(version) = state.hovered_version.clone()
+            && let Some(version_str) = state.hovered_version.as_ref()
+            && let Ok(version) = version_str.parse::<NodeVersion>()
         {
-            let is_installed = state.is_version_installed(&version);
+            let is_installed = state.active_environment().installed_set.contains(&version);
             Some((version, is_installed))
         } else {
             None
@@ -295,6 +297,10 @@ mod tests {
     use super::*;
     use crate::backend_kind::BackendKind;
     use crate::state::{MainViewKind, Modal, Operation};
+
+    fn nv(major: u32, minor: u32, patch: u32) -> NodeVersion {
+        NodeVersion::new(major, minor, patch)
+    }
 
     fn installed(version: &str, is_default: bool) -> InstalledVersion {
         InstalledVersion {
@@ -423,7 +429,7 @@ mod tests {
         let _ = app.dispatch_navigation(Message::InstallHoveredVersion);
 
         let state = app.main_state();
-        assert!(state.operation_queue.has_active_install("v24.1.0"));
+        assert!(state.operation_queue.has_active_install(nv(24, 1, 0)));
     }
 
     #[test]
@@ -438,7 +444,7 @@ mod tests {
         let _ = app.dispatch_navigation(Message::InstallHoveredVersionFromInput);
 
         let state = app.main_state();
-        assert!(!state.operation_queue.has_active_install("v24.1.0"));
+        assert!(!state.operation_queue.has_active_install(nv(24, 1, 0)));
     }
 
     #[test]
@@ -453,7 +459,7 @@ mod tests {
         let _ = app.dispatch_navigation(Message::InstallHoveredVersionFromInput);
 
         let state = app.main_state();
-        assert!(state.operation_queue.has_active_install("v24.1.0"));
+        assert!(state.operation_queue.has_active_install(nv(24, 1, 0)));
     }
 
     #[test]
@@ -470,7 +476,7 @@ mod tests {
         let _ = app.dispatch_navigation(Message::InstallHoveredVersion);
 
         let state = app.main_state();
-        assert!(!state.operation_queue.has_active_install("v24.1.0"));
+        assert!(!state.operation_queue.has_active_install(nv(24, 1, 0)));
         assert!(state.operation_queue.exclusive_op.is_none());
     }
 
@@ -490,7 +496,7 @@ mod tests {
         let state = app.main_state();
         assert!(matches!(
             state.operation_queue.exclusive_op,
-            Some(Operation::SetDefault { ref version }) if version == "v24.1.0"
+            Some(Operation::SetDefault { version }) if version == nv(24, 1, 0)
         ));
     }
 
@@ -524,7 +530,7 @@ mod tests {
         let state = app.main_state();
         assert!(matches!(
             state.operation_queue.exclusive_op,
-            Some(Operation::Uninstall { ref version }) if version == "v24.1.0"
+            Some(Operation::Uninstall { version }) if version == nv(24, 1, 0)
         ));
     }
 

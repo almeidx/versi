@@ -1,5 +1,6 @@
 use iced::widget::{Space, button, column, container, mouse_area, row, text};
 use iced::{Element, Length};
+use versi_backend::NodeVersion;
 
 use crate::message::Message;
 use crate::state::ContextMenu;
@@ -18,38 +19,41 @@ pub(super) fn context_menu_overlay<'a>(
     .on_press(Message::CloseContextMenu)
     .on_right_press(Message::CloseContextMenu);
 
+    let parsed_version: Option<NodeVersion> = menu.version.parse().ok();
     let mut items: Vec<Element<Message>> = Vec::new();
 
-    if menu.is_installed {
-        if !menu.is_default {
+    if let Some(version) = parsed_version {
+        if menu.is_installed {
+            if !menu.is_default {
+                items.push(
+                    button(text("Set as Default").size(13))
+                        .on_press(Message::SetDefault(version))
+                        .style(styles::context_menu_item)
+                        .padding([6, 12])
+                        .width(Length::Fill)
+                        .into(),
+                );
+            }
+            if supports_uninstall {
+                items.push(
+                    button(text("Uninstall").size(13))
+                        .on_press(Message::RequestUninstall(version))
+                        .style(styles::context_menu_item_danger)
+                        .padding([6, 12])
+                        .width(Length::Fill)
+                        .into(),
+                );
+            }
+        } else {
             items.push(
-                button(text("Set as Default").size(13))
-                    .on_press(Message::SetDefault(menu.version.clone()))
+                button(text("Install").size(13))
+                    .on_press(Message::StartInstall(version))
                     .style(styles::context_menu_item)
                     .padding([6, 12])
                     .width(Length::Fill)
                     .into(),
             );
         }
-        if supports_uninstall {
-            items.push(
-                button(text("Uninstall").size(13))
-                    .on_press(Message::RequestUninstall(menu.version.clone()))
-                    .style(styles::context_menu_item_danger)
-                    .padding([6, 12])
-                    .width(Length::Fill)
-                    .into(),
-            );
-        }
-    } else {
-        items.push(
-            button(text("Install").size(13))
-                .on_press(Message::StartInstall(menu.version.clone()))
-                .style(styles::context_menu_item)
-                .padding([6, 12])
-                .width(Length::Fill)
-                .into(),
-        );
     }
 
     if !items.is_empty() {

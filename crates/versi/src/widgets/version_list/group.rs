@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use iced::widget::{Space, button, column, container, row, text};
 use iced::{Alignment, Element, Length};
 
-use versi_backend::{InstalledVersion, VersionGroup};
+use versi_backend::{InstalledVersion, NodeVersion, VersionGroup};
 
 use crate::icon;
 use crate::message::Message;
@@ -55,7 +55,7 @@ pub(super) fn version_group_view<'a>(
     default: Option<&'a versi_backend::NodeVersion>,
     search_query: &'a str,
     query_lower: &str,
-    update_available: Option<String>,
+    update_available: Option<NodeVersion>,
     active_filters: &'a HashSet<SearchFilter>,
     ctx: &VersionListContext<'a>,
 ) -> Element<'a, Message> {
@@ -151,16 +151,15 @@ fn group_header_row(
 
 fn group_header_actions(
     group: &VersionGroup,
-    update_available: Option<String>,
+    update_available: Option<NodeVersion>,
     supports_uninstall: bool,
 ) -> Element<'_, Message> {
     let mut actions = row![].spacing(8).align_y(Alignment::Center);
 
     if let Some(new_version) = update_available {
-        let version_to_install = new_version.clone();
         actions = actions.push(
             button(container(text(format!("{new_version} available")).size(10)).padding([2, 6]))
-                .on_press(Message::StartInstall(version_to_install))
+                .on_press(Message::StartInstall(new_version))
                 .style(styles::update_badge_button)
                 .padding([0, 4]),
         );

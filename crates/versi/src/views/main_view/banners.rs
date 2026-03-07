@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use iced::widget::{Space, button, column, container, progress_bar, row, text};
 use iced::{Alignment, Color, Element, Length};
-use versi_backend::InstallProgress;
+use versi_backend::{InstallProgress, NodeVersion};
 
 use crate::message::Message;
 use crate::state::{BulkItemStatus, BulkRunAction, BulkRunKind, MainState, NetworkStatus};
@@ -115,7 +115,7 @@ struct BulkProgressSnapshot {
 impl BulkProgressSnapshot {
     fn from_run(
         run: &crate::state::BulkRunState,
-        install_progress: &std::collections::HashMap<String, InstallProgress>,
+        install_progress: &std::collections::HashMap<NodeVersion, InstallProgress>,
     ) -> Option<Self> {
         let total = run.total_count();
         if total == 0 {
@@ -265,7 +265,7 @@ fn running_item_progress_basis_points(
 
 fn overall_bulk_progress_basis_points(
     run: &crate::state::BulkRunState,
-    install_progress: &std::collections::HashMap<String, InstallProgress>,
+    install_progress: &std::collections::HashMap<NodeVersion, InstallProgress>,
 ) -> u16 {
     if run.items.is_empty() {
         return 0;
@@ -278,7 +278,12 @@ fn overall_bulk_progress_basis_points(
         .map(|item| match &item.status {
             BulkItemStatus::Pending => 0_u16,
             BulkItemStatus::Running => {
-                running_item_progress_basis_points(item.action, install_progress.get(&item.version))
+                let progress = item
+                    .version
+                    .parse::<NodeVersion>()
+                    .ok()
+                    .and_then(|nv| install_progress.get(&nv));
+                running_item_progress_basis_points(item.action, progress)
             }
             BulkItemStatus::Completed | BulkItemStatus::Failed(_) | BulkItemStatus::Canceled => {
                 10_000_u16
@@ -528,14 +533,13 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::Arc;
 
-    use versi_backend::InstallProgress;
-    use versi_backend::{BackendDetection, BackendProvider};
+    use versi_backend::{BackendDetection, BackendProvider, InstallProgress, NodeVersion};
     use versi_platform::EnvironmentId;
 
     use super::{
-        bulk_operation_progress_banner, contextual_banners, format_versions_preview,
-        metadata_banner, overall_bulk_progress_basis_points, security_advisories_banner,
-        vulnerability_banner,
+        bulk_action_verb, bulk_operation_progress_banner, contextual_banners,
+        format_versions_preview, metadata_banner, overall_bulk_progress_basis_points,
+        running_item_progress_basis_points, security_advisories_banner, vulnerability_banner,
     };
     use crate::backend_kind::BackendKind;
     use crate::error::AppError;
@@ -644,7 +648,7 @@ mod tests {
             ],
         ));
         state.install_progress.insert(
-            "v22.1.0".to_string(),
+            NodeVersion::new(22, 1, 0),
             InstallProgress::Downloading {
                 downloaded_bytes: 50,
                 total_bytes: 100,
@@ -697,7 +701,7 @@ mod tests {
 
         let mut install_progress = std::collections::HashMap::new();
         install_progress.insert(
-            "v22.1.0".to_string(),
+            NodeVersion::new(22, 1, 0),
             InstallProgress::Downloading {
                 downloaded_bytes: 50,
                 total_bytes: 100,
@@ -706,6 +710,109 @@ mod tests {
 
         let progress = overall_bulk_progress_basis_points(&run, &install_progress);
         assert_eq!(progress, 5_000);
+    }
+
+    #[test]
+    fn bulk_action_verb_maps_all_variants() {
+        assert_eq!(bulk_action_verb(BulkRunKind::UpdateMajors), "Updating");
+        assert_eq!(bulk_action_verb(BulkRunKind::UninstallEol), "Uninstalling");
+        assert_eq!(
+            bulk_action_verb(BulkRunKind::UninstallMajor),
+            "Uninstalling"
+        );
+        assert_eq!(
+            bulk_action_verb(BulkRunKind::UninstallMajorExceptLatest),
+            "Uninstalling"
+        );
+    }
+
+    #[test]
+    fn running_item_progress_uninstall_always_returns_midpoint() {
+        assert_eq!(
+            running_item_progress_basis_points(BulkRunAction::Uninstall, None),
+            5_000
+        );
+        assert_eq!(
+            running_item_progress_basis_points(
+                BulkRunAction::Uninstall,
+                Some(&InstallProgress::Extracting)
+            ),
+            5_000
+        );
+    }
+
+    #[test]
+    fn running_item_progress_install_downloading_scales_proportionally() {
+        assert_eq!(
+            running_item_progress_basis_points(
+                BulkRunAction::Install,
+                Some(&InstallProgress::Downloading {
+                    downloaded_bytes: 50,
+                    total_bytes: 100,
+                })
+            ),
+            5_000
+        );
+        assert_eq!(
+            running_item_progress_basis_points(
+                BulkRunAction::Install,
+                Some(&InstallProgress::Downloading {
+                    downloaded_bytes: 100,
+                    total_bytes: 100,
+                })
+            ),
+            10_000
+        );
+        assert_eq!(
+            running_item_progress_basis_points(
+                BulkRunAction::Install,
+                Some(&InstallProgress::Downloading {
+                    downloaded_bytes: 0,
+                    total_bytes: 100,
+                })
+            ),
+            0
+        );
+    }
+
+    #[test]
+    fn running_item_progress_install_downloading_zero_total_returns_midpoint() {
+        assert_eq!(
+            running_item_progress_basis_points(
+                BulkRunAction::Install,
+                Some(&InstallProgress::Downloading {
+                    downloaded_bytes: 50,
+                    total_bytes: 0,
+                })
+            ),
+            5_000
+        );
+    }
+
+    #[test]
+    fn running_item_progress_install_extracting_and_configuring() {
+        assert_eq!(
+            running_item_progress_basis_points(
+                BulkRunAction::Install,
+                Some(&InstallProgress::Extracting)
+            ),
+            9_000
+        );
+        assert_eq!(
+            running_item_progress_basis_points(
+                BulkRunAction::Install,
+                Some(&InstallProgress::Configuring)
+            ),
+            9_700
+        );
+    }
+
+    #[test]
+    fn running_item_progress_install_none_returns_midpoint() {
+        assert_eq!(
+            running_item_progress_basis_points(BulkRunAction::Install, None),
+            5_000
+        );
     }
 
     mod format_relative_time_tests {
