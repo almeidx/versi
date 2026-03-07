@@ -129,7 +129,9 @@ pub(crate) async fn install_fnm() -> Result<(), versi_backend::BackendError> {
 
     #[cfg(windows)]
     {
-        let script_path = temp_script_path("fnm-install", "ps1");
+        let script_path = temp_script_path("fnm-install", "ps1").map_err(|error| {
+            versi_backend::BackendError::install_failed("create temp script", format!("{error}"))
+        })?;
         let result = async {
             download_and_prepare_install_script(FNM_INSTALL_SCRIPT_URL, &script_path).await?;
             Command::new("powershell")

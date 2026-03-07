@@ -14,7 +14,8 @@ use crate::types::{InstalledVersion, NodeVersion};
 pub async fn run_unix_install_script(url: &str, label: &str) -> Result<(), BackendError> {
     use versi_core::HideWindow;
 
-    let script_path = versi_core::temp_script_path(label, "sh");
+    let script_path = versi_core::temp_script_path(label, "sh")
+        .map_err(|error| BackendError::install_failed("create temp script", format!("{error}")))?;
     let result = async {
         download_and_prepare_install_script(url, &script_path).await?;
         tokio::process::Command::new("bash")

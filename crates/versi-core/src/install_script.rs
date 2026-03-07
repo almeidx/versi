@@ -1,5 +1,5 @@
 use std::path::{Path, PathBuf};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 const INSTALL_SCRIPT_TIMEOUT: Duration = Duration::from_secs(30);
 const INSTALL_SCRIPT_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -32,14 +32,27 @@ pub enum InstallScriptError {
         #[source]
         source: std::io::Error,
     },
+    #[error("failed to create temporary script file: {0}")]
+    TempFile(std::io::Error),
 }
 
-#[must_use]
-pub fn temp_script_path(prefix: &str, ext: &str) -> PathBuf {
-    let nonce = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |duration| duration.as_nanos());
-    std::env::temp_dir().join(format!("{prefix}-{}-{nonce}.{ext}", std::process::id()))
+/// Create a temporary script file with a unique, unpredictable name.
+///
+/// Uses `tempfile::Builder` with `O_EXCL` semantics to prevent symlink attacks.
+///
+/// # Errors
+/// Returns an error if the temp file cannot be created.
+pub fn temp_script_path(prefix: &str, ext: &str) -> Result<PathBuf, InstallScriptError> {
+    let suffix = format!(".{ext}");
+    let named = tempfile::Builder::new()
+        .prefix(prefix)
+        .suffix(&suffix)
+        .tempfile()
+        .map_err(InstallScriptError::TempFile)?;
+    let (_, path) = named
+        .keep()
+        .map_err(|e| InstallScriptError::TempFile(e.error))?;
+    Ok(path)
 }
 
 /// Download an installer script with timeout/retry policy and (on Unix) set

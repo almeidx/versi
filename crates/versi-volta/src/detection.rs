@@ -230,17 +230,19 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn temp_script_path_uses_requested_extension() {
-        let path = versi_core::temp_script_path("volta-install-test", "sh");
+        let path = versi_core::temp_script_path("volta-install-test", "sh")
+            .expect("temp script creation should succeed");
         let file_name = path
             .file_name()
             .and_then(|value| value.to_str())
             .unwrap_or_default();
 
-        assert!(file_name.contains("volta-install-test-"));
+        assert!(file_name.contains("volta-install-test"));
         assert!(
             std::path::Path::new(file_name)
                 .extension()
                 .is_some_and(|ext| ext.eq_ignore_ascii_case("sh"))
         );
+        let _ = std::fs::remove_file(&path);
     }
 }
