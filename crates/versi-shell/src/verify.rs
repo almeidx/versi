@@ -202,10 +202,15 @@ pub async fn verify_wsl_shell_config(
             if output.status.success() {
                 let content = String::from_utf8_lossy(&output.stdout);
                 if content.contains(marker) {
+                    let marker_lines: String = content
+                        .lines()
+                        .filter(|line| line.contains(marker))
+                        .collect::<Vec<_>>()
+                        .join(" ");
                     let options = ShellInitOptions {
-                        use_on_cd: content.contains("--use-on-cd"),
-                        resolve_engines: content.contains("--resolve-engines"),
-                        corepack_enabled: content.contains("--corepack-enabled"),
+                        use_on_cd: marker_lines.contains("--use-on-cd"),
+                        resolve_engines: marker_lines.contains("--resolve-engines"),
+                        corepack_enabled: marker_lines.contains("--corepack-enabled"),
                     };
                     debug!("WSL shell {} is configured", shell_type.name());
                     VerificationResult::Configured(Some(options))
