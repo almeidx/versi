@@ -133,6 +133,8 @@ pub(super) fn apply_update(extract_dir: &Path) -> Result<ApplyResult, AutoUpdate
         ));
     }
 
+    let trusted_checksum = super::extract::sha256_file(&new_binary)?;
+
     let exe = std::env::current_exe()
         .map_err(|error| AutoUpdateError::io("failed to get current executable", error))?;
 
@@ -146,7 +148,7 @@ pub(super) fn apply_update(extract_dir: &Path) -> Result<ApplyResult, AutoUpdate
         }
         Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
             info!("Permission denied, trying pkexec for elevated replacement");
-            apply_update_with_pkexec(&new_binary, &exe)
+            apply_update_with_pkexec(&new_binary, &exe, &trusted_checksum)
         }
         Err(error) => Err(AutoUpdateError::io("failed to replace binary", error)),
     }
@@ -156,7 +158,15 @@ pub(super) fn apply_update(extract_dir: &Path) -> Result<ApplyResult, AutoUpdate
 fn apply_update_with_pkexec(
     new_binary: &Path,
     target: &Path,
+    trusted_checksum: &str,
 ) -> Result<ApplyResult, AutoUpdateError> {
+    let current_checksum = super::extract::sha256_file(new_binary)?;
+    if current_checksum != trusted_checksum {
+        return Err(AutoUpdateError::Invalid(
+            "Binary checksum changed before elevated copy. Refusing to apply update.".to_string(),
+        ));
+    }
+
     let status = std::process::Command::new("pkexec")
         .args([
             "cp",
