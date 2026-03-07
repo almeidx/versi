@@ -302,4 +302,118 @@ mod tests {
         assert!(parse_sha256_digest("sha256:not-hex").is_none());
         assert!(parse_sha256_digest("sha256:abcd").is_none());
     }
+
+    #[test]
+    fn parse_sha256_digest_rejects_missing_colon() {
+        assert!(parse_sha256_digest("sha256").is_none());
+        assert!(parse_sha256_digest("").is_none());
+    }
+
+    #[test]
+    fn parse_sha256_digest_lowercases_output() {
+        let parsed = parse_sha256_digest(
+            "SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        );
+        assert_eq!(
+            parsed.as_deref(),
+            Some("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+        );
+    }
+
+    #[test]
+    fn split_semver_core_and_suffix_splits_on_hyphen() {
+        assert_eq!(
+            split_semver_core_and_suffix("1.0.0-beta.1"),
+            ("1.0.0", "-beta.1")
+        );
+    }
+
+    #[test]
+    fn split_semver_core_and_suffix_splits_on_plus() {
+        assert_eq!(
+            split_semver_core_and_suffix("1.0.0+build.42"),
+            ("1.0.0", "+build.42")
+        );
+    }
+
+    #[test]
+    fn split_semver_core_and_suffix_returns_full_string_when_no_suffix() {
+        assert_eq!(split_semver_core_and_suffix("2.3.4"), ("2.3.4", ""));
+    }
+
+    #[test]
+    fn parse_semver_handles_standard_semver() {
+        let v = parse_semver("1.2.3").unwrap();
+        assert_eq!((v.major, v.minor, v.patch), (1, 2, 3));
+    }
+
+    #[test]
+    fn parse_semver_fills_missing_minor_and_patch() {
+        let v = parse_semver("5").unwrap();
+        assert_eq!((v.major, v.minor, v.patch), (5, 0, 0));
+
+        let v = parse_semver("3.7").unwrap();
+        assert_eq!((v.major, v.minor, v.patch), (3, 7, 0));
+    }
+
+    #[test]
+    fn parse_semver_preserves_prerelease_suffix() {
+        let v = parse_semver("1.0.0-alpha.1").unwrap();
+        assert!(!v.pre.is_empty());
+
+        let v = parse_semver("2-rc.1").unwrap();
+        assert!(!v.pre.is_empty());
+    }
+
+    #[test]
+    fn parse_semver_rejects_too_many_parts() {
+        assert!(parse_semver("1.2.3.4").is_none());
+    }
+
+    #[test]
+    fn parse_semver_rejects_non_numeric() {
+        assert!(parse_semver("abc").is_none());
+        assert!(parse_semver("").is_none());
+    }
+
+    #[test]
+    fn backend_update_from_release_returns_some_when_newer() {
+        let release = GitHubRelease {
+            tag_name: "v2.0.0".to_string(),
+            html_url: "https://github.com/example/releases/v2.0.0".to_string(),
+            body: Some("release notes".to_string()),
+            assets: vec![],
+        };
+
+        let result = backend_update_from_release(release, "1.5.0");
+        let info = result.expect("should detect newer version");
+        assert_eq!(info.current_version, "1.5.0");
+        assert_eq!(info.latest_version, "2.0.0");
+    }
+
+    #[test]
+    fn backend_update_from_release_returns_none_when_same() {
+        let release = GitHubRelease {
+            tag_name: "v1.5.0".to_string(),
+            html_url: "https://github.com/example/releases/v1.5.0".to_string(),
+            body: None,
+            assets: vec![],
+        };
+
+        assert!(backend_update_from_release(release, "1.5.0").is_none());
+    }
+
+    #[test]
+    fn backend_update_from_release_strips_v_prefix_from_both_sides() {
+        let release = GitHubRelease {
+            tag_name: "v3.0.0".to_string(),
+            html_url: "https://example.com".to_string(),
+            body: None,
+            assets: vec![],
+        };
+
+        let info = backend_update_from_release(release, "v2.0.0").unwrap();
+        assert_eq!(info.current_version, "2.0.0");
+        assert_eq!(info.latest_version, "3.0.0");
+    }
 }

@@ -228,4 +228,86 @@ mod tests {
 
         assert!(!advisory.affects_version_on_platform("lts/*", "linux"));
     }
+
+    #[test]
+    fn prepared_advisory_matches_unprepared_across_cases() {
+        fn check(vulnerable: &str, patched: &str, envs: &[&str], version: &str, platform: &str) {
+            let adv = advisory(vulnerable, patched, envs);
+            let prepared = adv.prepare();
+            assert_eq!(
+                adv.affects_version_on_platform(version, platform),
+                prepared.affects_version_on_platform(version, platform),
+                "mismatch for version={version} platform={platform} vulnerable={vulnerable} patched={patched}"
+            );
+        }
+
+        check(
+            "20.x || 22.x",
+            "^20.20.0 || ^22.22.0",
+            &["all"],
+            "v20.19.4",
+            "darwin",
+        );
+        check(
+            "20.x || 22.x",
+            "^20.20.0 || ^22.22.0",
+            &["all"],
+            "24.1.0",
+            "linux",
+        );
+        check("24.x", "^24.13.0", &["all"], "v24.12.0", "darwin");
+        check("24.x", "^24.13.0", &["all"], "v24.13.0", "darwin");
+        check(
+            "22.x",
+            "^22.22.0",
+            &["linux", "win32"],
+            "v22.21.1",
+            "darwin",
+        );
+        check("22.x", "^22.22.0", &["linux", "win32"], "v22.21.1", "linux");
+        check(
+            "<= 10 || <6.2.0",
+            ">= 10.9.0 || ^6.2.1",
+            &["all"],
+            "v10.8.0",
+            "linux",
+        );
+        check(
+            "<= 10 || <6.2.0",
+            ">= 10.9.0 || ^6.2.1",
+            &["all"],
+            "v10.9.0",
+            "linux",
+        );
+        check("22.x", "^22.22.0", &["all"], "lts/*", "linux");
+        check("22.x", "^22.22.0", &[], "v22.21.1", "linux");
+    }
+
+    #[test]
+    fn prepared_advisory_reuses_parsed_requirements() {
+        let adv = advisory("20.x || 22.x", "^20.20.0 || ^22.22.0", &["all"]);
+        let prepared = adv.prepare();
+
+        assert!(prepared.affects_version_on_platform("v20.19.0", "linux"));
+        assert!(prepared.affects_version_on_platform("v22.21.0", "linux"));
+        assert!(!prepared.affects_version_on_platform("v20.20.0", "linux"));
+        assert!(!prepared.affects_version_on_platform("v22.22.0", "linux"));
+    }
+
+    #[test]
+    fn affected_environment_matches_is_case_insensitive() {
+        let adv = advisory("22.x", "^22.22.0", &["Linux"]);
+
+        assert!(adv.affects_version_on_platform("v22.21.0", "linux"));
+        assert!(adv.affects_version_on_platform("v22.21.0", "LINUX"));
+    }
+
+    #[test]
+    fn empty_affected_environments_matches_all_platforms() {
+        let adv = advisory("22.x", "^22.22.0", &[]);
+
+        assert!(adv.affects_version_on_platform("v22.21.0", "darwin"));
+        assert!(adv.affects_version_on_platform("v22.21.0", "linux"));
+        assert!(adv.affects_version_on_platform("v22.21.0", "win32"));
+    }
 }
