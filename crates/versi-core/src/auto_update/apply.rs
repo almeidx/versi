@@ -196,7 +196,9 @@ fn apply_update_with_pkexec(
 
 #[cfg(target_os = "windows")]
 pub(super) fn apply_update(_extract_dir: &Path) -> Result<ApplyResult, AutoUpdateError> {
-    unreachable!("Windows uses MSI path, not extract+apply")
+    Err(AutoUpdateError::Invalid(
+        "Non-MSI update path is not supported on Windows".to_string(),
+    ))
 }
 
 #[cfg(target_os = "windows")]
