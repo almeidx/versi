@@ -72,7 +72,7 @@ fn add_failure_toast(state: &mut MainState, message: String) {
     state.add_toast(Toast::error(toast_id, message));
 }
 
-fn mark_bulk_item_running(state: &mut MainState, version: &str, action: BulkRunAction) {
+fn mark_bulk_item_running(state: &mut MainState, version: &NodeVersion, action: BulkRunAction) {
     if let Some(run) = state.bulk_run.as_mut() {
         run.mark_running(version, action);
     }
@@ -80,7 +80,7 @@ fn mark_bulk_item_running(state: &mut MainState, version: &str, action: BulkRunA
 
 fn mark_bulk_item_finished(
     state: &mut MainState,
-    version: &str,
+    version: &NodeVersion,
     action: BulkRunAction,
     success: bool,
     error: Option<AppError>,
@@ -143,14 +143,10 @@ impl Versi {
             for (version, action) in canceled {
                 match action {
                     BulkRunAction::Install => {
-                        if let Ok(nv) = version.parse() {
-                            install_targets.insert(nv);
-                        }
+                        install_targets.insert(version);
                     }
                     BulkRunAction::Uninstall => {
-                        if let Ok(nv) = version.parse() {
-                            uninstall_targets.insert(nv);
-                        }
+                        uninstall_targets.insert(version);
                     }
                 }
             }
@@ -172,8 +168,7 @@ impl Versi {
         if let AppState::Main(state) = &mut self.state {
             state.operation_queue.start_install(version);
             state.install_progress.remove(&version);
-            let version_str = version.to_string();
-            mark_bulk_item_running(state, &version_str, BulkRunAction::Install);
+            mark_bulk_item_running(state, &version, BulkRunAction::Install);
 
             let backend = state.backend.clone();
             let timeout = Duration::from_secs(self.settings.install_timeout_secs);
@@ -251,10 +246,9 @@ impl Versi {
         if let AppState::Main(state) = &mut self.state {
             state.operation_queue.remove_completed_install(version);
             state.install_progress.remove(&version);
-            let version_str = version.to_string();
             mark_bulk_item_finished(
                 state,
-                &version_str,
+                &version,
                 BulkRunAction::Install,
                 success,
                 error.clone(),
@@ -321,8 +315,8 @@ impl Versi {
             state
                 .operation_queue
                 .start_exclusive(Operation::Uninstall { version });
+            mark_bulk_item_running(state, &version, BulkRunAction::Uninstall);
             let version_str = version.to_string();
-            mark_bulk_item_running(state, &version_str, BulkRunAction::Uninstall);
 
             let backend = state.backend.clone();
             let timeout = Duration::from_secs(self.settings.uninstall_timeout_secs);
@@ -359,10 +353,9 @@ impl Versi {
     ) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
             state.operation_queue.complete_exclusive();
-            let version_str = version.to_string();
             mark_bulk_item_finished(
                 state,
-                &version_str,
+                &version,
                 BulkRunAction::Uninstall,
                 success,
                 error.clone(),
@@ -680,17 +673,17 @@ mod tests {
             crate::state::BulkRunKind::UpdateMajors,
             vec![
                 crate::state::BulkRunItem {
-                    version: "v22.1.0".to_string(),
+                    version: nv(22, 1, 0),
                     action: crate::state::BulkRunAction::Install,
                     status: crate::state::BulkItemStatus::Pending,
                 },
                 crate::state::BulkRunItem {
-                    version: "v18.19.0".to_string(),
+                    version: nv(18, 19, 0),
                     action: crate::state::BulkRunAction::Uninstall,
                     status: crate::state::BulkItemStatus::Pending,
                 },
                 crate::state::BulkRunItem {
-                    version: "v20.11.0".to_string(),
+                    version: nv(20, 11, 0),
                     action: crate::state::BulkRunAction::Install,
                     status: crate::state::BulkItemStatus::Running,
                 },
@@ -735,17 +728,17 @@ mod tests {
             crate::state::BulkRunKind::UpdateMajors,
             vec![
                 crate::state::BulkRunItem {
-                    version: "v22.1.0".to_string(),
+                    version: nv(22, 1, 0),
                     action: crate::state::BulkRunAction::Install,
                     status: crate::state::BulkItemStatus::Pending,
                 },
                 crate::state::BulkRunItem {
-                    version: "v20.11.1".to_string(),
+                    version: nv(20, 11, 1),
                     action: crate::state::BulkRunAction::Install,
                     status: crate::state::BulkItemStatus::Pending,
                 },
                 crate::state::BulkRunItem {
-                    version: "v18.20.0".to_string(),
+                    version: nv(18, 20, 0),
                     action: crate::state::BulkRunAction::Install,
                     status: crate::state::BulkItemStatus::Pending,
                 },

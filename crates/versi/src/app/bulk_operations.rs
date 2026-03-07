@@ -9,12 +9,12 @@ use crate::state::{
 
 use super::Versi;
 
-fn unique_versions_in_order(versions: impl IntoIterator<Item = String>) -> Vec<String> {
+fn unique_versions_in_order(versions: impl IntoIterator<Item = NodeVersion>) -> Vec<NodeVersion> {
     let mut seen = std::collections::HashSet::new();
     let mut deduped = Vec::new();
 
     for version in versions {
-        if seen.insert(version.clone()) {
+        if seen.insert(version) {
             deduped.push(version);
         }
     }
@@ -22,26 +22,24 @@ fn unique_versions_in_order(versions: impl IntoIterator<Item = String>) -> Vec<S
     deduped
 }
 
-fn bulk_run_items(versions: &[String], action: BulkRunAction) -> Vec<BulkRunItem> {
+fn bulk_run_items(versions: &[NodeVersion], action: BulkRunAction) -> Vec<BulkRunItem> {
     versions
         .iter()
-        .map(|version| BulkRunItem {
-            version: version.clone(),
+        .map(|&version| BulkRunItem {
+            version,
             action,
             status: BulkItemStatus::Pending,
         })
         .collect()
 }
 
-fn enqueue_bulk_operations(state: &mut MainState, versions: &[String], action: BulkRunAction) {
-    for version_str in versions {
-        if let Ok(version) = version_str.parse::<NodeVersion>() {
-            let operation = match action {
-                BulkRunAction::Install => Operation::Install { version },
-                BulkRunAction::Uninstall => Operation::Uninstall { version },
-            };
-            state.operation_queue.enqueue(operation);
-        }
+fn enqueue_bulk_operations(state: &mut MainState, versions: &[NodeVersion], action: BulkRunAction) {
+    for &version in versions {
+        let operation = match action {
+            BulkRunAction::Install => Operation::Install { version },
+            BulkRunAction::Uninstall => Operation::Uninstall { version },
+        };
+        state.operation_queue.enqueue(operation);
     }
 }
 
@@ -49,7 +47,7 @@ fn start_bulk_run(
     state: &mut MainState,
     kind: BulkRunKind,
     action: BulkRunAction,
-    versions: Vec<String>,
+    versions: Vec<NodeVersion>,
 ) -> bool {
     if state.bulk_run.is_some() {
         return false;
@@ -136,6 +134,13 @@ fn versions_to_uninstall_except_latest(
     Some((removing, keeping))
 }
 
+fn parse_version_strings(versions: &[String]) -> Vec<NodeVersion> {
+    versions
+        .iter()
+        .filter_map(|s| s.parse::<NodeVersion>().ok())
+        .collect()
+}
+
 impl Versi {
     pub(super) fn handle_request_bulk_update_majors(&mut self) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
@@ -215,12 +220,11 @@ impl Versi {
         if let AppState::Main(state) = &mut self.state
             && let Some(Modal::ConfirmBulkUpdateMajors { versions }) = state.modal.take()
         {
-            let started = start_bulk_run(
-                state,
-                BulkRunKind::UpdateMajors,
-                BulkRunAction::Install,
-                versions.into_iter().map(|(_from, to)| to).collect(),
-            );
+            let started =
+                start_bulk_run(state, BulkRunKind::UpdateMajors, BulkRunAction::Install, {
+                    let targets: Vec<String> = versions.into_iter().map(|(_from, to)| to).collect();
+                    parse_version_strings(&targets)
+                });
             if started {
                 return self.process_next_operation();
             }
@@ -237,7 +241,7 @@ impl Versi {
                 state,
                 BulkRunKind::UninstallEol,
                 BulkRunAction::Uninstall,
-                versions,
+                parse_version_strings(&versions),
             );
             if started {
                 return self.process_next_operation();
@@ -257,7 +261,7 @@ impl Versi {
                 state,
                 BulkRunKind::UninstallMajor,
                 BulkRunAction::Uninstall,
-                versions,
+                parse_version_strings(&versions),
             );
             if started {
                 return self.process_next_operation();
@@ -311,7 +315,7 @@ impl Versi {
                 state,
                 BulkRunKind::UninstallMajorExceptLatest,
                 BulkRunAction::Uninstall,
-                versions,
+                parse_version_strings(&versions),
             );
             if started {
                 return self.process_next_operation();

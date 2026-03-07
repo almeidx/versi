@@ -1,3 +1,5 @@
+use versi_backend::NodeVersion;
+
 use crate::error::AppError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -32,14 +34,17 @@ impl BulkItemStatus {
         matches!(self, Self::Running)
     }
 
+    #[cfg(test)]
     fn is_completed(&self) -> bool {
         matches!(self, Self::Completed)
     }
 
+    #[cfg(test)]
     fn is_failed(&self) -> bool {
         matches!(self, Self::Failed(_))
     }
 
+    #[cfg(test)]
     fn is_canceled(&self) -> bool {
         matches!(self, Self::Canceled)
     }
@@ -47,7 +52,7 @@ impl BulkItemStatus {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BulkRunItem {
-    pub version: String,
+    pub version: NodeVersion,
     pub action: BulkRunAction,
     pub status: BulkItemStatus,
 }
@@ -88,16 +93,19 @@ impl BulkRunState {
         self.items_matching(BulkItemStatus::is_running).count()
     }
 
+    #[cfg(test)]
     #[must_use]
     pub fn completed_count(&self) -> usize {
         self.items_matching(BulkItemStatus::is_completed).count()
     }
 
+    #[cfg(test)]
     #[must_use]
     pub fn failed_count(&self) -> usize {
         self.items_matching(BulkItemStatus::is_failed).count()
     }
 
+    #[cfg(test)]
     #[must_use]
     pub fn canceled_count(&self) -> usize {
         self.items_matching(BulkItemStatus::is_canceled).count()
@@ -108,41 +116,41 @@ impl BulkRunState {
         self.pending_count() > 0 || self.running_count() > 0
     }
 
+    #[cfg(test)]
     #[must_use]
-    pub fn pending_versions(&self) -> Vec<String> {
-        self.items_matching(BulkItemStatus::is_pending)
-            .map(|item| item.version.clone())
-            .collect()
-    }
-
-    #[must_use]
-    pub fn completed_versions(&self) -> Vec<String> {
+    pub fn completed_versions(&self) -> Vec<NodeVersion> {
         self.items_matching(BulkItemStatus::is_completed)
-            .map(|item| item.version.clone())
+            .map(|item| item.version)
             .collect()
     }
 
+    #[cfg(test)]
     #[must_use]
-    pub fn failed_versions(&self) -> Vec<String> {
+    pub fn failed_versions(&self) -> Vec<NodeVersion> {
         self.items_matching(BulkItemStatus::is_failed)
-            .map(|item| item.version.clone())
+            .map(|item| item.version)
             .collect()
     }
 
+    #[cfg(test)]
     #[must_use]
-    pub fn canceled_versions(&self) -> Vec<String> {
+    pub fn canceled_versions(&self) -> Vec<NodeVersion> {
         self.items_matching(BulkItemStatus::is_canceled)
-            .map(|item| item.version.clone())
+            .map(|item| item.version)
             .collect()
     }
 
-    fn find_item_mut(&mut self, version: &str, action: BulkRunAction) -> Option<&mut BulkRunItem> {
+    fn find_item_mut(
+        &mut self,
+        version: &NodeVersion,
+        action: BulkRunAction,
+    ) -> Option<&mut BulkRunItem> {
         self.items
             .iter_mut()
-            .find(|item| item.version == version && item.action == action)
+            .find(|item| item.version == *version && item.action == action)
     }
 
-    pub fn mark_running(&mut self, version: &str, action: BulkRunAction) {
+    pub fn mark_running(&mut self, version: &NodeVersion, action: BulkRunAction) {
         if let Some(item) = self.find_item_mut(version, action)
             && matches!(item.status, BulkItemStatus::Pending)
         {
@@ -152,7 +160,7 @@ impl BulkRunState {
 
     pub fn mark_finished(
         &mut self,
-        version: &str,
+        version: &NodeVersion,
         action: BulkRunAction,
         success: bool,
         error: Option<AppError>,
@@ -172,12 +180,12 @@ impl BulkRunState {
         }
     }
 
-    pub fn cancel_pending(&mut self) -> Vec<(String, BulkRunAction)> {
+    pub fn cancel_pending(&mut self) -> Vec<(NodeVersion, BulkRunAction)> {
         let mut canceled = Vec::new();
         for item in &mut self.items {
             if matches!(item.status, BulkItemStatus::Pending) {
                 item.status = BulkItemStatus::Canceled;
-                canceled.push((item.version.clone(), item.action));
+                canceled.push((item.version, item.action));
             }
         }
         canceled
@@ -188,35 +196,39 @@ impl BulkRunState {
 mod tests {
     use super::*;
 
+    fn nv(major: u32, minor: u32, patch: u32) -> NodeVersion {
+        NodeVersion::new(major, minor, patch)
+    }
+
     #[test]
     fn bulk_run_state_tracks_status_transitions() {
         let mut run = BulkRunState::new(
             BulkRunKind::UpdateMajors,
             vec![
                 BulkRunItem {
-                    version: "v22.1.0".to_string(),
+                    version: nv(22, 1, 0),
                     action: BulkRunAction::Install,
                     status: BulkItemStatus::Pending,
                 },
                 BulkRunItem {
-                    version: "v20.11.1".to_string(),
+                    version: nv(20, 11, 1),
                     action: BulkRunAction::Install,
                     status: BulkItemStatus::Pending,
                 },
                 BulkRunItem {
-                    version: "v18.20.0".to_string(),
+                    version: nv(18, 20, 0),
                     action: BulkRunAction::Install,
                     status: BulkItemStatus::Pending,
                 },
             ],
         );
 
-        run.mark_running("v22.1.0", BulkRunAction::Install);
-        run.mark_finished("v22.1.0", BulkRunAction::Install, true, None);
+        run.mark_running(&nv(22, 1, 0), BulkRunAction::Install);
+        run.mark_finished(&nv(22, 1, 0), BulkRunAction::Install, true, None);
 
-        run.mark_running("v20.11.1", BulkRunAction::Install);
+        run.mark_running(&nv(20, 11, 1), BulkRunAction::Install);
         run.mark_finished(
-            "v20.11.1",
+            &nv(20, 11, 1),
             BulkRunAction::Install,
             false,
             Some(AppError::operation_failed("Install", "boom")),
@@ -231,13 +243,10 @@ mod tests {
         assert_eq!(run.failed_count(), 1);
         assert_eq!(run.canceled_count(), 1);
         assert!(!run.is_active());
-        assert_eq!(
-            canceled,
-            vec![("v18.20.0".to_string(), BulkRunAction::Install)]
-        );
-        assert_eq!(run.completed_versions(), vec!["v22.1.0".to_string()]);
-        assert_eq!(run.failed_versions(), vec!["v20.11.1".to_string()]);
-        assert_eq!(run.canceled_versions(), vec!["v18.20.0".to_string()]);
+        assert_eq!(canceled, vec![(nv(18, 20, 0), BulkRunAction::Install)]);
+        assert_eq!(run.completed_versions(), vec![nv(22, 1, 0)]);
+        assert_eq!(run.failed_versions(), vec![nv(20, 11, 1)]);
+        assert_eq!(run.canceled_versions(), vec![nv(18, 20, 0)]);
     }
 
     #[test]
@@ -246,17 +255,17 @@ mod tests {
             BulkRunKind::UninstallEol,
             vec![
                 BulkRunItem {
-                    version: "v14.0.0".to_string(),
+                    version: nv(14, 0, 0),
                     action: BulkRunAction::Uninstall,
                     status: BulkItemStatus::Completed,
                 },
                 BulkRunItem {
-                    version: "v16.0.0".to_string(),
+                    version: nv(16, 0, 0),
                     action: BulkRunAction::Uninstall,
                     status: BulkItemStatus::Pending,
                 },
                 BulkRunItem {
-                    version: "v12.0.0".to_string(),
+                    version: nv(12, 0, 0),
                     action: BulkRunAction::Uninstall,
                     status: BulkItemStatus::Failed(AppError::operation_failed(
                         "Uninstall",
@@ -264,47 +273,47 @@ mod tests {
                     )),
                 },
                 BulkRunItem {
-                    version: "v10.0.0".to_string(),
+                    version: nv(10, 0, 0),
                     action: BulkRunAction::Uninstall,
                     status: BulkItemStatus::Running,
                 },
                 BulkRunItem {
-                    version: "v8.0.0".to_string(),
+                    version: nv(8, 0, 0),
                     action: BulkRunAction::Uninstall,
                     status: BulkItemStatus::Canceled,
                 },
             ],
         );
 
-        let pending: Vec<&str> = run
+        let pending: Vec<NodeVersion> = run
             .items_matching(BulkItemStatus::is_pending)
-            .map(|item| item.version.as_str())
+            .map(|item| item.version)
             .collect();
-        assert_eq!(pending, vec!["v16.0.0"]);
+        assert_eq!(pending, vec![nv(16, 0, 0)]);
 
-        let running: Vec<&str> = run
+        let running: Vec<NodeVersion> = run
             .items_matching(BulkItemStatus::is_running)
-            .map(|item| item.version.as_str())
+            .map(|item| item.version)
             .collect();
-        assert_eq!(running, vec!["v10.0.0"]);
+        assert_eq!(running, vec![nv(10, 0, 0)]);
 
-        let completed: Vec<&str> = run
+        let completed: Vec<NodeVersion> = run
             .items_matching(BulkItemStatus::is_completed)
-            .map(|item| item.version.as_str())
+            .map(|item| item.version)
             .collect();
-        assert_eq!(completed, vec!["v14.0.0"]);
+        assert_eq!(completed, vec![nv(14, 0, 0)]);
 
-        let failed: Vec<&str> = run
+        let failed: Vec<NodeVersion> = run
             .items_matching(BulkItemStatus::is_failed)
-            .map(|item| item.version.as_str())
+            .map(|item| item.version)
             .collect();
-        assert_eq!(failed, vec!["v12.0.0"]);
+        assert_eq!(failed, vec![nv(12, 0, 0)]);
 
-        let canceled: Vec<&str> = run
+        let canceled: Vec<NodeVersion> = run
             .items_matching(BulkItemStatus::is_canceled)
-            .map(|item| item.version.as_str())
+            .map(|item| item.version)
             .collect();
-        assert_eq!(canceled, vec!["v8.0.0"]);
+        assert_eq!(canceled, vec![nv(8, 0, 0)]);
     }
 
     #[test]
@@ -312,7 +321,7 @@ mod tests {
         let run = BulkRunState::new(
             BulkRunKind::UninstallEol,
             vec![BulkRunItem {
-                version: "v14.0.0".to_string(),
+                version: nv(14, 0, 0),
                 action: BulkRunAction::Uninstall,
                 status: BulkItemStatus::Pending,
             }],

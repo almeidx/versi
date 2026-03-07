@@ -106,10 +106,10 @@ struct BulkProgressSnapshot {
     pending: usize,
     current: usize,
     progress_basis_points: u16,
-    pending_versions: Vec<String>,
-    completed_versions: Vec<String>,
-    failed_versions: Vec<String>,
-    canceled_versions: Vec<String>,
+    pending_versions: Vec<NodeVersion>,
+    completed_versions: Vec<NodeVersion>,
+    failed_versions: Vec<NodeVersion>,
+    canceled_versions: Vec<NodeVersion>,
 }
 
 impl BulkProgressSnapshot {
@@ -136,22 +136,22 @@ impl BulkProgressSnapshot {
             match &item.status {
                 BulkItemStatus::Pending => {
                     pending += 1;
-                    pending_versions.push(item.version.clone());
+                    pending_versions.push(item.version);
                 }
                 BulkItemStatus::Running => {
                     running += 1;
                 }
                 BulkItemStatus::Completed => {
                     completed += 1;
-                    completed_versions.push(item.version.clone());
+                    completed_versions.push(item.version);
                 }
                 BulkItemStatus::Failed(_) => {
                     failed += 1;
-                    failed_versions.push(item.version.clone());
+                    failed_versions.push(item.version);
                 }
                 BulkItemStatus::Canceled => {
                     canceled += 1;
-                    canceled_versions.push(item.version.clone());
+                    canceled_versions.push(item.version);
                 }
             }
         }
@@ -254,7 +254,7 @@ fn bulk_progress_version_lines(
 
 fn version_preview_line(
     label: &str,
-    versions: &[String],
+    versions: &[NodeVersion],
     limit: usize,
     color: Color,
 ) -> Option<Element<'static, Message>> {
@@ -306,11 +306,7 @@ fn overall_bulk_progress_basis_points(
         .map(|item| match &item.status {
             BulkItemStatus::Pending => 0_u16,
             BulkItemStatus::Running => {
-                let progress = item
-                    .version
-                    .parse::<NodeVersion>()
-                    .ok()
-                    .and_then(|nv| install_progress.get(&nv));
+                let progress = install_progress.get(&item.version);
                 running_item_progress_basis_points(item.action, progress)
             }
             BulkItemStatus::Completed | BulkItemStatus::Failed(_) | BulkItemStatus::Canceled => {
@@ -324,11 +320,11 @@ fn overall_bulk_progress_basis_points(
     u16::try_from(avg).unwrap_or(10_000)
 }
 
-fn format_versions_preview(versions: &[String], limit: usize) -> String {
+fn format_versions_preview(versions: &[NodeVersion], limit: usize) -> String {
     let head = versions
         .iter()
         .take(limit)
-        .map(String::as_str)
+        .map(ToString::to_string)
         .collect::<Vec<_>>()
         .join(", ");
 
@@ -664,12 +660,12 @@ mod tests {
             BulkRunKind::UpdateMajors,
             vec![
                 BulkRunItem {
-                    version: "v22.1.0".to_string(),
+                    version: NodeVersion::new(22, 1, 0),
                     action: BulkRunAction::Install,
                     status: BulkItemStatus::Running,
                 },
                 BulkRunItem {
-                    version: "v20.11.1".to_string(),
+                    version: NodeVersion::new(20, 11, 1),
                     action: BulkRunAction::Install,
                     status: BulkItemStatus::Pending,
                 },
@@ -689,9 +685,9 @@ mod tests {
     #[test]
     fn format_versions_preview_limits_output() {
         let versions = vec![
-            "v22.1.0".to_string(),
-            "v20.11.1".to_string(),
-            "v18.20.0".to_string(),
+            NodeVersion::new(22, 1, 0),
+            NodeVersion::new(20, 11, 1),
+            NodeVersion::new(18, 20, 0),
         ];
 
         assert_eq!(
@@ -710,17 +706,17 @@ mod tests {
             BulkRunKind::UpdateMajors,
             vec![
                 BulkRunItem {
-                    version: "v22.1.0".to_string(),
+                    version: NodeVersion::new(22, 1, 0),
                     action: BulkRunAction::Install,
                     status: BulkItemStatus::Running,
                 },
                 BulkRunItem {
-                    version: "v20.11.1".to_string(),
+                    version: NodeVersion::new(20, 11, 1),
                     action: BulkRunAction::Install,
                     status: BulkItemStatus::Completed,
                 },
                 BulkRunItem {
-                    version: "v18.20.0".to_string(),
+                    version: NodeVersion::new(18, 20, 0),
                     action: BulkRunAction::Install,
                     status: BulkItemStatus::Pending,
                 },
