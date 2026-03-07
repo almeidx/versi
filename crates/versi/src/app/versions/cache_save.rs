@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::{OnceLock, mpsc};
+use std::sync::{Arc, OnceLock, mpsc};
 use std::time::Duration;
 
 use chrono::Utc;
@@ -10,27 +10,27 @@ const CACHE_SAVE_DEBOUNCE: Duration = Duration::from_millis(250);
 const CACHE_SAVE_QUEUE_CAPACITY: usize = 16;
 
 enum CacheSaveMessage {
-    RemoteVersions(Vec<RemoteVersion>),
+    RemoteVersions(Arc<Vec<RemoteVersion>>),
     ReleaseSchedule(ReleaseSchedule),
-    VersionMetadata(HashMap<String, VersionMeta>),
-    SecurityAdvisories(HashMap<String, SecurityAdvisory>),
+    VersionMetadata(Arc<HashMap<String, VersionMeta>>),
+    SecurityAdvisories(Arc<HashMap<String, SecurityAdvisory>>),
 }
 
 #[derive(Default)]
 struct CacheSnapshot {
-    remote_versions: Vec<RemoteVersion>,
+    remote_versions: Arc<Vec<RemoteVersion>>,
     release_schedule: Option<ReleaseSchedule>,
-    version_metadata: Option<HashMap<String, VersionMeta>>,
-    security_advisories: Option<HashMap<String, SecurityAdvisory>>,
+    version_metadata: Option<Arc<HashMap<String, VersionMeta>>>,
+    security_advisories: Option<Arc<HashMap<String, SecurityAdvisory>>>,
 }
 
 impl CacheSnapshot {
     fn from_disk_cache(cache: crate::cache::DiskCache) -> Self {
         Self {
-            remote_versions: cache.remote_versions,
+            remote_versions: Arc::new(cache.remote_versions),
             release_schedule: cache.release_schedule,
-            version_metadata: cache.version_metadata,
-            security_advisories: cache.security_advisories,
+            version_metadata: cache.version_metadata.map(Arc::new),
+            security_advisories: cache.security_advisories.map(Arc::new),
         }
     }
 
@@ -49,14 +49,14 @@ impl CacheSnapshot {
         crate::cache::save_snapshot(
             &self.remote_versions,
             self.release_schedule.as_ref(),
-            self.version_metadata.as_ref(),
-            self.security_advisories.as_ref(),
+            self.version_metadata.as_deref(),
+            self.security_advisories.as_deref(),
             Utc::now(),
         );
     }
 }
 
-pub(super) fn enqueue_cache_save_remote_versions(versions: Vec<RemoteVersion>) {
+pub(super) fn enqueue_cache_save_remote_versions(versions: Arc<Vec<RemoteVersion>>) {
     enqueue_cache_save(CacheSaveMessage::RemoteVersions(versions));
 }
 
@@ -64,12 +64,12 @@ pub(super) fn enqueue_cache_save_release_schedule(schedule: ReleaseSchedule) {
     enqueue_cache_save(CacheSaveMessage::ReleaseSchedule(schedule));
 }
 
-pub(super) fn enqueue_cache_save_version_metadata(metadata: HashMap<String, VersionMeta>) {
+pub(super) fn enqueue_cache_save_version_metadata(metadata: Arc<HashMap<String, VersionMeta>>) {
     enqueue_cache_save(CacheSaveMessage::VersionMetadata(metadata));
 }
 
 pub(super) fn enqueue_cache_save_security_advisories(
-    advisories: HashMap<String, SecurityAdvisory>,
+    advisories: Arc<HashMap<String, SecurityAdvisory>>,
 ) {
     enqueue_cache_save(CacheSaveMessage::SecurityAdvisories(advisories));
 }

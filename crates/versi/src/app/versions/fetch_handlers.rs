@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use iced::Task;
@@ -92,7 +93,7 @@ pub(super) fn handle_remote_versions_fetched(
                 });
                 super::super::platform::set_update_badge(has_update);
 
-                enqueue_cache_save_remote_versions(state.available_versions.versions.clone());
+                enqueue_cache_save_remote_versions(Arc::clone(&state.available_versions.versions));
             }
             Err(error) => {
                 state.available_versions.remote.error = Some(error);
@@ -223,7 +224,8 @@ pub(super) fn handle_version_metadata_fetched(
 
         match result {
             Ok(metadata) => {
-                enqueue_cache_save_version_metadata(metadata.clone());
+                let metadata = Arc::new(metadata);
+                enqueue_cache_save_version_metadata(Arc::clone(&metadata));
                 state.available_versions.metadata = Some(metadata);
                 state.available_versions.metadata_fetch.error = None;
             }
@@ -289,7 +291,8 @@ pub(super) fn handle_security_advisories_fetched(
         state.available_versions.security_last_checked_at = Some(Instant::now());
         match result {
             Ok(advisories) => {
-                enqueue_cache_save_security_advisories(advisories.clone());
+                let advisories = Arc::new(advisories);
+                enqueue_cache_save_security_advisories(Arc::clone(&advisories));
                 state.available_versions.security_advisories = Some(advisories);
                 state.available_versions.security_fetch.error = None;
             }

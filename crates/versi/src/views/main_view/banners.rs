@@ -575,7 +575,8 @@ mod tests {
     #[test]
     fn metadata_banner_hides_when_metadata_exists() {
         let mut state = main_state_for_banners();
-        state.available_versions.metadata = Some(std::collections::HashMap::new());
+        state.available_versions.metadata =
+            Some(std::sync::Arc::new(std::collections::HashMap::new()));
         state.available_versions.metadata_fetch.error = Some(AppError::version_fetch_failed(
             "Version metadata",
             "network timeout",
@@ -608,7 +609,8 @@ mod tests {
             "Security advisories",
             "network timeout",
         ));
-        state.available_versions.security_advisories = Some(std::collections::HashMap::new());
+        state.available_versions.security_advisories =
+            Some(std::sync::Arc::new(std::collections::HashMap::new()));
 
         assert!(security_advisories_banner(&state, true).is_none());
     }

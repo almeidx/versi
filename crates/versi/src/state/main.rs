@@ -235,7 +235,7 @@ impl MainState {
             let mut advisory_ids = Vec::new();
 
             if let Some(advisory_index) = advisories {
-                for (advisory_id, advisory) in advisory_index {
+                for (advisory_id, advisory) in advisory_index.iter() {
                     if advisory.affects_version_on_platform(&version_label, platform) {
                         advisory_ids.push(advisory_id.clone());
                     }
@@ -372,7 +372,7 @@ impl FetchState {
 
 #[derive(Debug, Default)]
 pub struct VersionCache {
-    pub versions: Vec<RemoteVersion>,
+    pub versions: Arc<Vec<RemoteVersion>>,
     pub latest_by_major: HashMap<u32, NodeVersion>,
     pub lts_by_version: HashMap<NodeVersion, String>,
     pub fetched_at: Option<Instant>,
@@ -380,9 +380,9 @@ pub struct VersionCache {
     pub remote: FetchState,
     pub schedule: Option<ReleaseSchedule>,
     pub schedule_fetch: FetchState,
-    pub metadata: Option<HashMap<String, VersionMeta>>,
+    pub metadata: Option<Arc<HashMap<String, VersionMeta>>>,
     pub metadata_fetch: FetchState,
-    pub security_advisories: Option<HashMap<String, SecurityAdvisory>>,
+    pub security_advisories: Option<Arc<HashMap<String, SecurityAdvisory>>>,
     pub security_fetch: FetchState,
     pub security_last_checked_at: Option<Instant>,
     pub loaded_from_disk: bool,
@@ -392,7 +392,7 @@ pub struct VersionCache {
 
 impl VersionCache {
     pub fn set_versions(&mut self, versions: Vec<RemoteVersion>) {
-        self.versions = versions;
+        self.versions = Arc::new(versions);
         self.search_index = RemoteVersionSearchIndex::from_versions(&self.versions);
         self.recompute_latest_by_major();
         self.recompute_lts_by_version();
@@ -401,7 +401,7 @@ impl VersionCache {
     fn recompute_latest_by_major(&mut self) {
         self.latest_by_major.clear();
         self.latest_by_major.reserve(self.versions.len().min(32));
-        for version in &self.versions {
+        for version in self.versions.iter() {
             self.latest_by_major
                 .entry(version.version.major)
                 .and_modify(|existing| {
@@ -415,7 +415,7 @@ impl VersionCache {
 
     fn recompute_lts_by_version(&mut self) {
         self.lts_by_version.clear();
-        for version in &self.versions {
+        for version in self.versions.iter() {
             if let Some(codename) = &version.lts_codename {
                 self.lts_by_version
                     .insert(version.version, codename.clone());
@@ -468,6 +468,7 @@ fn environment_platform(environment_id: &EnvironmentId) -> &'static str {
 mod tests {
     use std::collections::HashMap;
     use std::path::PathBuf;
+    use std::sync::Arc;
     use std::time::{Duration, Instant};
 
     use super::{MainState, NetworkStatus, SearchFilter, VersionCache, VersionSecurityFinding};
@@ -528,11 +529,11 @@ mod tests {
         ));
         assert!(matches!(cache.network_status(), NetworkStatus::Offline));
 
-        cache.versions = vec![RemoteVersion {
+        cache.versions = Arc::new(vec![RemoteVersion {
             version: NodeVersion::new(20, 11, 0),
             lts_codename: Some("Iron".to_string()),
             is_latest: true,
-        }];
+        }]);
         assert!(matches!(cache.network_status(), NetworkStatus::Stale));
     }
 
@@ -669,7 +670,7 @@ mod tests {
         state
             .active_environment_mut()
             .update_versions(vec![installed(NodeVersion::new(22, 21, 1), true)]);
-        state.available_versions.security_advisories = Some(HashMap::from([(
+        state.available_versions.security_advisories = Some(Arc::new(HashMap::from([(
             "163".to_string(),
             SecurityAdvisory {
                 cve: vec!["CVE-2026-21637".to_string()],
@@ -683,7 +684,7 @@ mod tests {
                 overview: "overview".to_string(),
                 affected_environments: vec!["all".to_string()],
             },
-        )]));
+        )])));
 
         state.recompute_banner_stats();
 

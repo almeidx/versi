@@ -132,7 +132,7 @@ fn version_metadata_fetched_ignores_stale_request() {
         .available_versions
         .metadata_fetch
         .request_seq = 4;
-    app.main_state_mut().available_versions.metadata = Some(baseline.clone());
+    app.main_state_mut().available_versions.metadata = Some(std::sync::Arc::new(baseline.clone()));
 
     app.handle_version_metadata_fetched(3, Ok(sample_metadata()));
 
@@ -204,7 +204,8 @@ fn security_advisories_fetched_ignores_stale_request() {
         .available_versions
         .security_fetch
         .request_seq = 6;
-    app.main_state_mut().available_versions.security_advisories = Some(baseline.clone());
+    app.main_state_mut().available_versions.security_advisories =
+        Some(std::sync::Arc::new(baseline.clone()));
 
     app.handle_security_advisories_fetched(5, Ok(sample_security_advisories()));
 

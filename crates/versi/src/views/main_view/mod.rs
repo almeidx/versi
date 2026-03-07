@@ -84,7 +84,7 @@ pub fn view<'a>(
         operation_queue: &state.operation_queue,
         install_progress: &state.install_progress,
         hovered_version: hovered,
-        metadata: state.available_versions.metadata.as_ref(),
+        metadata: state.available_versions.metadata.as_deref(),
         security_findings: &state.security_findings_by_version,
         installed_set: &env.installed_set,
     };

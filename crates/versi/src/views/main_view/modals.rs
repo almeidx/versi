@@ -60,7 +60,7 @@ pub(super) fn modal_overlay<'a>(
         Modal::ConfirmUninstallDefault { version } => confirm_uninstall_default_view(version),
         Modal::KeyboardShortcuts => keyboard_shortcuts_view(),
         Modal::VersionDetail { version } => {
-            version_detail_view(version, state.available_versions.metadata.as_ref(), state)
+            version_detail_view(version, state.available_versions.metadata.as_deref(), state)
         }
     };
     let is_version_detail = matches!(modal, Modal::VersionDetail { .. });
@@ -294,7 +294,7 @@ fn version_detail_view<'a>(
     let muted = crate::theme::tokens::TEXT_MUTED;
     let meta = metadata.and_then(|m| m.get(version));
     let security_finding = state.security_findings_by_version.get(version);
-    let security_advisories = state.available_versions.security_advisories.as_ref();
+    let security_advisories = state.available_versions.security_advisories.as_deref();
 
     let mut content = column![text(format!("Node {version}")).size(20),].spacing(4);
 
