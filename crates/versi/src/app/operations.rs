@@ -51,10 +51,6 @@ fn is_default_version(state: &MainState, version: &str) -> bool {
         .is_some_and(|dv| dv == &version)
 }
 
-fn supports_uninstall(state: &MainState) -> bool {
-    state.backend.capabilities().supports_uninstall
-}
-
 fn error_text(error: Option<AppError>) -> String {
     error.map_or_else(|| "unknown error".to_string(), |e| e.to_string())
 }
@@ -279,7 +275,7 @@ impl Versi {
 
     pub(super) fn handle_uninstall(&mut self, version: String) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            if !supports_uninstall(state) {
+            if !state.supports_uninstall() {
                 return Task::none();
             }
 
@@ -308,7 +304,7 @@ impl Versi {
         if let AppState::Main(state) = &mut self.state {
             state.modal = None;
 
-            if !supports_uninstall(state) {
+            if !state.supports_uninstall() {
                 return Task::none();
             }
 
@@ -328,7 +324,7 @@ impl Versi {
 
     pub(super) fn start_uninstall_internal(&mut self, version: String) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            if !supports_uninstall(state) {
+            if !state.supports_uninstall() {
                 return Task::none();
             }
 
@@ -495,7 +491,7 @@ impl Versi {
         match request {
             Operation::Uninstall { version } => {
                 if let AppState::Main(state) = &self.state
-                    && !supports_uninstall(state)
+                    && !state.supports_uninstall()
                 {
                     return Task::none();
                 }

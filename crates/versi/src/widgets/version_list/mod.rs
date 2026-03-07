@@ -364,24 +364,7 @@ mod tests {
         }
     }
 
-    fn schedule_with_eol_major(eol_major: u32) -> versi_core::ReleaseSchedule {
-        serde_json::from_value(serde_json::json!({
-            "versions": {
-                format!("{eol_major}"): {
-                    "start": "2020-01-01",
-                    "end": "2021-01-01"
-                },
-                "22": {
-                    "start": "2024-04-23",
-                    "lts": "2024-10-29",
-                    "maintenance": "2026-10-20",
-                    "end": "2027-04-30",
-                    "codename": "Jod"
-                }
-            }
-        }))
-        .expect("schedule fixture should deserialize")
-    }
+    use crate::test_fixtures::schedule_with_eol_major;
 
     fn make_group(versions: &[InstalledVersion]) -> VersionGroup {
         VersionGroup::from_versions(versions)

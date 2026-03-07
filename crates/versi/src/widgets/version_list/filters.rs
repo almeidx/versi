@@ -33,32 +33,7 @@ mod tests {
     use super::search_available_versions;
     use crate::state::SearchFilter;
 
-    fn remote(version: &str, lts_codename: Option<&str>) -> versi_backend::RemoteVersion {
-        versi_backend::RemoteVersion {
-            version: version.parse().expect("test version should parse"),
-            lts_codename: lts_codename.map(str::to_string),
-            is_latest: false,
-        }
-    }
-
-    fn schedule_with_eol_major(eol_major: u32) -> versi_core::ReleaseSchedule {
-        serde_json::from_value(serde_json::json!({
-            "versions": {
-                format!("{eol_major}"): {
-                    "start": "2020-01-01",
-                    "end": "2021-01-01"
-                },
-                "22": {
-                    "start": "2024-04-23",
-                    "lts": "2024-10-29",
-                    "maintenance": "2026-10-20",
-                    "end": "2027-04-30",
-                    "codename": "Jod"
-                }
-            }
-        }))
-        .expect("schedule fixture should deserialize")
-    }
+    use crate::test_fixtures::{remote, schedule_with_eol_major};
 
     #[test]
     fn resolve_alias_latest_returns_highest_version() {

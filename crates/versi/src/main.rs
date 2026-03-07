@@ -22,6 +22,9 @@ mod widgets;
 #[cfg(windows)]
 mod windows_window;
 
+#[cfg(test)]
+mod test_fixtures;
+
 fn main() -> iced::Result {
     let _instance_guard = match single_instance::SingleInstance::acquire() {
         Ok(guard) => guard,
