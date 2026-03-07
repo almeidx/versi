@@ -331,6 +331,7 @@ impl Versi {
             if query.is_empty() {
                 state.active_filters.clear();
             }
+            state.hovered_version = None;
             state.search_query = query;
         }
     }
