@@ -39,7 +39,7 @@ pub(crate) fn is_wayland() -> bool {
 
 pub(crate) fn set_launch_at_login(enable: bool) -> Result<(), LaunchAtLoginError> {
     use std::fs;
-    use std::path::PathBuf;
+    use std::path::Path;
 
     let home = dirs::home_dir().ok_or(LaunchAtLoginError::HomeDirectoryUnavailable)?;
     let plist_path = home
@@ -56,16 +56,19 @@ pub(crate) fn set_launch_at_login(enable: bool) -> Result<(), LaunchAtLoginError
 
     let exe = std::env::current_exe()
         .map_err(|error| LaunchAtLoginError::io("failed to resolve current executable", error))?;
-    let exe_str = exe.to_string_lossy();
 
-    let (program_arg, extra_arg) = if let Some(app_pos) = exe_str.find(".app/") {
-        let bundle_path = PathBuf::from(&exe_str[..app_pos + 4]);
+    let bundle_root = exe.ancestors().find(|ancestor| {
+        ancestor.file_name().and_then(|n| Path::new(n).extension()) == Some("app".as_ref())
+    });
+
+    let (program_arg, extra_arg) = if let Some(bundle_path) = bundle_root {
+        let escaped = escape_xml(&bundle_path.to_string_lossy());
         (
             "open".to_string(),
-            format!("-a\n    <string>{}</string>", bundle_path.display()),
+            format!("<string>-a</string>\n    <string>{escaped}</string>"),
         )
     } else {
-        (exe_str.to_string(), String::new())
+        (escape_xml(&exe.to_string_lossy()), String::new())
     };
 
     let extra_line = if extra_arg.is_empty() {
@@ -103,6 +106,13 @@ pub(crate) fn set_launch_at_login(enable: bool) -> Result<(), LaunchAtLoginError
     fs::write(&plist_path, plist)
         .map_err(|error| LaunchAtLoginError::io("failed to write launch agent plist", error))?;
     Ok(())
+}
+
+fn escape_xml(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
 }
 
 pub(crate) fn reveal_in_file_manager(path: &std::path::Path) {
