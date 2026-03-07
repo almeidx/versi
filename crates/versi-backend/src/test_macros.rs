@@ -6,21 +6,13 @@ macro_rules! write_mock_executable {
         use std::io::Write;
         use std::os::unix::fs::PermissionsExt;
         let path: &std::path::Path = $path;
-        let tmp_path = path.with_file_name(format!(
-            ".{}.tmp-{}",
-            path.file_name()
-                .expect("mock executable file name")
-                .to_string_lossy(),
-            std::process::id()
-        ));
-        let mut file = fs::File::create(&tmp_path).expect("create mock executable");
+        let mut file = fs::File::create(path).expect("create mock executable");
         file.write_all($content.as_bytes())
             .expect("write mock executable");
         file.sync_all().expect("sync mock executable");
         drop(file);
-        let perms = fs::Permissions::from_mode(0o755);
-        fs::set_permissions(&tmp_path, perms).expect("set mock executable permissions");
-        fs::rename(&tmp_path, path).expect("atomically publish mock executable");
+        fs::set_permissions(path, fs::Permissions::from_mode(0o755))
+            .expect("set mock executable permissions");
     }};
 }
 
