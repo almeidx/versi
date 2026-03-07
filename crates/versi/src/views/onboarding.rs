@@ -315,7 +315,9 @@ fn navigation_buttons(state: &OnboardingState) -> Element<'_, Message> {
         OnboardingStep::Welcome => true,
         OnboardingStep::SelectBackend => state.selected_backend.is_some(),
         OnboardingStep::InstallBackend => {
-            !state.backend_installing && !state.confirming_unsafe_install
+            !state.backend_installing
+                && !state.confirming_unsafe_install
+                && state.install_error.is_none()
         }
         OnboardingStep::ConfigureShell => state.detected_shells.iter().any(|s| s.configured),
     };
