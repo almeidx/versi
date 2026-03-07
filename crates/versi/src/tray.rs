@@ -121,6 +121,7 @@ fn has_tray_host() -> bool {
         .args([
             "--session",
             "--print-reply",
+            "--reply-timeout=3000",
             "--dest=org.freedesktop.DBus",
             "/org/freedesktop/DBus",
             "org.freedesktop.DBus.NameHasOwner",
