@@ -489,21 +489,29 @@ fn launch_at_login_row(settings: &AppSettings) -> Element<'_, Message> {
         toggler(false).size(18)
     };
 
-    let label_color = if is_always {
-        None
-    } else {
-        Some(crate::theme::tokens::TEXT_MUTED)
-    };
-
     let mut label = text("Launch at login").size(12);
-    if let Some(color) = label_color {
-        label = label.color(color);
+    if !is_always {
+        label = label.color(crate::theme::tokens::TEXT_MUTED);
     }
 
-    row![toggle, label]
+    let content: Element<'_, Message> = row![toggle, label]
         .spacing(8)
         .align_y(Alignment::Center)
+        .into();
+
+    if is_always {
+        content
+    } else {
+        tooltip(
+            content,
+            container(text("Requires \"Always\" tray mode").size(12))
+                .padding([4, 8])
+                .style(styles::tooltip_container),
+            tooltip::Position::Bottom,
+        )
+        .gap(4.0)
         .into()
+    }
 }
 
 fn engine_selector<'a>(settings: &'a AppSettings, state: &'a MainState) -> Element<'a, Message> {
