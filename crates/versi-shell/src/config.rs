@@ -117,15 +117,25 @@ impl ShellConfig {
 
     /// Persist an edit to disk and update in-memory content.
     ///
+    /// Uses atomic write (temp file + rename) to avoid data loss if the
+    /// process crashes mid-write.
+    ///
     /// # Errors
     /// Returns an error if parent directories cannot be created or writing the
     /// file fails.
     pub fn apply_edit(&mut self, edit: &ShellConfigEdit) -> Result<(), ConfigError> {
-        if let Some(parent) = self.config_path.parent() {
-            fs::create_dir_all(parent)?;
-        }
+        let parent = self.config_path.parent().ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "config path has no parent directory",
+            )
+        })?;
+        fs::create_dir_all(parent)?;
 
-        fs::write(&self.config_path, &edit.modified)?;
+        let mut tmp = tempfile::NamedTempFile::new_in(parent)?;
+        std::io::Write::write_all(&mut tmp, edit.modified.as_bytes())?;
+        tmp.persist(&self.config_path).map_err(|e| e.error)?;
+
         self.content.clone_from(&edit.modified);
 
         Ok(())
