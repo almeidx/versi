@@ -113,6 +113,7 @@ fn escape_xml(s: &str) -> String {
         .replace('<', "&lt;")
         .replace('>', "&gt;")
         .replace('"', "&quot;")
+        .replace('\'', "&apos;")
 }
 
 pub(crate) fn reveal_in_file_manager(path: &std::path::Path) {
