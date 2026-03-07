@@ -104,22 +104,23 @@ pub fn view<'a>(
         content_padding.right + crate::theme::tokens::SCROLL_CONTENT_RIGHT_INSET;
     let overlay_right_inset = (content_right_inset - styles::OVERLAY_SCROLLBAR_LANE_WIDTH).max(0.0);
 
-    let scroll_top_section = container(top_section(state)).padding(iced::Padding {
-        top: 0.0,
-        right: crate::theme::tokens::SCROLL_CONTENT_RIGHT_INSET,
-        bottom: 12.0,
-        left: 0.0,
-    });
+    let fixed_header = container(top_section(state))
+        .padding(iced::Padding {
+            top: content_padding.top,
+            right: content_right_inset,
+            bottom: 12.0,
+            left: content_padding.left,
+        })
+        .style(styles::page_background_overlay)
+        .width(Length::Fill);
 
-    let scroll_content = column![
-        scroll_top_section,
-        container(version_list).padding(
+    let scroll_content =
+        column![container(version_list).padding(
             iced::Padding::new(0.0).right(crate::theme::tokens::SCROLL_CONTENT_RIGHT_INSET)
-        ),
-    ]
-    .spacing(0)
-    .padding(content_padding)
-    .width(Length::Fill);
+        ),]
+        .spacing(0)
+        .padding(content_padding)
+        .width(Length::Fill);
 
     let main_scrollable = scrollable(scroll_content)
         .direction(iced::widget::scrollable::Direction::Vertical(
@@ -129,20 +130,8 @@ pub fn view<'a>(
         .width(Length::Fill)
         .height(Length::Fill);
 
-    let fixed_top_overlay = iced::widget::opaque(row![
-        container(top_section(state))
-            .padding(iced::Padding {
-                top: content_padding.top,
-                right: overlay_right_inset,
-                bottom: 12.0,
-                left: content_padding.left,
-            })
-            .style(styles::page_background_overlay)
-            .width(Length::Fill),
-        Space::new().width(Length::Fixed(styles::OVERLAY_SCROLLBAR_LANE_WIDTH)),
-    ]);
-
-    let main_content = iced::widget::stack![main_scrollable, fixed_top_overlay]
+    let main_content = column![fixed_header, main_scrollable]
+        .spacing(0)
         .width(Length::Fill)
         .height(Length::Fill);
 
