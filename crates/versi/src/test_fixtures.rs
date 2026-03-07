@@ -10,6 +10,15 @@ pub fn schedule_with_eol_major(eol_major: u32) -> ReleaseSchedule {
     .expect("schedule fixture should deserialize")
 }
 
+pub fn installed(version: &str, is_default: bool) -> versi_backend::InstalledVersion {
+    versi_backend::InstalledVersion {
+        version: version.parse().expect("test version should parse"),
+        is_default,
+        lts_codename: None,
+        disk_size: None,
+    }
+}
+
 pub fn remote(version: &str, lts_codename: Option<&str>) -> versi_backend::RemoteVersion {
     versi_backend::RemoteVersion {
         version: version.parse().expect("test version should parse"),

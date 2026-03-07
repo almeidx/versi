@@ -392,12 +392,7 @@ mod tests {
     use crate::state::EnvironmentState;
 
     fn installed(version: &str, is_default: bool) -> InstalledVersion {
-        InstalledVersion {
-            version: version.parse().expect("test version should parse"),
-            is_default,
-            lts_codename: None,
-            disk_size: None,
-        }
+        crate::test_fixtures::installed(version, is_default)
     }
 
     #[test]

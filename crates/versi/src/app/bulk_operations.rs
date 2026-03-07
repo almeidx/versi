@@ -336,17 +336,11 @@ mod tests {
     use super::{compute_major_updates, versions_for_major, versions_to_uninstall_except_latest};
     use crate::backend_kind::BackendKind;
     use crate::state::Modal;
+    use crate::test_fixtures::remote;
 
     fn installed(version: &str) -> InstalledVersion {
-        InstalledVersion {
-            version: version.parse().expect("test version should parse"),
-            is_default: false,
-            lts_codename: None,
-            disk_size: None,
-        }
+        crate::test_fixtures::installed(version, false)
     }
-
-    use crate::test_fixtures::remote;
 
     #[test]
     fn compute_major_updates_returns_only_outdated_installed_majors() {

@@ -64,12 +64,7 @@ mod tests {
     use crate::state::Modal;
 
     fn installed(version: &str) -> InstalledVersion {
-        InstalledVersion {
-            version: version.parse().expect("test version should parse"),
-            is_default: false,
-            lts_codename: None,
-            disk_size: None,
-        }
+        crate::test_fixtures::installed(version, false)
     }
 
     #[test]
