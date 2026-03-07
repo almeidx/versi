@@ -108,7 +108,7 @@ mod other_impl {
     }
 
     pub struct SingleInstance {
-        _file: File,
+        _lock_file: File,
     }
 
     impl SingleInstance {
@@ -144,7 +144,7 @@ mod other_impl {
                     super::AcquireError::io("failed to write instance lock metadata", error)
                 })?;
 
-            Ok(Self { _file: file })
+            Ok(Self { _lock_file: file })
         }
     }
 
