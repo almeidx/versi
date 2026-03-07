@@ -279,7 +279,9 @@ fn load_disk_cache_into_state(main_state: &mut MainState) {
                 main_state.available_versions.metadata = Some(Arc::new(metadata));
             }
             if let Some(advisories) = disk_cache.security_advisories {
-                main_state.available_versions.security_advisories = Some(Arc::new(advisories));
+                main_state
+                    .available_versions
+                    .set_security_advisories(Arc::new(advisories));
             }
         }
         Ok(None) => {}

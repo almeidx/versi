@@ -5,7 +5,9 @@ use std::time::{Duration, Instant};
 use chrono::{DateTime, Utc};
 use tokio_util::sync::CancellationToken;
 use versi_backend::{BackendUpdate, InstallProgress, NodeVersion, RemoteVersion, VersionManager};
-use versi_core::{AppUpdate, ReleaseSchedule, SecurityAdvisory, VersionMeta};
+use versi_core::{
+    AppUpdate, CachedPreparedAdvisory, ReleaseSchedule, SecurityAdvisory, VersionMeta,
+};
 use versi_platform::EnvironmentId;
 
 use crate::backend_kind::BackendKind;
@@ -230,13 +232,7 @@ impl MainState {
     fn recompute_security_findings(&mut self) {
         let env = self.active_environment();
         let platform = environment_platform(&env.id);
-        let advisories = self.available_versions.security_advisories.as_ref();
-        let prepared_advisories: Option<Vec<_>> = advisories.map(|index| {
-            index
-                .iter()
-                .map(|(id, advisory)| (id.clone(), advisory.prepare()))
-                .collect()
-        });
+        let prepared = self.available_versions.prepared_advisories.as_ref();
         let schedule = self.available_versions.schedule.as_ref();
         let mut findings = HashMap::new();
 
@@ -244,7 +240,7 @@ impl MainState {
             let version_label = version.version.to_string();
             let mut advisory_ids = Vec::new();
 
-            if let Some(prepared) = prepared_advisories.as_ref() {
+            if let Some(prepared) = prepared {
                 for (advisory_id, prepared_advisory) in prepared {
                     if prepared_advisory.affects_version_on_platform(&version_label, platform) {
                         advisory_ids.push(advisory_id.clone());
@@ -386,6 +382,7 @@ pub struct VersionCache {
     pub metadata: Option<Arc<HashMap<String, VersionMeta>>>,
     pub metadata_fetch: FetchState,
     pub security_advisories: Option<Arc<HashMap<String, SecurityAdvisory>>>,
+    pub prepared_advisories: Option<Vec<(String, CachedPreparedAdvisory)>>,
     pub security_fetch: FetchState,
     pub security_last_checked_at: Option<Instant>,
     pub loaded_from_disk: bool,
@@ -424,6 +421,15 @@ impl VersionCache {
                     .insert(version.version, codename.clone());
             }
         }
+    }
+
+    pub fn set_security_advisories(&mut self, advisories: Arc<HashMap<String, SecurityAdvisory>>) {
+        let prepared = advisories
+            .iter()
+            .map(|(id, adv)| (id.clone(), CachedPreparedAdvisory::from_advisory(adv)))
+            .collect();
+        self.security_advisories = Some(advisories);
+        self.prepared_advisories = Some(prepared);
     }
 
     pub fn network_status(&self) -> NetworkStatus {
@@ -637,21 +643,23 @@ mod tests {
         state
             .active_environment_mut()
             .update_versions(vec![installed(NodeVersion::new(22, 21, 1), true)]);
-        state.available_versions.security_advisories = Some(Arc::new(HashMap::from([(
-            "163".to_string(),
-            SecurityAdvisory {
-                cve: vec!["CVE-2026-21637".to_string()],
-                vulnerable: "20.x || 22.x || 24.x || 25.x".to_string(),
-                patched: "^20.20.0 || ^22.22.0 || ^24.13.0 || ^25.3.0".to_string(),
-                severity: "medium".to_string(),
-                reference:
-                    "https://nodejs.org/en/blog/vulnerability/december-2025-security-releases"
-                        .to_string(),
-                description: "TLS callback exception handling".to_string(),
-                overview: "overview".to_string(),
-                affected_environments: vec!["all".to_string()],
-            },
-        )])));
+        state
+            .available_versions
+            .set_security_advisories(Arc::new(HashMap::from([(
+                "163".to_string(),
+                SecurityAdvisory {
+                    cve: vec!["CVE-2026-21637".to_string()],
+                    vulnerable: "20.x || 22.x || 24.x || 25.x".to_string(),
+                    patched: "^20.20.0 || ^22.22.0 || ^24.13.0 || ^25.3.0".to_string(),
+                    severity: "medium".to_string(),
+                    reference:
+                        "https://nodejs.org/en/blog/vulnerability/december-2025-security-releases"
+                            .to_string(),
+                    description: "TLS callback exception handling".to_string(),
+                    overview: "overview".to_string(),
+                    affected_environments: vec!["all".to_string()],
+                },
+            )])));
 
         state.recompute_banner_stats();
 

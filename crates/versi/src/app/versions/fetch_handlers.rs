@@ -293,7 +293,7 @@ pub(super) fn handle_security_advisories_fetched(
             Ok(advisories) => {
                 let advisories = Arc::new(advisories);
                 enqueue_cache_save_security_advisories(Arc::clone(&advisories));
-                state.available_versions.security_advisories = Some(advisories);
+                state.available_versions.set_security_advisories(advisories);
                 state.available_versions.security_fetch.error = None;
             }
             Err(error) => {

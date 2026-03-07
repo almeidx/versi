@@ -162,6 +162,50 @@ impl PreparedAdvisory<'_> {
     }
 }
 
+#[derive(Debug)]
+pub struct CachedPreparedAdvisory {
+    vulnerable: Vec<VersionReq>,
+    patched: Vec<VersionReq>,
+    affected_environments: Vec<String>,
+}
+
+impl CachedPreparedAdvisory {
+    #[must_use]
+    pub fn from_advisory(advisory: &SecurityAdvisory) -> Self {
+        Self {
+            vulnerable: parse_requirement_expression(&advisory.vulnerable),
+            patched: parse_requirement_expression(&advisory.patched),
+            affected_environments: advisory.affected_environments.clone(),
+        }
+    }
+
+    #[must_use]
+    pub fn affects_version_on_platform(&self, version: &str, platform: &str) -> bool {
+        if !self.affected_environments.is_empty() {
+            let platform = platform.to_ascii_lowercase();
+            let matches = self.affected_environments.iter().any(|entry| {
+                let entry = entry.to_ascii_lowercase();
+                entry == "all" || entry == platform
+            });
+            if !matches {
+                return false;
+            }
+        }
+
+        let Some(version) = parse_node_semver(version) else {
+            return false;
+        };
+
+        let vulnerable = self.vulnerable.iter().any(|req| req.matches(&version));
+        if !vulnerable {
+            return false;
+        }
+
+        let patched = self.patched.iter().any(|req| req.matches(&version));
+        !patched
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::SecurityAdvisory;

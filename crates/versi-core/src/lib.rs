@@ -35,7 +35,8 @@ pub use metadata::{MetadataError, VersionMeta, fetch_version_metadata};
 pub use schedule::{ReleaseSchedule, ScheduleError, fetch_release_schedule};
 /// Node security advisories model and fetch helper.
 pub use security::{
-    PreparedAdvisory, SecurityAdvisory, SecurityAdvisoryError, fetch_security_advisories,
+    CachedPreparedAdvisory, PreparedAdvisory, SecurityAdvisory, SecurityAdvisoryError,
+    fetch_security_advisories,
 };
 /// App update model, GitHub release mapping, and version comparison helpers.
 pub use update::{
