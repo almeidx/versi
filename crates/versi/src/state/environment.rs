@@ -22,6 +22,7 @@ pub struct EnvironmentState {
     pub load_request_seq: u64,
     pub load_cancel_token: Option<CancellationToken>,
     pub available: bool,
+    pub loaded: bool,
 }
 
 impl EnvironmentState {
@@ -45,6 +46,7 @@ impl EnvironmentState {
             load_request_seq: 0,
             load_cancel_token: None,
             available: true,
+            loaded: false,
         }
     }
 
@@ -64,6 +66,7 @@ impl EnvironmentState {
             load_request_seq: 0,
             load_cancel_token: None,
             available: false,
+            loaded: false,
         }
     }
 
@@ -85,6 +88,7 @@ impl EnvironmentState {
         self.version_groups = VersionGroup::from_versions(&versions);
         self.installed_versions = versions;
         self.loading = false;
+        self.loaded = true;
         self.error = None;
     }
 }

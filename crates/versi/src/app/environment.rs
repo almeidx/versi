@@ -23,7 +23,7 @@ use super::init::create_backend_for_environment;
 const BACKGROUND_PRELOAD_DELAY: Duration = Duration::from_millis(1_500);
 
 fn environment_needs_load(env: &crate::state::EnvironmentState) -> bool {
-    env.installed_versions.is_empty() && env.load_cancel_token.is_none()
+    !env.loaded && env.load_cancel_token.is_none()
 }
 
 fn spawn_environment_load(
@@ -65,7 +65,7 @@ fn collect_background_preload_targets(
         .iter()
         .filter(|env| env.available)
         .filter(|env| &env.id != active_env_id)
-        .filter(|env| env.installed_versions.is_empty())
+        .filter(|env| !env.loaded)
         .map(|env| env.id.clone())
         .collect()
 }
@@ -253,7 +253,7 @@ impl Versi {
                 let env = &state.environments[env_idx];
                 (
                     env.available,
-                    !env.installed_versions.is_empty(),
+                    env.loaded,
                     env.load_cancel_token.is_some(),
                     env.backend_name,
                     env.id.clone(),
@@ -528,6 +528,7 @@ mod tests {
         let mut app = test_app_with_two_environments();
         let state = app.main_state_mut();
         state.environments[1].installed_versions = vec![installed("v20.11.0", true)];
+        state.environments[1].loaded = true;
         state.environments.push(EnvironmentState::unavailable(
             EnvironmentId::Wsl {
                 distro: "Debian".to_string(),
@@ -617,6 +618,7 @@ mod tests {
         target.load_request_seq = 3;
         target.load_cancel_token = None;
         target.installed_versions = vec![installed("v20.11.0", true)];
+        target.loaded = true;
 
         let _ = app.handle_start_background_environment_preload(&env_id);
 
