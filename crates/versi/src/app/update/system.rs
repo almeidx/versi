@@ -77,8 +77,12 @@ impl Versi {
         if let AppState::Main(state) = &mut self.state {
             let loading = state.active_environment().loading;
             state.refresh_rotation += std::f32::consts::TAU / 40.0;
-            if !loading && state.refresh_rotation >= std::f32::consts::TAU {
-                state.refresh_rotation = 0.0;
+            if state.refresh_rotation >= std::f32::consts::TAU {
+                if loading {
+                    state.refresh_rotation -= std::f32::consts::TAU;
+                } else {
+                    state.refresh_rotation = 0.0;
+                }
             }
         }
         Task::none()
