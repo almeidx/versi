@@ -383,12 +383,13 @@ fn vulnerability_banner(state: &MainState) -> Option<Element<'_, Message>> {
     };
 
     let title = format!(
-        "{vulnerable_count} installed {} has security vulnerabilities",
+        "{vulnerable_count} installed {} {} security vulnerabilities",
         if vulnerable_count == 1 {
             "version"
         } else {
             "versions"
-        }
+        },
+        if vulnerable_count == 1 { "has" } else { "have" }
     );
 
     Some(
