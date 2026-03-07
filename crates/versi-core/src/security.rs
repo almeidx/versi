@@ -59,15 +59,7 @@ impl SecurityAdvisory {
     }
 
     fn affected_environment_matches(&self, platform: &str) -> bool {
-        if self.affected_environments.is_empty() {
-            return true;
-        }
-
-        let platform = platform.to_ascii_lowercase();
-        self.affected_environments.iter().any(|entry| {
-            let entry = entry.to_ascii_lowercase();
-            entry == "all" || entry == platform
-        })
+        affected_environment_matches(&self.affected_environments, platform)
     }
 }
 
@@ -113,6 +105,18 @@ pub async fn fetch_security_advisories(
     }
 
     response.json().await.map_err(SecurityAdvisoryError::Parse)
+}
+
+fn affected_environment_matches(environments: &[String], platform: &str) -> bool {
+    if environments.is_empty() {
+        return true;
+    }
+
+    let platform = platform.to_ascii_lowercase();
+    environments.iter().any(|entry| {
+        let entry = entry.to_ascii_lowercase();
+        entry == "all" || entry == platform
+    })
 }
 
 fn parse_node_semver(input: &str) -> Option<Version> {
@@ -181,15 +185,8 @@ impl CachedPreparedAdvisory {
 
     #[must_use]
     pub fn affects_version_on_platform(&self, version: &str, platform: &str) -> bool {
-        if !self.affected_environments.is_empty() {
-            let platform = platform.to_ascii_lowercase();
-            let matches = self.affected_environments.iter().any(|entry| {
-                let entry = entry.to_ascii_lowercase();
-                entry == "all" || entry == platform
-            });
-            if !matches {
-                return false;
-            }
+        if !affected_environment_matches(&self.affected_environments, platform) {
+            return false;
         }
 
         let Some(version) = parse_node_semver(version) else {
