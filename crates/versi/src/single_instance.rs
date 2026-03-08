@@ -95,7 +95,7 @@ mod windows_impl {
 mod other_impl {
     use std::fs::{File, OpenOptions};
     use std::io::{Seek, SeekFrom, Write};
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
 
     use versi_platform::AppPaths;
 
@@ -114,12 +114,16 @@ mod other_impl {
     impl SingleInstance {
         pub fn acquire() -> Result<Self, super::AcquireError> {
             let lock_file_path = lock_file_path()?;
+            Self::acquire_at(&lock_file_path)
+        }
+
+        pub(super) fn acquire_at(path: &Path) -> Result<Self, super::AcquireError> {
             let mut file = OpenOptions::new()
                 .create(true)
                 .read(true)
                 .write(true)
                 .truncate(false)
-                .open(lock_file_path)
+                .open(path)
                 .map_err(|error| {
                     super::AcquireError::io("failed to open instance lock file", error)
                 })?;
@@ -161,8 +165,28 @@ mod tests {
     use super::{SingleInstance, bring_existing_window_to_front};
 
     #[test]
-    fn non_windows_acquire_returns_instance() {
-        assert!(SingleInstance::acquire().is_ok());
+    fn acquire_locks_file() {
+        let dir = tempfile::tempdir().expect("should create temp dir");
+        let lock_path = dir.path().join("instance.lock");
+        let instance = SingleInstance::acquire_at(&lock_path);
+        assert!(
+            instance.is_ok(),
+            "acquire should succeed: {:?}",
+            instance.err()
+        );
+    }
+
+    #[test]
+    fn second_acquire_returns_already_running() {
+        let dir = tempfile::tempdir().expect("should create temp dir");
+        let lock_path = dir.path().join("instance.lock");
+        let _first = SingleInstance::acquire_at(&lock_path).expect("first acquire should succeed");
+        let second = SingleInstance::acquire_at(&lock_path);
+        assert!(
+            matches!(second, Err(super::AcquireError::AlreadyRunning)),
+            "second acquire should fail with AlreadyRunning: {:?}",
+            second.err(),
+        );
     }
 
     #[test]

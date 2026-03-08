@@ -116,9 +116,11 @@ async fn asdf_backend_surfaces_command_failures() {
     let backend = AsdfBackend::new(asdf_path, Some("0.18.0".to_string()), None);
     let result = backend.install("fail").await;
 
-    assert!(matches!(
-        result,
-        Err(BackendError::CommandFailed { ref stderr })
-            if stderr.contains("install failed intentionally")
-    ));
+    match &result {
+        Err(BackendError::CommandFailed { stderr })
+            if stderr.contains("install failed intentionally") => {}
+        other => panic!(
+            "expected Err(CommandFailed) containing 'install failed intentionally', got: {other:?}"
+        ),
+    }
 }
