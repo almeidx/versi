@@ -3,6 +3,60 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.12.3] - 2026-03-08
+
+- fix: prevent ETXTBSY in mock executable tests
+- fix: sync mock executable to disk before exec to prevent ETXTBSY
+- fix: add tooltip explaining disabled launch-at-login toggle
+- fix: escape apostrophes in macOS launch agent XML
+- refactor: extract shared advisory platform-matching helper
+- fix: use atomic write for shell config to prevent data loss
+- deps: Update Rust crate base64 to 0.22.1 (#89)
+- fix: fetch volta install script from GitHub instead of get.volta.sh
+- fix: verify SHA-256 checksum for asdf binary downloads
+- docs: add versi-asdf backend to CLAUDE.md
+- refactor: replace wildcard re-exports in state/mod.rs with explicit imports
+- refactor: extract hardcoded green color to SUCCESS theme token
+- refactor: consolidate duplicated installed() test helper
+- security: verify installer scripts via GitHub Contents API
+- refactor: use NodeVersion instead of String in BulkRunItem and related APIs
+- perf: single-pass BulkProgressSnapshot construction
+- perf: cache prepared security advisories to avoid re-parsing semver
+- fix: use wrapping_add for next_toast_id to prevent debug-mode panic
+- fix: wrap refresh_rotation to [0, TAU) during loading
+- security: pass version via env var in fnm script wrapper on Linux
+- security: use tempfile for installer scripts to prevent symlink attacks
+- security: restrict open_url_task to HTTPS-only URLs
+- security: validate download URL domain before fetching update binary
+- fix: replace unreachable!() with error return on Windows non-MSI path
+- fix: return false for unparseable versions in is_newer_version
+- test: add tests for update parsing, security advisories, and banner helpers
+- refactor: use NodeVersion instead of String in Operation and Message types
+- refactor: consolidate duplicated test fixtures and helpers
+- perf: eliminate duplicate widget tree construction in views
+- refactor: extract is_dark theme helper to replace 11 inline checks
+- perf: pre-parse VersionReq for security advisory checks
+- fix: re-verify checksum before pkexec cp to close TOCTOU race
+- perf: use Arc for cache save data to avoid full clones
+- fix: use unsigned_abs for Windows exit code cast
+- fix: track loaded state to prevent redundant reloads
+- fix: add consistent timeouts to all network fetch operations
+- fix: prevent Windows registry key handle leak in set_launch_at_login
+- fix: harden auto-update security
+- fix: sanitize imported settings and apply side-effects
+- fix: scope WSL shell config flag detection to marker lines
+- fix: clear hovered version on search query change
+- fix: trim version strings in is_newer_version fallback comparison
+- refactor: rename _file to _lock_file in SingleInstance
+- fix: correct toast expiry off-by-one
+- fix: correct subject-verb agreement in vulnerability banner
+- fix: preserve pending installs for actively-running versions in drain
+- fix: recompute banner stats after tray environment switch
+- fix: add reply timeout to dbus-send in tray host detection
+- fix: prevent proceeding past failed backend install in onboarding
+- fix: correct malformed macOS LaunchAgent plist XML
+
+
 ## [0.12.2] - 2026-03-07
 
 - deps: Update Rust crate which to 8.0.1 (#87)
