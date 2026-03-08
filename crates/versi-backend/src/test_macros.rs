@@ -13,6 +13,13 @@ macro_rules! write_mock_executable {
         drop(file);
         fs::set_permissions(path, fs::Permissions::from_mode(0o755))
             .expect("set mock executable permissions");
+        // Sync the parent directory to ensure the file entry and metadata are
+        // fully visible to subsequent exec calls, avoiding ETXTBSY on CI.
+        if let Some(parent) = path.parent() {
+            if let Ok(dir) = fs::File::open(parent) {
+                let _ = dir.sync_all();
+            }
+        }
     }};
 }
 

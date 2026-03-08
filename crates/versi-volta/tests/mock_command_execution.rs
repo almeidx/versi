@@ -114,9 +114,11 @@ async fn volta_backend_surfaces_command_failures() {
     );
     let result = backend.install("fail").await;
 
-    assert!(matches!(
-        result,
-        Err(BackendError::CommandFailed { ref stderr })
-            if stderr.contains("fetch failed intentionally")
-    ));
+    match &result {
+        Err(BackendError::CommandFailed { stderr })
+            if stderr.contains("fetch failed intentionally") => {}
+        other => panic!(
+            "expected Err(CommandFailed) containing 'fetch failed intentionally', got: {other:?}"
+        ),
+    }
 }
