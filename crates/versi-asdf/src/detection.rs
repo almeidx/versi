@@ -1,3 +1,5 @@
+#[cfg(unix)]
+use std::path::Component;
 use std::path::{Path, PathBuf};
 #[cfg(unix)]
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -407,24 +409,35 @@ async fn extract_asdf_binary(
     let extract_dir = temp_dir.join("extract");
     tokio::fs::create_dir_all(&extract_dir).await?;
 
-    let extract_status = Command::new("tar")
-        .arg("-xzf")
+    let entries = list_asdf_archive_entries(&archive_path).await?;
+    let archive_binary_path = select_asdf_archive_binary(&entries)?;
+    let source_binary = extract_dir.join("asdf");
+
+    let extract_output = Command::new("tar")
+        .arg("-xOzf")
         .arg(&archive_path)
-        .arg("-C")
-        .arg(&extract_dir)
+        .arg(archive_binary_path)
         .hide_window()
-        .status()
+        .output()
         .await
         .map_err(versi_backend::BackendError::from)?;
 
-    if !extract_status.success() {
+    if !extract_output.status.success() {
+        let stderr = String::from_utf8_lossy(&extract_output.stderr)
+            .trim()
+            .to_string();
         return Err(versi_backend::BackendError::install_failed(
             "extract asdf archive",
-            "failed to extract asdf archive with tar",
+            if stderr.is_empty() {
+                "failed to extract asdf binary from archive".to_string()
+            } else {
+                format!("failed to extract asdf binary from archive: {stderr}")
+            },
         ));
     }
 
-    let source_binary = extract_dir.join("asdf");
+    tokio::fs::write(&source_binary, &extract_output.stdout).await?;
+
     if source_binary.exists() {
         Ok(source_binary)
     } else {
@@ -433,6 +446,104 @@ async fn extract_asdf_binary(
             "asdf binary not found in extracted archive",
         ))
     }
+}
+
+#[cfg(unix)]
+async fn list_asdf_archive_entries(
+    archive_path: &Path,
+) -> Result<Vec<PathBuf>, versi_backend::BackendError> {
+    let output = Command::new("tar")
+        .arg("-tzf")
+        .arg(archive_path)
+        .hide_window()
+        .output()
+        .await
+        .map_err(versi_backend::BackendError::from)?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        return Err(versi_backend::BackendError::install_failed(
+            "extract asdf archive",
+            if stderr.is_empty() {
+                "failed to list asdf archive contents".to_string()
+            } else {
+                format!("failed to list asdf archive contents: {stderr}")
+            },
+        ));
+    }
+
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter(|line| !line.is_empty())
+        .map(PathBuf::from)
+        .map(|path| {
+            validate_archive_path(&path)?;
+            Ok(path)
+        })
+        .collect()
+}
+
+#[cfg(unix)]
+fn select_asdf_archive_binary(entries: &[PathBuf]) -> Result<&Path, versi_backend::BackendError> {
+    let candidates: Vec<_> = entries
+        .iter()
+        .filter(|path| {
+            path.file_name()
+                .is_some_and(|file_name| file_name == std::ffi::OsStr::new("asdf"))
+        })
+        .collect();
+
+    if let Some(path) = candidates
+        .iter()
+        .find(|path| normalize_archive_entry(path) == Path::new("asdf"))
+    {
+        return Ok(path.as_path());
+    }
+
+    let [first] = candidates.as_slice() else {
+        return if candidates.is_empty() {
+            Err(versi_backend::BackendError::install_failed(
+                "extract asdf archive",
+                "asdf binary not found in archive",
+            ))
+        } else {
+            Err(versi_backend::BackendError::install_failed(
+                "extract asdf archive",
+                "multiple asdf binary entries found in archive",
+            ))
+        };
+    };
+
+    Ok(first.as_path())
+}
+
+#[cfg(unix)]
+fn validate_archive_path(path: &Path) -> Result<(), versi_backend::BackendError> {
+    if path.as_os_str().is_empty() {
+        return Err(versi_backend::BackendError::install_failed(
+            "extract asdf archive",
+            "archive entry has an empty path",
+        ));
+    }
+
+    for component in path.components() {
+        match component {
+            Component::CurDir | Component::Normal(_) => {}
+            Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
+                return Err(versi_backend::BackendError::install_failed(
+                    "extract asdf archive",
+                    format!("archive entry contains an unsafe path: {}", path.display()),
+                ));
+            }
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(unix)]
+fn normalize_archive_entry(path: &Path) -> &Path {
+    path.strip_prefix(".").unwrap_or(path)
 }
 
 #[cfg(unix)]
@@ -534,11 +645,15 @@ async fn ensure_nodejs_plugin(
 
 #[cfg(test)]
 mod tests {
+    #[cfg(unix)]
+    use std::path::Path;
     use std::path::PathBuf;
+    #[cfg(unix)]
+    use tokio::process::Command;
 
     use super::{
-        asdf_windows_install_attempts, build_detection, get_common_asdf_paths,
-        normalize_asdf_version, select_asdf_data_dir,
+        asdf_windows_install_attempts, build_detection, extract_asdf_binary, get_common_asdf_paths,
+        normalize_asdf_version, select_asdf_data_dir, validate_archive_path,
     };
 
     #[test]
@@ -605,5 +720,68 @@ mod tests {
         assert_eq!(attempts[0].program, "winget");
         assert_eq!(attempts[1].program, "scoop");
         assert_eq!(attempts[2].program, "choco");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn validate_archive_path_accepts_relative_paths() {
+        assert!(validate_archive_path(Path::new("asdf")).is_ok());
+        assert!(validate_archive_path(Path::new("./bin/asdf")).is_ok());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn validate_archive_path_rejects_parent_dir_components() {
+        let error = validate_archive_path(Path::new("../asdf")).expect_err("reject traversal");
+        assert!(error.to_string().contains("unsafe path"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn validate_archive_path_rejects_absolute_paths() {
+        let error = validate_archive_path(Path::new("/tmp/asdf")).expect_err("reject absolute");
+        assert!(error.to_string().contains("unsafe path"));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn extract_asdf_binary_extracts_safe_archive() {
+        let temp_dir = tempfile::tempdir().expect("create temp dir");
+        let archive_bytes = build_test_archive(temp_dir.path()).await;
+
+        let extracted = extract_asdf_binary(&archive_bytes, temp_dir.path())
+            .await
+            .expect("extract safe archive");
+
+        assert_eq!(extracted, temp_dir.path().join("extract").join("asdf"));
+        assert!(extracted.exists());
+    }
+
+    #[cfg(unix)]
+    async fn build_test_archive(base_dir: &Path) -> Vec<u8> {
+        let source_dir = base_dir.join("archive-src");
+        std::fs::create_dir_all(&source_dir).expect("create archive source dir");
+        std::fs::write(source_dir.join("asdf"), b"asdf").expect("write source binary");
+
+        let archive_path = base_dir.join("asdf.tar.gz");
+        let output = Command::new("tar")
+            .arg("-czf")
+            .arg(&archive_path)
+            .arg("-C")
+            .arg(&source_dir)
+            .arg("asdf")
+            .output()
+            .await
+            .expect("run tar to create archive");
+
+        assert!(
+            output.status.success(),
+            "tar failed to create archive: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        tokio::fs::read(&archive_path)
+            .await
+            .expect("read generated archive")
     }
 }
