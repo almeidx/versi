@@ -644,12 +644,12 @@ mod tests {
     #[cfg(unix)]
     use tokio::process::Command;
 
-    #[cfg(unix)]
-    use super::{extract_asdf_binary, validate_archive_path};
     use super::{
         asdf_windows_install_attempts, build_detection, get_common_asdf_paths,
         normalize_asdf_version, select_asdf_data_dir,
     };
+    #[cfg(unix)]
+    use super::{extract_asdf_binary, validate_archive_path};
 
     #[test]
     fn select_asdf_data_dir_prefers_existing_env_dir() {
