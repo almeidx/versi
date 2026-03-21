@@ -1,5 +1,3 @@
-#[cfg(unix)]
-use std::path::Component;
 use std::path::{Path, PathBuf};
 #[cfg(unix)]
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -438,14 +436,7 @@ async fn extract_asdf_binary(
 
     tokio::fs::write(&source_binary, &extract_output.stdout).await?;
 
-    if source_binary.exists() {
-        Ok(source_binary)
-    } else {
-        Err(versi_backend::BackendError::install_failed(
-            "extract asdf archive",
-            "asdf binary not found in extracted archive",
-        ))
-    }
+    Ok(source_binary)
 }
 
 #[cfg(unix)]
@@ -519,6 +510,8 @@ fn select_asdf_archive_binary(entries: &[PathBuf]) -> Result<&Path, versi_backen
 
 #[cfg(unix)]
 fn validate_archive_path(path: &Path) -> Result<(), versi_backend::BackendError> {
+    use std::path::Component;
+
     if path.as_os_str().is_empty() {
         return Err(versi_backend::BackendError::install_failed(
             "extract asdf archive",
@@ -651,9 +644,11 @@ mod tests {
     #[cfg(unix)]
     use tokio::process::Command;
 
+    #[cfg(unix)]
+    use super::{extract_asdf_binary, validate_archive_path};
     use super::{
-        asdf_windows_install_attempts, build_detection, extract_asdf_binary, get_common_asdf_paths,
-        normalize_asdf_version, select_asdf_data_dir, validate_archive_path,
+        asdf_windows_install_attempts, build_detection, get_common_asdf_paths,
+        normalize_asdf_version, select_asdf_data_dir,
     };
 
     #[test]
