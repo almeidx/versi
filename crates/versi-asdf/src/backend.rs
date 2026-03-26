@@ -104,6 +104,7 @@ impl AsdfBackend {
                         binary_path,
                     ]);
                     cmd.args(args);
+                    cmd.kill_on_drop(true);
                     cmd.hide_window();
                     cmd
                 } else {
@@ -119,9 +120,7 @@ impl AsdfBackend {
             args.join(" "),
         );
 
-        let mut command = self.build_command(args, home_scope);
-        command.kill_on_drop(true);
-        let output = command.output().await?;
+        let output = self.build_command(args, home_scope).output().await?;
 
         debug!("asdf command exit status: {:?}", output.status);
         trace!("asdf stdout: {}", String::from_utf8_lossy(&output.stdout));
@@ -139,9 +138,7 @@ impl AsdfBackend {
         home_scope: bool,
     ) -> Result<Option<NodeVersion>, BackendError> {
         let args = ["current", "nodejs", "--no-header"];
-        let mut command = self.build_command(&args, home_scope);
-        command.kill_on_drop(true);
-        let output = command.output().await?;
+        let output = self.build_command(&args, home_scope).output().await?;
 
         let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
         let stderr = String::from_utf8_lossy(&output.stderr).into_owned();

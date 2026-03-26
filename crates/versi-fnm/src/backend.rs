@@ -139,6 +139,7 @@ impl FnmBackend {
         }
 
         self.apply_native_env(&mut cmd);
+        cmd.kill_on_drop(true);
         cmd.hide_window();
         cmd
     }
@@ -172,7 +173,6 @@ impl FnmBackend {
         progress_tx: mpsc::Sender<InstallProgress>,
     ) -> Result<(), BackendError> {
         let (mut command, progress_stream) = self.build_install_command(version);
-        command.kill_on_drop(true);
         command.stdout(Stdio::piped()).stderr(Stdio::piped());
 
         let mut child = command.spawn()?;
