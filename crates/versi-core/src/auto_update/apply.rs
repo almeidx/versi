@@ -4,6 +4,11 @@ use log::info;
 
 use super::{ApplyResult, AutoUpdateError};
 
+#[cfg(target_os = "linux")]
+const TRUSTED_CP_PATHS: &[&str] = &["/usr/bin/cp", "/bin/cp"];
+#[cfg(target_os = "linux")]
+const TRUSTED_CHMOD_PATHS: &[&str] = &["/usr/bin/chmod", "/bin/chmod"];
+
 #[cfg(target_os = "macos")]
 pub(super) fn apply_update(extract_dir: &Path) -> Result<ApplyResult, AutoUpdateError> {
     let new_app = find_app_bundle(extract_dir)?;
@@ -167,9 +172,12 @@ fn apply_update_with_pkexec(
         ));
     }
 
+    let cp_path = privileged_command_path(TRUSTED_CP_PATHS, "cp")?;
+    let chmod_path = privileged_command_path(TRUSTED_CHMOD_PATHS, "chmod")?;
+
     let status = std::process::Command::new("pkexec")
         .args([
-            "cp",
+            cp_path,
             "--",
             &new_binary.to_string_lossy(),
             &target.to_string_lossy(),
@@ -180,18 +188,34 @@ fn apply_update_with_pkexec(
     if !status.success() {
         return Err(AutoUpdateError::Invalid(format!(
             "Elevated update failed. Binary is installed in a system location.\n\
-             To update manually, run:\n  sudo cp {} {}",
+             To update manually, run:\n  sudo {cp_path} {} {}",
             new_binary.display(),
             target.display()
         )));
     }
 
     let _ = std::process::Command::new("pkexec")
-        .args(["chmod", "755", &target.to_string_lossy()])
+        .args([chmod_path, "755", &target.to_string_lossy()])
         .status();
 
     info!("Linux update applied via pkexec");
     Ok(ApplyResult::RestartRequired)
+}
+
+#[cfg(target_os = "linux")]
+fn privileged_command_path<'a>(
+    candidates: &'a [&'a str],
+    command_name: &str,
+) -> Result<&'a str, AutoUpdateError> {
+    candidates
+        .iter()
+        .copied()
+        .find(|path| Path::new(path).is_absolute() && Path::new(path).exists())
+        .ok_or_else(|| {
+            AutoUpdateError::Invalid(format!(
+                "Could not find a trusted absolute path for {command_name}."
+            ))
+        })
 }
 
 #[cfg(target_os = "windows")]
@@ -305,5 +329,28 @@ mod tests {
             Err(AutoUpdateError::Invalid(ref message))
                 if message == "MSI installation is only supported on Windows"
         ));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn privileged_command_path_prefers_existing_absolute_candidate() {
+        let temp_dir = tempfile::tempdir().expect("tempdir");
+        let command_path = temp_dir.path().join("cp");
+        std::fs::write(&command_path, "#!/bin/sh\n").expect("write command");
+        let command_path_str = command_path.to_str().expect("utf-8 path");
+        let candidates = ["/definitely/missing", command_path_str];
+
+        let chosen =
+            privileged_command_path(&candidates, "cp").expect("absolute path should be chosen");
+
+        assert_eq!(chosen, command_path_str);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn privileged_command_path_rejects_non_absolute_candidates() {
+        let error = privileged_command_path(&["cp"], "cp").expect_err("relative path must fail");
+
+        assert!(error.to_string().contains("trusted absolute path for cp"));
     }
 }
