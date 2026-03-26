@@ -104,6 +104,7 @@ impl AsdfBackend {
                         binary_path,
                     ]);
                     cmd.args(args);
+                    cmd.kill_on_drop(true);
                     cmd.hide_window();
                     cmd
                 } else {

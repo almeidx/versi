@@ -26,6 +26,7 @@ pub fn build_backend_command(env: &CommandEnvironment, args: &[&str]) -> Command
         CommandEnvironment::Native { binary_path } => {
             let mut cmd = Command::new(binary_path);
             cmd.args(args);
+            cmd.kill_on_drop(true);
             cmd.hide_window();
             cmd
         }
@@ -36,6 +37,7 @@ pub fn build_backend_command(env: &CommandEnvironment, args: &[&str]) -> Command
             let mut cmd = Command::new("wsl.exe");
             cmd.args(["-d", distro, "--", binary_path]);
             cmd.args(args);
+            cmd.kill_on_drop(true);
             cmd.hide_window();
             cmd
         }

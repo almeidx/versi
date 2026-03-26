@@ -139,6 +139,7 @@ impl FnmBackend {
         }
 
         self.apply_native_env(&mut cmd);
+        cmd.kill_on_drop(true);
         cmd.hide_window();
         cmd
     }

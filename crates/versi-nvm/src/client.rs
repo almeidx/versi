@@ -50,7 +50,7 @@ impl NvmClient {
     }
 
     fn build_nvm_command(&self, nvm_args: &[&str]) -> Command {
-        match &self.environment {
+        let mut cmd = match &self.environment {
             NvmEnvironment::Unix { nvm_dir } => {
                 let script = "[ -s \"$NVM_DIR/nvm.sh\" ] && \\. \"$NVM_DIR/nvm.sh\"; nvm \"$@\"";
                 let mut cmd = Command::new("bash");
@@ -76,7 +76,9 @@ impl NvmClient {
                 cmd.hide_window();
                 cmd
             }
-        }
+        };
+        cmd.kill_on_drop(true);
+        cmd
     }
 
     async fn execute(&self, nvm_args: &[&str]) -> Result<String, BackendError> {
