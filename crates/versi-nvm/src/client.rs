@@ -80,7 +80,9 @@ impl NvmClient {
     }
 
     async fn execute(&self, nvm_args: &[&str]) -> Result<String, BackendError> {
-        let output = self.build_nvm_command(nvm_args).output().await?;
+        let mut command = self.build_nvm_command(nvm_args);
+        command.kill_on_drop(true);
+        let output = command.output().await?;
         command_output_to_result(&output).map(|stdout| sanitize_terminal_text(&stdout))
     }
 

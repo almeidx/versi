@@ -82,6 +82,7 @@ pub async fn execute_backend_command_with(
     );
 
     let mut cmd = build_backend_command(env, args);
+    cmd.kill_on_drop(true);
     configure(&mut cmd);
     let output = cmd.output().await?;
 
