@@ -23,13 +23,13 @@ mod windows_installer;
 pub use windows_installer::run_installer_attempt;
 pub use windows_installer::{InstallerAttempt, InstallerAttemptError};
 
-/// Compute a SHA-256 hex digest of arbitrary bytes.
-pub use crypto::sha256_hex;
 /// Extension trait that normalizes "hide window" behavior on supported command
 /// types.
 pub use commands::HideWindow;
 /// Runs `<path> --version`, strips `prefix`, and returns the version string.
 pub use commands::get_cli_version;
+/// Compute a SHA-256 hex digest of arbitrary bytes.
+pub use crypto::sha256_hex;
 /// Installer script download helper with retry policy.
 pub use install_script::{InstallScriptError, download_github_install_script, temp_script_path};
 /// Release metadata model and fetch helper.
