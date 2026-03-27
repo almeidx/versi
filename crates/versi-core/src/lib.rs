@@ -10,6 +10,7 @@
 
 pub mod auto_update;
 mod commands;
+mod crypto;
 pub mod http;
 mod install_script;
 mod metadata;
@@ -27,6 +28,8 @@ pub use windows_installer::{InstallerAttempt, InstallerAttemptError};
 pub use commands::HideWindow;
 /// Runs `<path> --version`, strips `prefix`, and returns the version string.
 pub use commands::get_cli_version;
+/// Compute a SHA-256 hex digest of arbitrary bytes.
+pub use crypto::sha256_hex;
 /// Installer script download helper with retry policy.
 pub use install_script::{InstallScriptError, download_github_install_script, temp_script_path};
 /// Release metadata model and fetch helper.

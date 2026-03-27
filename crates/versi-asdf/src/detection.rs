@@ -374,8 +374,6 @@ fn verify_asset_checksum(
     bytes: &[u8],
     expected_sha256: Option<&str>,
 ) -> Result<(), versi_backend::BackendError> {
-    use sha2::{Digest, Sha256};
-
     let Some(expected) = expected_sha256 else {
         return Err(versi_backend::BackendError::install_failed(
             "verify asdf checksum",
@@ -383,7 +381,7 @@ fn verify_asset_checksum(
         ));
     };
 
-    let actual = format!("{:x}", Sha256::digest(bytes));
+    let actual = versi_core::sha256_hex(bytes);
 
     if actual.eq_ignore_ascii_case(expected) {
         Ok(())

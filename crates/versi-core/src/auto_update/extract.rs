@@ -46,7 +46,7 @@ pub(super) fn sha256_file(path: &Path) -> Result<String, AutoUpdateError> {
         hasher.update(&buffer[..read]);
     }
 
-    Ok(format!("{:x}", hasher.finalize()))
+    Ok(crate::crypto::bytes_to_hex(&hasher.finalize()))
 }
 
 pub(super) fn extract_zip(zip_path: &Path, dest: &Path) -> Result<(), AutoUpdateError> {
