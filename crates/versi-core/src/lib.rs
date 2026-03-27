@@ -10,6 +10,7 @@
 
 pub mod auto_update;
 mod commands;
+mod crypto;
 pub mod http;
 mod install_script;
 mod metadata;
@@ -22,6 +23,8 @@ mod windows_installer;
 pub use windows_installer::run_installer_attempt;
 pub use windows_installer::{InstallerAttempt, InstallerAttemptError};
 
+/// Compute a SHA-256 hex digest of arbitrary bytes.
+pub use crypto::sha256_hex;
 /// Extension trait that normalizes "hide window" behavior on supported command
 /// types.
 pub use commands::HideWindow;

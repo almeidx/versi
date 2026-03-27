@@ -374,8 +374,6 @@ fn verify_asset_checksum(
     bytes: &[u8],
     expected_sha256: Option<&str>,
 ) -> Result<(), versi_backend::BackendError> {
-    use sha2::{Digest, Sha256};
-
     let Some(expected) = expected_sha256 else {
         return Err(versi_backend::BackendError::install_failed(
             "verify asdf checksum",
@@ -383,12 +381,7 @@ fn verify_asset_checksum(
         ));
     };
 
-    let hash = Sha256::digest(bytes);
-    let mut actual = String::with_capacity(hash.len() * 2);
-    for byte in hash {
-        use std::fmt::Write;
-        write!(actual, "{byte:02x}").unwrap();
-    }
+    let actual = versi_core::sha256_hex(bytes);
 
     if actual.eq_ignore_ascii_case(expected) {
         Ok(())
