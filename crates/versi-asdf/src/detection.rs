@@ -383,7 +383,12 @@ fn verify_asset_checksum(
         ));
     };
 
-    let actual = format!("{:x}", Sha256::digest(bytes));
+    let hash = Sha256::digest(bytes);
+    let mut actual = String::with_capacity(hash.len() * 2);
+    for byte in hash {
+        use std::fmt::Write;
+        write!(actual, "{byte:02x}").unwrap();
+    }
 
     if actual.eq_ignore_ascii_case(expected) {
         Ok(())
