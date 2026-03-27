@@ -46,7 +46,13 @@ pub(super) fn sha256_file(path: &Path) -> Result<String, AutoUpdateError> {
         hasher.update(&buffer[..read]);
     }
 
-    Ok(format!("{:x}", hasher.finalize()))
+    let hash = hasher.finalize();
+    let mut hex = String::with_capacity(hash.len() * 2);
+    for byte in hash {
+        use std::fmt::Write;
+        write!(hex, "{byte:02x}").unwrap();
+    }
+    Ok(hex)
 }
 
 pub(super) fn extract_zip(zip_path: &Path, dest: &Path) -> Result<(), AutoUpdateError> {
