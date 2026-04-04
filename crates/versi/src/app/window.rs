@@ -23,7 +23,7 @@ impl Versi {
         self.save_window_geometry();
         if self.settings.tray_behavior == TrayBehavior::AlwaysRunning && tray::is_tray_active() {
             self.window_visible = false;
-            self.update_tray_menu();
+            self.update_tray_tooltip();
             if let Some(id) = self.window_id {
                 platform::set_dock_visible(false);
                 if platform::is_wayland() {
@@ -48,7 +48,7 @@ impl Versi {
             self.pending_show = false;
             self.pending_minimize = false;
             self.window_visible = true;
-            self.update_tray_menu();
+            self.update_tray_tooltip();
             platform::set_dock_visible(true);
             Task::batch([
                 iced::window::set_mode(id, iced::window::Mode::Windowed),
@@ -58,7 +58,7 @@ impl Versi {
         } else if self.pending_minimize {
             self.pending_minimize = false;
             self.window_visible = false;
-            self.update_tray_menu();
+            self.update_tray_tooltip();
             let hide_task = if platform::is_wayland() {
                 iced::window::minimize(id, true)
             } else {

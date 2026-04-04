@@ -120,7 +120,7 @@ impl Versi {
             state.recompute_banner_stats();
         }
         let preload_task = self.schedule_background_preloads_after_active_load(env_id);
-        self.update_tray_menu();
+        self.update_tray_tooltip();
 
         if self.pending_minimize
             && !self.pending_show

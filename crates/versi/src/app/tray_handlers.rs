@@ -20,6 +20,17 @@ impl Versi {
         match msg {
             TrayMessage::ShowWindow => self.tray_show_window(),
             TrayMessage::HideWindow => self.tray_hide_window(),
+            TrayMessage::ToggleWindow => {
+                if self.window_visible {
+                    self.tray_hide_window()
+                } else {
+                    self.tray_show_window()
+                }
+            }
+            TrayMessage::ShowContextMenu => {
+                self.tray_show_context_menu();
+                Task::none()
+            }
             TrayMessage::Quit => iced::exit(),
             _ if !matches!(self.state, AppState::Main(_)) => Task::none(),
             TrayMessage::OpenSettings => self.tray_open_settings(),
@@ -139,7 +150,6 @@ impl Versi {
     fn tray_show_window(&mut self) -> Task<Message> {
         self.pending_minimize = false;
         self.window_visible = true;
-        self.update_tray_menu();
 
         let needs_refresh = if let AppState::Main(state) = &self.state {
             state.active_environment().installed_versions.is_empty()
@@ -167,7 +177,6 @@ impl Versi {
 
     fn tray_hide_window(&mut self) -> Task<Message> {
         self.window_visible = false;
-        self.update_tray_menu();
 
         if let Some(id) = self.window_id {
             platform::set_dock_visible(false);
@@ -198,7 +207,7 @@ impl Versi {
             if let Err(e) = tray::init_tray(behavior) {
                 error!("Failed to initialize tray: {e}");
             } else {
-                self.update_tray_menu();
+                self.update_tray_tooltip();
             }
         } else if behavior == TrayBehavior::Disabled {
             tray::destroy_tray();
@@ -207,13 +216,22 @@ impl Versi {
         Task::none()
     }
 
-    pub(super) fn update_tray_menu(&self) {
+    pub(super) fn update_tray_tooltip(&self) {
         if let AppState::Main(state) = &self.state {
-            let data = TrayMenuData::from_environments(&state.environments, self.window_visible);
             let tooltip = tray::tooltip_text(state.active_environment().default_version.as_ref());
-            tray::update_menu(&data);
             tray::update_tooltip(&tooltip);
         }
+    }
+
+    fn tray_show_context_menu(&self) {
+        let data = match &self.state {
+            AppState::Main(state) => {
+                TrayMenuData::from_environments(&state.environments, self.window_visible)
+            }
+            _ => TrayMenuData::from_environments(&[], self.window_visible),
+        };
+
+        tray::show_context_menu(&data);
     }
 }
 
@@ -294,5 +312,42 @@ mod tests {
         let state = app.main_state();
         assert_ne!(state.active_environment_idx, 1);
         assert!(state.operation_queue.exclusive_op.is_none());
+    }
+
+    #[test]
+    fn toggle_window_shows_when_hidden() {
+        let mut app = test_app_with_two_environments();
+        app.window_id = None;
+        app.window_visible = false;
+        app.pending_show = false;
+
+        let _ = app.handle_tray_event(TrayMessage::ToggleWindow);
+
+        assert!(app.window_visible);
+        assert!(app.pending_show);
+    }
+
+    #[test]
+    fn toggle_window_hides_when_visible() {
+        let mut app = test_app_with_two_environments();
+        app.window_id = None;
+        app.window_visible = true;
+
+        let _ = app.handle_tray_event(TrayMessage::ToggleWindow);
+
+        assert!(!app.window_visible);
+    }
+
+    #[test]
+    fn show_context_menu_does_not_mutate_state() {
+        let mut app = test_app_with_two_environments();
+        let visible_before = app.window_visible;
+        let env_idx_before = app.main_state().active_environment_idx;
+
+        let _ = app.handle_tray_event(TrayMessage::ShowContextMenu);
+
+        assert_eq!(app.window_visible, visible_before);
+        assert_eq!(app.main_state().active_environment_idx, env_idx_before);
+        assert!(app.main_state().operation_queue.exclusive_op.is_none());
     }
 }
