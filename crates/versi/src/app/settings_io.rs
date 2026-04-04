@@ -116,7 +116,7 @@ impl Versi {
                 if let Err(e) = tray::init_tray(self.settings.tray_behavior) {
                     log::error!("Failed to initialize tray: {e}");
                 } else {
-                    self.update_tray_menu();
+                    self.update_tray_tooltip();
                 }
             } else if self.settings.tray_behavior == TrayBehavior::Disabled {
                 tray::destroy_tray();

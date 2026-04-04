@@ -20,6 +20,17 @@ impl Versi {
         match msg {
             TrayMessage::ShowWindow => self.tray_show_window(),
             TrayMessage::HideWindow => self.tray_hide_window(),
+            TrayMessage::ToggleWindow => {
+                if self.window_visible {
+                    self.tray_hide_window()
+                } else {
+                    self.tray_show_window()
+                }
+            }
+            TrayMessage::ShowContextMenu => {
+                self.tray_show_context_menu();
+                Task::none()
+            }
             TrayMessage::Quit => iced::exit(),
             _ if !matches!(self.state, AppState::Main(_)) => Task::none(),
             TrayMessage::OpenSettings => self.tray_open_settings(),
@@ -139,7 +150,6 @@ impl Versi {
     fn tray_show_window(&mut self) -> Task<Message> {
         self.pending_minimize = false;
         self.window_visible = true;
-        self.update_tray_menu();
 
         let needs_refresh = if let AppState::Main(state) = &self.state {
             state.active_environment().installed_versions.is_empty()
@@ -167,7 +177,6 @@ impl Versi {
 
     fn tray_hide_window(&mut self) -> Task<Message> {
         self.window_visible = false;
-        self.update_tray_menu();
 
         if let Some(id) = self.window_id {
             platform::set_dock_visible(false);
@@ -198,7 +207,7 @@ impl Versi {
             if let Err(e) = tray::init_tray(behavior) {
                 error!("Failed to initialize tray: {e}");
             } else {
-                self.update_tray_menu();
+                self.update_tray_tooltip();
             }
         } else if behavior == TrayBehavior::Disabled {
             tray::destroy_tray();
@@ -207,12 +216,17 @@ impl Versi {
         Task::none()
     }
 
-    pub(super) fn update_tray_menu(&self) {
+    pub(super) fn update_tray_tooltip(&self) {
+        if let AppState::Main(state) = &self.state {
+            let tooltip = tray::tooltip_text(state.active_environment().default_version.as_ref());
+            tray::update_tooltip(&tooltip);
+        }
+    }
+
+    fn tray_show_context_menu(&self) {
         if let AppState::Main(state) = &self.state {
             let data = TrayMenuData::from_environments(&state.environments, self.window_visible);
-            let tooltip = tray::tooltip_text(state.active_environment().default_version.as_ref());
-            tray::update_menu(&data);
-            tray::update_tooltip(&tooltip);
+            tray::show_context_menu(&data);
         }
     }
 }

@@ -4,7 +4,7 @@ use iced::Subscription;
 use iced::futures::SinkExt;
 use thiserror::Error;
 use tray_icon::menu::{Menu, MenuEvent, MenuId, MenuItem, PredefinedMenuItem};
-use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
+use tray_icon::{Icon, MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 use versi_backend::NodeVersion;
 use versi_platform::EnvironmentId;
 
@@ -33,6 +33,8 @@ pub enum TrayError {
 pub enum TrayMessage {
     ShowWindow,
     HideWindow,
+    ToggleWindow,
+    ShowContextMenu,
     OpenSettings,
     OpenAbout,
     Quit,
@@ -103,6 +105,8 @@ pub fn init_tray(behavior: TrayBehavior) -> Result<(), TrayError> {
 
     let tray_icon = TrayIconBuilder::new()
         .with_menu(Box::new(menu))
+        .with_menu_on_left_click(false)
+        .with_menu_on_right_click(false)
         .with_tooltip("Versi")
         .with_icon(icon)
         .build()
@@ -225,11 +229,12 @@ fn build_menu(data: &TrayMenuData) -> Menu {
     menu
 }
 
-pub fn update_menu(data: &TrayMenuData) {
+pub fn show_context_menu(data: &TrayMenuData) {
     TRAY_ICON.with(|cell| {
         if let Some(tray) = cell.borrow().as_ref() {
             let menu = build_menu(data);
             tray.set_menu(Some(Box::new(menu)));
+            tray.show_menu();
         }
     });
 }
@@ -328,13 +333,37 @@ pub fn tray_subscription() -> Subscription<Message> {
             |mut output: iced::futures::channel::mpsc::Sender<Message>| async move {
                 let (event_tx, mut event_rx) = tokio::sync::mpsc::channel(16);
 
+                let menu_tx = event_tx.clone();
                 MenuEvent::set_event_handler(Some(move |event: MenuEvent| {
                     let id_str = event.id().as_ref();
                     if let Some(message) = parse_menu_event(id_str)
                         && let Err(tokio::sync::mpsc::error::TrySendError::Full(_)) =
-                            event_tx.try_send(message)
+                            menu_tx.try_send(message)
                     {
-                        log::debug!("Tray event queue full; dropping event");
+                        log::debug!("Tray event queue full; dropping menu event");
+                    }
+                }));
+
+                let icon_tx = event_tx;
+                TrayIconEvent::set_event_handler(Some(move |event: TrayIconEvent| {
+                    let message = match event {
+                        TrayIconEvent::Click {
+                            button: MouseButton::Left,
+                            button_state: MouseButtonState::Up,
+                            ..
+                        } => Some(TrayMessage::ToggleWindow),
+                        TrayIconEvent::Click {
+                            button: MouseButton::Right,
+                            button_state: MouseButtonState::Up,
+                            ..
+                        } => Some(TrayMessage::ShowContextMenu),
+                        _ => None,
+                    };
+                    if let Some(msg) = message
+                        && let Err(tokio::sync::mpsc::error::TrySendError::Full(_)) =
+                            icon_tx.try_send(msg)
+                    {
+                        log::debug!("Tray event queue full; dropping icon event");
                     }
                 }));
 
@@ -345,6 +374,7 @@ pub fn tray_subscription() -> Subscription<Message> {
                 }
 
                 MenuEvent::set_event_handler(None::<fn(MenuEvent)>);
+                TrayIconEvent::set_event_handler(None::<fn(TrayIconEvent)>);
             },
         )
     })
