@@ -23,7 +23,7 @@ versi-platform = { path = "../versi-platform" }
 
 iced = { version = "0.14.0", default-features = false, features = ["wgpu", "tiny-skia", "crisp", "web-colors", "linux-theme-detection", "x11", "wayland", "tokio", "image", "svg"] }
 
-tray-icon = { version = "0.21.3", default-features = false }
+tray-icon = { version = "0.22.0", default-features = false }
 image = { version = "0.25.10", default-features = false, features = ["png"] }
 
 reqwest.workspace = true
