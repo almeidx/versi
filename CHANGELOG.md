@@ -3,6 +3,28 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.12.4] - 2026-04-04
+
+- feat: separate left/right click tray behavior with lazy menu (#108)
+- deps: Update patch/minor dependencies (#107)
+- deps: Update Rust crate zip to 8.5.0 (#106)
+- deps: Update Rust crate sha2 to 0.11.0 (#105)
+- fix: kill timed-out backend child processes (#104)
+- deps: Update Rust crate zip to 8.4.0 (#103)
+- deps: Update Rust crate zip to 8.3.1 (#102)
+- deps: Lock file maintenance (#101)
+- fix: hardcode privileged Linux update commands (#100)
+- fix(asdf): harden asdf archive extraction to prevent tar-slip (#99)
+- chore(deps): bump rustls-webpki in the cargo group across 1 directory (#98)
+- deps: Update Rust crate zip to 8.3.0 (#97)
+- deps: Update Rust crate winresource to 0.1.31 (#96)
+- deps: Lock file maintenance (#95)
+- deps: Update patch/minor dependencies (#94)
+- chore(deps): bump quinn-proto in the cargo group across 1 directory (#93)
+- deps: Update Rust crate which to 8.0.2 (#92)
+- deps: Lock file maintenance (#91)
+
+
 ## [0.12.3] - 2026-03-08
 
 - fix: prevent ETXTBSY in mock executable tests
