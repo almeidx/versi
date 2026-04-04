@@ -224,10 +224,14 @@ impl Versi {
     }
 
     fn tray_show_context_menu(&self) {
-        if let AppState::Main(state) = &self.state {
-            let data = TrayMenuData::from_environments(&state.environments, self.window_visible);
-            tray::show_context_menu(&data);
-        }
+        let data = match &self.state {
+            AppState::Main(state) => {
+                TrayMenuData::from_environments(&state.environments, self.window_visible)
+            }
+            _ => TrayMenuData::from_environments(&[], self.window_visible),
+        };
+
+        tray::show_context_menu(&data);
     }
 }
 
@@ -308,5 +312,42 @@ mod tests {
         let state = app.main_state();
         assert_ne!(state.active_environment_idx, 1);
         assert!(state.operation_queue.exclusive_op.is_none());
+    }
+
+    #[test]
+    fn toggle_window_shows_when_hidden() {
+        let mut app = test_app_with_two_environments();
+        app.window_id = None;
+        app.window_visible = false;
+        app.pending_show = false;
+
+        let _ = app.handle_tray_event(TrayMessage::ToggleWindow);
+
+        assert!(app.window_visible);
+        assert!(app.pending_show);
+    }
+
+    #[test]
+    fn toggle_window_hides_when_visible() {
+        let mut app = test_app_with_two_environments();
+        app.window_id = None;
+        app.window_visible = true;
+
+        let _ = app.handle_tray_event(TrayMessage::ToggleWindow);
+
+        assert!(!app.window_visible);
+    }
+
+    #[test]
+    fn show_context_menu_does_not_mutate_state() {
+        let mut app = test_app_with_two_environments();
+        let visible_before = app.window_visible;
+        let env_idx_before = app.main_state().active_environment_idx;
+
+        let _ = app.handle_tray_event(TrayMessage::ShowContextMenu);
+
+        assert_eq!(app.window_visible, visible_before);
+        assert_eq!(app.main_state().active_environment_idx, env_idx_before);
+        assert!(app.main_state().operation_queue.exclusive_op.is_none());
     }
 }
