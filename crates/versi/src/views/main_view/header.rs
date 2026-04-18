@@ -89,11 +89,9 @@ fn app_update_badge<'a>(
             }
         }
         AppUpdateState::Downloading { downloaded, total } => {
-            let label = if *total > 0 {
-                let pct = (downloaded.saturating_mul(100) / *total).min(100);
-                format!("Updating {pct}%")
-            } else {
-                "Updating...".to_string()
+            let label = match downloaded.saturating_mul(100).checked_div(*total) {
+                Some(pct) => format!("Updating {}%", pct.min(100)),
+                None => "Updating...".to_string(),
             };
             badge_row = badge_row.push(badge_btn(&label));
         }

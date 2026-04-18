@@ -117,22 +117,19 @@ async fn functional_test(shell_type: ShellType, backend_binary: &str) -> bool {
             .hide_window()
             .output()
             .await
-            .map(|o| o.status.success())
-            .unwrap_or(false),
+            .is_ok_and(|o| o.status.success()),
         ShellType::Zsh => Command::new("zsh")
             .args(["-i", "-c", &version_cmd])
             .hide_window()
             .output()
             .await
-            .map(|o| o.status.success())
-            .unwrap_or(false),
+            .is_ok_and(|o| o.status.success()),
         ShellType::Fish => Command::new("fish")
             .args(["-c", &version_cmd])
             .hide_window()
             .output()
             .await
-            .map(|o| o.status.success())
-            .unwrap_or(false),
+            .is_ok_and(|o| o.status.success()),
         ShellType::PowerShell => {
             let shell = if which::which("pwsh").is_ok() {
                 "pwsh"
@@ -144,8 +141,7 @@ async fn functional_test(shell_type: ShellType, backend_binary: &str) -> bool {
                 .hide_window()
                 .output()
                 .await
-                .map(|o| o.status.success())
-                .unwrap_or(false)
+                .is_ok_and(|o| o.status.success())
         }
         ShellType::Cmd => false,
     }

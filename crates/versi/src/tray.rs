@@ -132,8 +132,7 @@ fn has_tray_host() -> bool {
             "string:org.kde.StatusNotifierWatcher",
         ])
         .output()
-        .map(|o| String::from_utf8_lossy(&o.stdout).contains("true"))
-        .unwrap_or(false)
+        .is_ok_and(|o| String::from_utf8_lossy(&o.stdout).contains("true"))
 }
 
 pub fn destroy_tray() {

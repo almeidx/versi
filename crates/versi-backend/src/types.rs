@@ -173,7 +173,7 @@ impl VersionGroup {
             .into_iter()
             .rev()
             .map(|(major, mut versions)| {
-                versions.sort_by(|a, b| b.version.cmp(&a.version));
+                versions.sort_by_key(|v| std::cmp::Reverse(v.version));
                 VersionGroup {
                     major,
                     versions,

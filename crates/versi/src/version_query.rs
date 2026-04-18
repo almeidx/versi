@@ -224,7 +224,7 @@ fn latest_by_major<'a>(
     }
 
     let mut result: Vec<&RemoteVersion> = latest_by_major.into_values().collect();
-    result.sort_by(|a, b| b.version.cmp(&a.version));
+    result.sort_by_key(|v| std::cmp::Reverse(v.version));
     result
 }
 
@@ -247,7 +247,7 @@ fn latest_by_minor<'a>(
     }
 
     let mut result: Vec<&RemoteVersion> = latest_by_minor.into_values().collect();
-    result.sort_by(|a, b| b.version.cmp(&a.version));
+    result.sort_by_key(|v| std::cmp::Reverse(v.version));
     result
 }
 
