@@ -7,8 +7,8 @@ use crate::state::{AppState, AppUpdateState};
 
 use super::super::{Versi, platform};
 
-const APP_UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60 * 6);
-const SECURITY_ADVISORY_CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60 * 24);
+const APP_UPDATE_CHECK_INTERVAL: Duration = Duration::from_hours(6);
+const SECURITY_ADVISORY_CHECK_INTERVAL: Duration = Duration::from_hours(24);
 
 impl Versi {
     pub(super) fn dispatch_system(&mut self, message: Message) -> super::DispatchResult {

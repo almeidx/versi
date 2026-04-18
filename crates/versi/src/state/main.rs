@@ -679,18 +679,18 @@ mod tests {
     fn should_check_for_security_advisories_respects_interval_and_in_flight_state() {
         let mut state = main_state_with_native_env();
 
-        assert!(state.should_check_for_security_advisories(Duration::from_secs(60)));
+        assert!(state.should_check_for_security_advisories(Duration::from_mins(1)));
 
         state.available_versions.security_last_checked_at = Some(Instant::now());
-        assert!(!state.should_check_for_security_advisories(Duration::from_secs(60)));
+        assert!(!state.should_check_for_security_advisories(Duration::from_mins(1)));
 
         state.available_versions.security_last_checked_at =
-            Instant::now().checked_sub(Duration::from_secs(120));
-        assert!(state.should_check_for_security_advisories(Duration::from_secs(60)));
+            Instant::now().checked_sub(Duration::from_mins(2));
+        assert!(state.should_check_for_security_advisories(Duration::from_mins(1)));
 
         state.available_versions.security_fetch.cancel_token =
             Some(tokio_util::sync::CancellationToken::new());
-        assert!(!state.should_check_for_security_advisories(Duration::from_secs(60)));
+        assert!(!state.should_check_for_security_advisories(Duration::from_mins(1)));
     }
 
     #[test]
