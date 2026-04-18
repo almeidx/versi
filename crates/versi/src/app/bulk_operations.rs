@@ -119,7 +119,7 @@ fn versions_to_uninstall_except_latest(
         .iter()
         .filter(|version| version.version.major == major)
         .collect();
-    versions_in_major.sort_by(|a, b| b.version.cmp(&a.version));
+    versions_in_major.sort_by_key(|v| std::cmp::Reverse(v.version));
 
     if versions_in_major.len() <= 1 {
         return None;

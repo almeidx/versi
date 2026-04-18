@@ -46,7 +46,7 @@ pub(crate) fn parse_installed_versions(output: &str) -> Vec<InstalledVersion> {
         });
     }
 
-    versions.sort_by(|a, b| b.version.cmp(&a.version));
+    versions.sort_by_key(|v| std::cmp::Reverse(v.version));
     versions
 }
 
@@ -104,7 +104,7 @@ pub(crate) fn parse_node_index_remote_versions(
         })
         .collect::<Vec<_>>();
 
-    versions.sort_by(|a, b| b.version.cmp(&a.version));
+    versions.sort_by_key(|v| std::cmp::Reverse(v.version));
     if let Some(first) = versions.first_mut() {
         first.is_latest = true;
     }
