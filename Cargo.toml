@@ -27,7 +27,7 @@ chrono = { version = "0.4.44", default-features = false, features = ["std", "now
 dirs = "6.0"
 which = "8.0.2"
 reqwest = { version = "0.13.3", default-features = false, features = ["rustls", "json", "stream"] }
-open = "5.3.4"
+open = "5.3.5"
 async-trait = "0.1.89"
 log = "0.4.29"
 simplelog = { version = "0.12.2", default-features = false, features = ["termcolor"] }
