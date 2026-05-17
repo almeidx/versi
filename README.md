@@ -24,13 +24,13 @@ It currently supports multiple backends (`fnm`, `nvm`, `asdf`, and `volta`) thro
 
 Download the latest release for your platform from the [Releases](https://github.com/almeidx/versi/releases) page.
 
-| Platform | Download |
-|----------|----------|
+| Platform              | Download                |
+| --------------------- | ----------------------- |
 | macOS (Apple Silicon) | `versi-macos-arm64.zip` |
-| macOS (Intel) | `versi-macos-x64.zip` |
-| Windows (x64) | `versi-windows-x64.msi` |
-| Linux (x64) | `versi-linux-x64.zip` |
-| Linux (ARM64) | `versi-linux-arm64.zip` |
+| macOS (Intel)         | `versi-macos-x64.zip`   |
+| Windows (x64)         | `versi-windows-x64.msi` |
+| Linux (x64)           | `versi-linux-x64.zip`   |
+| Linux (ARM64)         | `versi-linux-arm64.zip` |
 
 ### macOS Installation
 
@@ -43,6 +43,7 @@ Download the latest release for your platform from the [Releases](https://github
    This removes quarantine attributes and moves `Versi.app` to your Applications folder.
 
 Manual install:
+
 - Drag `Versi.app` to `/Applications`.
 - If macOS blocks first launch:
   ```bash
@@ -93,6 +94,7 @@ cargo build -p versi --release
 ```
 
 Binary output:
+
 - `target/release/versi`
 
 ## Usage
