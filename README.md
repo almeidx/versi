@@ -107,23 +107,6 @@ Binary output:
 
 ## Development
 
-### Workspace Layout
-
-```
-versi/
-├── crates/versi/          # Main Iced GUI app
-├── crates/versi-backend/  # Backend traits + shared types
-├── crates/versi-core/     # Shared logic (updates, schedule, metadata)
-├── crates/versi-fnm/      # fnm backend implementation
-├── crates/versi-nvm/      # nvm backend implementation
-├── crates/versi-asdf/     # asdf backend implementation (nodejs plugin)
-├── crates/versi-volta/    # Volta backend implementation
-├── crates/versi-shell/    # Shell detection/config helpers
-└── crates/versi-platform/ # Platform abstractions
-```
-
-### Common Commands
-
 ```bash
 # Run app
 cargo run -p versi
@@ -142,16 +125,6 @@ cargo fmt --all -- --check
 # Lint (local strict mode used in CI)
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 ```
-
-### Architecture
-
-Versi uses [Iced](https://iced.rs/) with Elm-style state management:
-- `State`: data model (`crates/versi/src/state/`)
-- `Message`: event types (`crates/versi/src/message.rs`)
-- `Update`: message handling (`crates/versi/src/app/`)
-- `View`: pure rendering (`crates/versi/src/views/`, `crates/versi/src/widgets/`)
-
-Message dispatch is split into navigation, operations, settings, and system routing modules under `crates/versi/src/app/update/`.
 
 For contributor and agent-facing details, see [AGENTS.md](AGENTS.md).
 
@@ -177,5 +150,4 @@ GNU General Public License v3.0. See [LICENSE](LICENSE).
 - [nvm](https://github.com/nvm-sh/nvm)
 - [Volta](https://github.com/volta-cli/volta)
 - [asdf](https://github.com/asdf-vm/asdf)
-- [Volta](https://github.com/volta-cli/volta)
 - [Iced](https://iced.rs/)
