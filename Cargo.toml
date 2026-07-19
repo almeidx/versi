@@ -34,7 +34,7 @@ simplelog = { version = "0.12.2", default-features = false, features = ["termcol
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
 tempfile = "3.27.0"
 self-replace = "1.5"
-futures-util = "0.3.32"
+futures-util = "0.3.33"
 tokio-util = { version = "0.7.18", default-features = false, features = ["rt"] }
 sha2 = "0.11.0"
 semver = "1.0.28"
