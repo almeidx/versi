@@ -94,7 +94,9 @@ mod windows_impl {
 #[cfg(not(windows))]
 mod other_impl {
     use std::fs::{File, OpenOptions};
-    use std::io::{Seek, SeekFrom, Write};
+    use std::io::{Error, ErrorKind, Seek, SeekFrom, Write};
+    #[cfg(unix)]
+    use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
     use std::path::{Path, PathBuf};
 
     use versi_platform::AppPaths;
@@ -118,15 +120,9 @@ mod other_impl {
         }
 
         pub(super) fn acquire_at(path: &Path) -> Result<Self, super::AcquireError> {
-            let mut file = OpenOptions::new()
-                .create(true)
-                .read(true)
-                .write(true)
-                .truncate(false)
-                .open(path)
-                .map_err(|error| {
-                    super::AcquireError::io("failed to open instance lock file", error)
-                })?;
+            let mut file = open_lock_file(path).map_err(|error| {
+                super::AcquireError::io("failed to open instance lock file", error)
+            })?;
 
             match file.try_lock() {
                 Ok(()) => {}
@@ -150,6 +146,38 @@ mod other_impl {
 
             Ok(Self { _lock_file: file })
         }
+    }
+
+    fn open_lock_file(path: &Path) -> std::io::Result<File> {
+        let mut options = OpenOptions::new();
+        options.create(true).read(true).write(true).truncate(false);
+
+        #[cfg(unix)]
+        options.custom_flags(libc::O_NOFOLLOW).mode(0o600);
+
+        let file = options.open(path)?;
+        validate_lock_file(&file)?;
+        Ok(file)
+    }
+
+    fn validate_lock_file(file: &File) -> std::io::Result<()> {
+        let metadata = file.metadata()?;
+        if !metadata.file_type().is_file() {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "instance lock path is not a regular file",
+            ));
+        }
+
+        #[cfg(unix)]
+        if metadata.nlink() != 1 {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "instance lock file must not have multiple hard links",
+            ));
+        }
+
+        Ok(())
     }
 
     pub fn bring_existing_window_to_front() {}
@@ -186,6 +214,50 @@ mod tests {
             matches!(second, Err(super::AcquireError::AlreadyRunning)),
             "second acquire should fail with AlreadyRunning: {:?}",
             second.err(),
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn acquire_rejects_symlink_lock_without_clobbering_target() {
+        let dir = tempfile::tempdir().expect("should create temp dir");
+        let lock_path = dir.path().join("instance.lock");
+        let target_path = dir.path().join("target");
+        std::fs::write(&target_path, "keep me").expect("should write target");
+        std::os::unix::fs::symlink(&target_path, &lock_path).expect("should create symlink");
+
+        let instance = SingleInstance::acquire_at(&lock_path);
+
+        assert!(
+            instance.is_err(),
+            "acquire should reject a symlink lock path"
+        );
+        assert_eq!(
+            std::fs::read_to_string(&target_path).expect("should read target"),
+            "keep me",
+            "symlink target must not be truncated or overwritten"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn acquire_rejects_hard_linked_lock_without_clobbering_target() {
+        let dir = tempfile::tempdir().expect("should create temp dir");
+        let lock_path = dir.path().join("instance.lock");
+        let target_path = dir.path().join("target");
+        std::fs::write(&target_path, "keep me").expect("should write target");
+        std::fs::hard_link(&target_path, &lock_path).expect("should create hard link");
+
+        let instance = SingleInstance::acquire_at(&lock_path);
+
+        assert!(
+            instance.is_err(),
+            "acquire should reject a hard-linked lock path"
+        );
+        assert_eq!(
+            std::fs::read_to_string(&target_path).expect("should read target"),
+            "keep me",
+            "hard link target must not be truncated or overwritten"
         );
     }
 
