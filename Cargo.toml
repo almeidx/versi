@@ -19,26 +19,26 @@ license = "GPL-3.0-only"
 repository = "https://github.com/almeidx/versi"
 
 [workspace.dependencies]
-tokio = { version = "1.52.3", default-features = false, features = ["rt-multi-thread", "macros", "process", "io-util", "fs", "time", "sync"] }
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.150"
-thiserror = "2.0.18"
+tokio = { version = "1.53.1", default-features = false, features = ["rt-multi-thread", "macros", "process", "io-util", "fs", "time", "sync"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+thiserror = "2.0.19"
 chrono = { version = "0.4.45", default-features = false, features = ["std", "now", "serde"] }
 dirs = "6.0"
-which = "8.0.3"
+which = "8.0.5"
 reqwest = { version = "0.13.4", default-features = false, features = ["rustls", "json", "stream"] }
-open = "5.3.5"
-async-trait = "0.1.89"
-log = "0.4.32"
+open = "5.4.0"
+async-trait = "0.1.91"
+log = "0.4.33"
 simplelog = { version = "0.12.2", default-features = false, features = ["termcolor"] }
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
 tempfile = "3.27.0"
 self-replace = "1.5"
-futures-util = "0.3.32"
-tokio-util = { version = "0.7.18", default-features = false, features = ["rt"] }
+futures-util = "0.3.33"
+tokio-util = { version = "0.7.19", default-features = false, features = ["rt"] }
 sha2 = "0.11.0"
 semver = "1.0.28"
-base64 = "0.22.1"
+base64 = "0.23.0"
 
 [workspace.lints.clippy]
 pedantic = "warn"
