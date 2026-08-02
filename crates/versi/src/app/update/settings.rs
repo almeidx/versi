@@ -278,7 +278,7 @@ impl Versi {
     }
 
     pub(crate) fn save_settings_with_log_sync(&self) {
-        if let Err(e) = self.settings.save() {
+        if let Err(e) = super::super::settings_save::save_settings_sync(&self.settings) {
             log::error!("Failed to save settings: {e}");
         }
     }
