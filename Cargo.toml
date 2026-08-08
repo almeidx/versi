@@ -27,7 +27,7 @@ chrono = { version = "0.4.45", default-features = false, features = ["std", "now
 dirs = "6.0"
 which = "8.0.5"
 reqwest = { version = "0.13.4", default-features = false, features = ["rustls", "json", "stream"] }
-open = "5.4.0"
+open = "5.4.1"
 async-trait = "0.1.91"
 log = "0.4.33"
 simplelog = { version = "0.12.2", default-features = false, features = ["termcolor"] }
@@ -38,7 +38,7 @@ futures-util = "0.3.33"
 tokio-util = { version = "0.7.19", default-features = false, features = ["rt"] }
 sha2 = "0.11.0"
 semver = "1.0.28"
-base64 = "0.23.0"
+base64 = "0.23.1"
 
 [workspace.lints.clippy]
 pedantic = "warn"

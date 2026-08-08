@@ -40,7 +40,7 @@ thiserror.workspace = true
 rfd = "0.17.2"
 
 [target.'cfg(unix)'.dependencies]
-libc = "0.2"
+libc = "0.2.189"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "0.18.2"
