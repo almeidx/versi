@@ -53,9 +53,7 @@ fn detection_in_path(detection: &crate::detection::NvmDetection) -> bool {
     match detection.variant {
         NvmVariant::Unix | NvmVariant::NotFound => false,
         NvmVariant::Windows => detection.nvm_exe.as_ref().is_some_and(|path| {
-            which::which("nvm")
-                .ok()
-                .is_some_and(|which_path| same_binary_path(path, &which_path))
+            which::which("nvm").is_ok_and(|which_path| same_binary_path(path, &which_path))
         }),
     }
 }
