@@ -308,9 +308,9 @@ fn hex_decode(value: &str) -> Option<Vec<u8>> {
     }
 
     let mut out = Vec::with_capacity(value.len() / 2);
-    for pair in value.as_bytes().chunks_exact(2) {
-        let hi = hex_nibble(pair[0])?;
-        let lo = hex_nibble(pair[1])?;
+    for &[hi, lo] in value.as_bytes().as_chunks::<2>().0 {
+        let hi = hex_nibble(hi)?;
+        let lo = hex_nibble(lo)?;
         out.push((hi << 4) | lo);
     }
     Some(out)
