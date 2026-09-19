@@ -10,6 +10,12 @@
 	"minimumReleaseAge": "1 day",
 	"packageRules": [
 		{
+			"description": "Keep GTK on 0.18 until tray-icon's GTK dependencies support 0.19; gtk-sys versions cannot share links = gtk-3.",
+			"matchManagers": ["cargo"],
+			"matchPackageNames": ["gtk"],
+			"allowedVersions": "<0.19"
+		},
+		{
 			"groupName": "patch/minor dependencies",
 			"groupSlug": "all-non-major",
 			"matchUpdateTypes": ["patch", "minor"],
