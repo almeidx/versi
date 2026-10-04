@@ -23,7 +23,7 @@ versi-platform = { path = "../versi-platform" }
 
 iced = { version = "0.14.0", default-features = false, features = ["wgpu", "tiny-skia", "crisp", "web-colors", "linux-theme-detection", "x11", "wayland", "tokio", "image", "svg"] }
 
-tray-icon = { version = "0.25.1", default-features = false, features = ["libappindicator"] }
+tray-icon = { version = "0.26.0", default-features = false, features = ["libappindicator"] }
 image = { version = "0.25.10", default-features = false, features = ["png"] }
 
 reqwest.workspace = true
@@ -40,7 +40,7 @@ thiserror.workspace = true
 rfd = "0.17.2"
 
 [target.'cfg(unix)'.dependencies]
-libc = "0.2.189"
+libc = "0.2.190"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "0.18.2"
