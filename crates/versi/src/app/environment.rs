@@ -536,7 +536,7 @@ mod tests {
 
         let targets = collect_background_preload_targets(state, &active_env_id);
 
-        assert!(targets.is_empty());
+        assert_eq!(targets, [] as [EnvironmentId; 0]);
     }
 
     #[test]

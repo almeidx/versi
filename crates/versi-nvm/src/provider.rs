@@ -296,7 +296,7 @@ mod tests {
             .collect::<std::collections::HashSet<_>>()
             .len();
 
-        assert!(!paths.is_empty());
+        assert_ne!(paths, [] as [&str; 0]);
         assert_eq!(paths.len(), unique_count);
     }
 
