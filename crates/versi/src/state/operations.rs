@@ -488,7 +488,7 @@ mod tests {
     fn drain_next_empty_queue() {
         let mut q = OperationQueue::new();
         let (installs, exclusive) = q.drain_next();
-        assert!(installs.is_empty());
+        assert_eq!(installs, [] as [NodeVersion; 0]);
         assert!(exclusive.is_none());
     }
 
@@ -502,7 +502,7 @@ mod tests {
             version: nv(18, 0, 0),
         });
         let (installs, exclusive) = q.drain_next();
-        assert!(installs.is_empty());
+        assert_eq!(installs, [] as [NodeVersion; 0]);
         assert!(exclusive.is_none());
         assert_eq!(q.pending.len(), 1);
     }
@@ -580,7 +580,7 @@ mod tests {
             version: nv(18, 0, 0),
         });
         let (installs, exclusive) = q.drain_next();
-        assert!(installs.is_empty());
+        assert_eq!(installs, [] as [NodeVersion; 0]);
         assert!(
             matches!(exclusive, Some(Operation::Uninstall { version }) if version == nv(18, 0, 0))
         );
@@ -610,7 +610,7 @@ mod tests {
             version: nv(20, 0, 0),
         });
         let (installs, exclusive) = q.drain_next();
-        assert!(installs.is_empty());
+        assert_eq!(installs, [] as [NodeVersion; 0]);
         assert!(exclusive.is_none());
         assert_eq!(q.pending.len(), 1);
     }
@@ -622,7 +622,7 @@ mod tests {
             version: nv(20, 0, 0),
         });
         let (installs, exclusive) = q.drain_next();
-        assert!(installs.is_empty());
+        assert_eq!(installs, [] as [NodeVersion; 0]);
         assert!(
             matches!(exclusive, Some(Operation::SetDefault { version }) if version == nv(20, 0, 0))
         );
@@ -653,7 +653,7 @@ mod tests {
         assert!(!q.has_active_install(nv(20, 0, 0)));
 
         let (installs, exclusive) = q.drain_next();
-        assert!(installs.is_empty());
+        assert_eq!(installs, [] as [NodeVersion; 0]);
         assert!(
             matches!(&exclusive, Some(Operation::SetDefault { version }) if *version == nv(20, 0, 0))
         );
@@ -741,13 +741,13 @@ mod tests {
                         }
 
                         if had_exclusive {
-                            assert!(installs.is_empty());
+                            assert_eq!(installs, [] as [NodeVersion; 0]);
                             assert!(exclusive_request.is_none());
                             assert_eq!(queue.pending.len(), pending_len_before);
                         }
 
                         if let Some(request) = exclusive_request {
-                            assert!(installs.is_empty());
+                            assert_eq!(installs, [] as [NodeVersion; 0]);
                             assert!(!matches!(request, Operation::Install { .. }));
                             assert!(!had_active_installs);
                         }

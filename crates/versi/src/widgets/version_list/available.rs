@@ -358,7 +358,10 @@ mod tests {
             version_badge_kinds(true, true, true),
             vec![VersionBadgeKind::Eol, VersionBadgeKind::Security]
         );
-        assert!(version_badge_kinds(false, false, false).is_empty());
+        assert_eq!(
+            version_badge_kinds(false, false, false),
+            [] as [VersionBadgeKind; 0]
+        );
     }
 
     #[test]

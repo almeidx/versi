@@ -273,28 +273,28 @@ mod tests {
     #[test]
     fn config_files_bash() {
         let files = ShellType::Bash.config_files();
-        assert!(!files.is_empty());
+        assert_ne!(files, [] as [PathBuf; 0]);
         assert!(files.iter().any(|p| p.ends_with(".bashrc")));
     }
 
     #[test]
     fn config_files_zsh() {
         let files = ShellType::Zsh.config_files();
-        assert!(!files.is_empty());
+        assert_ne!(files, [] as [PathBuf; 0]);
         assert!(files.iter().any(|p| p.ends_with(".zshrc")));
     }
 
     #[test]
     fn config_files_fish() {
         let files = ShellType::Fish.config_files();
-        assert!(!files.is_empty());
+        assert_ne!(files, [] as [PathBuf; 0]);
         assert!(files.iter().any(|p| p.to_string_lossy().contains("fish")));
     }
 
     #[test]
     fn config_files_cmd() {
         let files = ShellType::Cmd.config_files();
-        assert!(files.is_empty());
+        assert_eq!(files, [] as [PathBuf; 0]);
     }
 
     #[test]
