@@ -131,7 +131,7 @@ jobs:
   build-linux-arm64:
     name: Build Linux (ARM64)
     needs: version
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-26.04-arm
     steps:
       - uses: actions/checkout@v7
 
