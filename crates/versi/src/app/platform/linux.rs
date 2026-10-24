@@ -20,7 +20,7 @@ fn badge_sender() -> &'static std::sync::mpsc::Sender<bool> {
 fn run_badge_worker(receiver: &std::sync::mpsc::Receiver<bool>) {
     use log::debug;
 
-    let mut connection: Option<zbus::blocking::Connection> = None;
+    let mut connection: Option<zbus::Connection> = None;
 
     while let Ok(mut visible) = receiver.recv() {
         while let Ok(next) = receiver.try_recv() {
@@ -28,7 +28,7 @@ fn run_badge_worker(receiver: &std::sync::mpsc::Receiver<bool>) {
         }
 
         if connection.is_none() {
-            match zbus::blocking::Connection::session() {
+            match zbus::block_on(zbus::Connection::session()) {
                 Ok(new_connection) => connection = Some(new_connection),
                 Err(error) => {
                     debug!("Failed to connect to session bus for update badge: {error}");
@@ -46,16 +46,13 @@ fn run_badge_worker(receiver: &std::sync::mpsc::Receiver<bool>) {
     }
 }
 
-fn emit_badge_update(
-    connection: &zbus::blocking::Connection,
-    visible: bool,
-) -> Result<(), zbus::Error> {
+fn emit_badge_update(connection: &zbus::Connection, visible: bool) -> Result<(), zbus::Error> {
     let count = i64::from(visible);
     let mut props = std::collections::HashMap::new();
-    props.insert("count", zbus::zvariant::Value::from(count));
-    props.insert("count-visible", zbus::zvariant::Value::from(visible));
+    props.insert("count", zbus::Variant::from(count));
+    props.insert("count-visible", zbus::Variant::from(visible));
 
-    connection.emit_signal(
+    zbus::block_on(connection.emit_signal(
         None::<zbus::names::BusName>,
         "/",
         "com.canonical.Unity.LauncherEntry",
@@ -64,7 +61,7 @@ fn emit_badge_update(
             format!("application://{}", versi_platform::DESKTOP_ENTRY_FILENAME),
             props,
         ),
-    )
+    ))
 }
 
 pub(crate) fn set_dock_visible(_visible: bool) {}
