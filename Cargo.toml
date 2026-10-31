@@ -31,9 +31,9 @@ open = "5.4.5"
 async-trait = "0.1.92"
 log = "0.4.34"
 simplelog = { version = "0.12.2", default-features = false, features = ["termcolor"] }
-zip = { version = "9.0.5", default-features = false, features = ["deflate"] }
+zip = { version = "9.1.3", default-features = false, features = ["deflate"] }
 tempfile = "3.27.0"
-self-replace = "1.5"
+self-replace = "1.5.1"
 futures-util = "0.3.34"
 tokio-util = { version = "0.7.20", default-features = false, features = ["rt"] }
 sha2 = "0.11.1"
