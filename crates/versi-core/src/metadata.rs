@@ -80,8 +80,7 @@ pub async fn fetch_version_metadata(
             .text()
             .await
             .ok()
-            .map(|body| response_snippet(&body, 160))
-            .unwrap_or_default();
+            .map_or_default(|body| response_snippet(&body, 160));
         return Err(MetadataError::HttpStatus {
             status,
             body_snippet,

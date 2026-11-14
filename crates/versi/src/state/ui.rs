@@ -40,8 +40,7 @@ pub struct SettingsModalState {
 impl Default for SettingsModalState {
     fn default() -> Self {
         let log_file_path = versi_platform::AppPaths::new()
-            .map(|paths| paths.log_file().to_string_lossy().to_string())
-            .unwrap_or_default();
+            .map_or_default(|paths| paths.log_file().to_string_lossy().to_string());
         Self {
             shell_statuses: Vec::new(),
             checking_shells: false,

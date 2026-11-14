@@ -346,8 +346,9 @@ fn network_status_banner(state: &MainState) -> Option<Element<'_, Message>> {
             let age_text = state
                 .available_versions
                 .disk_cached_at
-                .map(|timestamp| format!(" (cached {})", format_relative_time(timestamp)))
-                .unwrap_or_default();
+                .map_or_default(|timestamp| {
+                    format!(" (cached {})", format_relative_time(timestamp))
+                });
             Some(simple_retry_banner(
                 format!("Using cached data{age_text} \u{2014} could not refresh from network"),
                 Message::FetchRemoteVersions,

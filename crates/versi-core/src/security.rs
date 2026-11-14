@@ -96,8 +96,7 @@ pub async fn fetch_security_advisories(
             .text()
             .await
             .ok()
-            .map(|body| response_snippet(&body, 160))
-            .unwrap_or_default();
+            .map_or_default(|body| response_snippet(&body, 160));
         return Err(SecurityAdvisoryError::HttpStatus {
             status,
             body_snippet,
