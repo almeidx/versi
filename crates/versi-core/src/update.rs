@@ -89,8 +89,7 @@ pub async fn check_for_update(
             .text()
             .await
             .ok()
-            .map(|body| response_snippet(&body, 160))
-            .unwrap_or_default();
+            .map_or_default(|body| response_snippet(&body, 160));
         return Err(UpdateError::HttpStatus {
             status,
             body_snippet,

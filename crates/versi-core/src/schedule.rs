@@ -87,8 +87,7 @@ pub async fn fetch_release_schedule(
             .text()
             .await
             .ok()
-            .map(|body| response_snippet(&body, 160))
-            .unwrap_or_default();
+            .map_or_default(|body| response_snippet(&body, 160));
         return Err(ScheduleError::HttpStatus {
             status,
             body_snippet,
