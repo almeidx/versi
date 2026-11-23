@@ -21,3 +21,5 @@ target
 #.idea/
 
 .claude/
+
+.DS_Store
