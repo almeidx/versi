@@ -1,6 +1,5 @@
 [advisories]
 ignore = [
-    # GTK3 bindings unmaintained — transitive via tray-icon/libappindicator (Linux tray support)
     "RUSTSEC-2024-0429", # glib unsoundness in VariantStrIter (not used by versi)
     "RUSTSEC-2024-0370", # proc-macro-error unmaintained — transitive via gtk3-macros
 
