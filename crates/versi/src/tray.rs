@@ -333,7 +333,7 @@ pub fn tray_subscription() -> Subscription<Message> {
                 let (event_tx, mut event_rx) = tokio::sync::mpsc::channel(16);
 
                 let menu_tx = event_tx.clone();
-                MenuEvent::set_event_handler(Some(move |event: MenuEvent| {
+                MenuEvent::set_event_handler(Some(std::sync::Arc::new(move |event: MenuEvent| {
                     let id_str = event.id().as_ref();
                     if let Some(message) = parse_menu_event(id_str)
                         && let Err(tokio::sync::mpsc::error::TrySendError::Full(_)) =
@@ -341,7 +341,7 @@ pub fn tray_subscription() -> Subscription<Message> {
                     {
                         log::debug!("Tray event queue full; dropping menu event");
                     }
-                }));
+                })));
 
                 let icon_tx = event_tx;
                 TrayIconEvent::set_event_handler(Some(move |event: TrayIconEvent| {
@@ -372,7 +372,7 @@ pub fn tray_subscription() -> Subscription<Message> {
                     }
                 }
 
-                MenuEvent::set_event_handler(None::<fn(MenuEvent)>);
+                MenuEvent::set_event_handler(None);
                 TrayIconEvent::set_event_handler(None::<fn(TrayIconEvent)>);
             },
         )
